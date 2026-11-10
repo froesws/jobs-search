@@ -69,16 +69,30 @@ precedence. Do not commit `.env` or provider credentials.
 Job sources are configured in `sources.yaml` (MCP and API adapters). Keep local
 source credentials in `.env`.
 
+## Local telemetry
+
+The backend writes local JSON Lines logs to the application data directory
+(`logs/jobs-search.YYYY-MM-DD.log`). Logs rotate daily and are retained for at
+most 7 days or 50 MB. The default level is INFO; set `RUST_LOG=debug` for
+DEBUG. The health command `cmd_get_log_health` returns queue depth, dropped
+count, last error, and the current file.
+
+Logs never contain credentials, raw payloads, model prompts/responses, URLs,
+filesystem paths, job descriptions, or candidate data. No MongoDB or external
+telemetry is used.
+
 ## Commands (planned)
 
 ```bash
 npm install
-npm run typecheck
-npm test
+./scripts/verify.sh
 cargo test --manifest-path src-tauri/Cargo.toml
 cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
-pytest sidecar/jobspy_mcp/tests
 ```
+
+The pre-commit hook runs `lint-staged` and `./scripts/verify.sh`. Enable it once
+per clone with `git config core.hooksPath .husky/_` if `npm install` did not set
+it. Do not bypass the hook with `--no-verify`.
 
 ## Commit policy
 
