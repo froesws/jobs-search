@@ -1,0 +1,48 @@
+# Node / frontend
+node_modules/
+dist/
+coverage/
+
+# Rust / Tauri
+src-tauri/target/
+src-tauri/gen/
+
+# Python sidecar
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+sidecar/**/build/
+sidecar/**/dist/
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+
+# Local runtime data
+*.log
+logs/
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+data/
+outputs/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+
+
+# Local-only workspace, specs, and editor state
+.husky/
+.opencode/
+.specify/
+.vscode/
+.venv/
+specs/

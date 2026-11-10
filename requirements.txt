@@ -1,0 +1,5 @@
+# Python sidecar dependencies for jobspy_mcp_server.
+# Pin direct dependencies; generate a full lockfile during the sidecar build.
+python-jobspy==1.1.53
+mcp==1.9.0
+pydantic==2.11.7
