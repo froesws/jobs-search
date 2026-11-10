@@ -1,0 +1,11 @@
+node_modules/
+dist/
+coverage/
+src-tauri/target/
+src-tauri/gen/
+sidecar/**/build/
+sidecar/**/dist/
+package-lock.json
+specs/
+.specify/
+.opencode/

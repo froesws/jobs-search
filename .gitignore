@@ -3,6 +3,9 @@ node_modules/
 dist/
 coverage/
 
+# Husky generated internals
+.husky/_/
+
 # Rust / Tauri
 src-tauri/target/
 src-tauri/gen/

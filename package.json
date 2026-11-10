@@ -1,0 +1,22 @@
+{
+  "name": "jobs-search",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "prepare": "husky",
+    "format:check": "prettier --check .",
+    "lint": "oxlint ."
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^21.2.4",
+    "@commitlint/config-conventional": "^21.2.4",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.6.0",
+    "oxlint": "^1.93.0",
+    "prettier": "^3.9.10"
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx,css}": "prettier --write"
+  }
+}
