@@ -3,6 +3,7 @@ use std::time::Duration;
 
 use jobs_search_lib::llm::deepseek::DeepSeekProvider;
 use jobs_search_lib::llm::gemini::GeminiProvider;
+use jobs_search_lib::llm::ollama::OllamaProvider;
 use jobs_search_lib::llm::openrouter::OpenRouterProvider;
 use jobs_search_lib::llm::provider::{
     EvaluationInput, EvaluationJob, LlmProvider, LlmRouter, ProviderPlan,
@@ -275,6 +276,28 @@ async fn openrouter_uses_chat_completions_with_the_configured_model() {
         server.uri(),
         vec!["free/model:free".to_string()],
         "openrouter-key",
+        Duration::from_secs(5),
+    );
+    let outcome = provider.evaluate(&input(), 1).await.expect("evaluate");
+    assert_eq!(outcome.seniority, "Pleno");
+    server.verify().await;
+}
+
+#[tokio::test]
+async fn ollama_uses_the_openai_compatible_endpoint_without_a_key() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v1/chat/completions"))
+        .and(body_partial_json(json!({ "model": "qwen2.5-coder" })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(openrouter_success()))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let provider = OllamaProvider::new(
+        test_client(),
+        server.uri(),
+        "qwen2.5-coder",
         Duration::from_secs(5),
     );
     let outcome = provider.evaluate(&input(), 1).await.expect("evaluate");

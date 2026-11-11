@@ -3,6 +3,7 @@
 
 pub mod deepseek;
 pub mod gemini;
+pub mod ollama;
 pub mod openrouter;
 pub mod prompt;
 pub mod provider;
