@@ -153,7 +153,7 @@ legacy current-title warnings disappear.
 
 **Purpose**: Final regression coverage and validation across both stories.
 
-- [ ] T016 Run the full local gate `./scripts/verify.sh` (format, lint, typecheck, frontend tests, Rust fmt/check/clippy/tests, and sidecar pytest) and report exactly which checks ran (path: `scripts/verify.sh`).
+- [X] T016 Run the full local gate `./scripts/verify.sh` (format, lint, typecheck, frontend tests, Rust fmt/check/clippy/tests, and sidecar pytest) and report exactly which checks ran (path: `scripts/verify.sh`).
 - [ ] T017 Perform manual acceptance at 1024/768/480 px: fill every profile card with long unbroken values, confirm no horizontal overflow or card invasion, and confirm a profile with multiple work-history roles shows no conflict warning (paths: `src/views/ProfileView.tsx`, `src-tauri/src/profile/merge.rs`).
 - [ ] T018 [P] Review `merge.rs` comments and the ProfileView conflict copy for stale language that still implies a single role or a current-title conflict; update the wording to describe multi-role work history (path: `src-tauri/src/profile/merge.rs`).
 
