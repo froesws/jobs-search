@@ -228,7 +228,8 @@ pub fn get_analytics(db: &Db, request: AnalyticsRequest) -> Result<AnalyticsPayl
     let run_id = resolve_run_id(db, request.run_id.as_deref(), request.scope)?;
     let jobs = eligible_jobs(db, request.scope, run_id.as_deref())?;
     let profile = crate::db::profile::load_active_profile(db)?;
-    let denominator = jobs.len() as u32;
+    let denominator = u32::try_from(jobs.len())
+        .map_err(|_| AppError::validation("too many eligible jobs for analytics"))?;
     let last_updated = jobs
         .iter()
         .filter_map(|job| job.evaluated_at.clone())

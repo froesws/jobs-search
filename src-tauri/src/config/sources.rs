@@ -106,7 +106,7 @@ impl SourceConfig {
         self.config
             .get(key)
             .and_then(serde_yaml::Value::as_u64)
-            .map(|value| value as u32)
+            .map(|value| u32::try_from(value).unwrap_or(u32::MAX))
             .unwrap_or(default)
     }
 

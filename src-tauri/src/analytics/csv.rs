@@ -165,9 +165,11 @@ pub fn export(db: &Db, request: ExportRequest) -> Result<ExportResult, AppError>
 
     std::fs::write(destination, text.as_bytes())?;
     let bytes = std::fs::metadata(destination)?.len();
+    let rows = u32::try_from(jobs.len())
+        .map_err(|_| AppError::validation("too many rows for a single CSV export"))?;
     Ok(ExportResult {
         path: destination.display().to_string(),
-        rows: jobs.len() as u32,
+        rows,
         bytes,
     })
 }
