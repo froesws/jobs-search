@@ -358,6 +358,59 @@ mod tests {
     }
 
     #[test]
+    fn session_override_for_a_single_model_provider_replaces_the_model() {
+        let db = Db::open_in_memory().expect("db");
+        let config = config(&[]);
+        let session = SessionSelection {
+            provider: "deepseek".to_string(),
+            models: vec!["deepseek-v4-pro".to_string()],
+        };
+        let settings = ProviderSettings::resolve(&db, &config, Some(&session)).expect("resolve");
+        assert_eq!(settings.order.first().map(String::as_str), Some("deepseek"));
+        assert_eq!(
+            settings.providers["deepseek"].model.as_deref(),
+            Some("deepseek-v4-pro")
+        );
+    }
+
+    #[test]
+    fn an_unknown_session_provider_is_ignored() {
+        let db = Db::open_in_memory().expect("db");
+        let config = config(&[]);
+        let session = SessionSelection {
+            provider: "openai".to_string(),
+            models: vec!["x".to_string()],
+        };
+        let settings = ProviderSettings::resolve(&db, &config, Some(&session)).expect("resolve");
+        assert_eq!(settings.order.first().map(String::as_str), Some("gemini"));
+    }
+
+    #[test]
+    fn clearing_the_session_restores_the_persisted_settings() {
+        let db = Db::open_in_memory().expect("db");
+        let config = config(&[]);
+        let session = SessionSelection {
+            provider: "deepseek".to_string(),
+            models: vec!["deepseek-v4-pro".to_string()],
+        };
+        let with_session =
+            ProviderSettings::resolve(&db, &config, Some(&session)).expect("resolve");
+        let without_session = ProviderSettings::resolve(&db, &config, None).expect("resolve");
+        assert_eq!(
+            with_session.order.first().map(String::as_str),
+            Some("deepseek")
+        );
+        assert_eq!(
+            without_session.order.first().map(String::as_str),
+            Some("gemini")
+        );
+        assert_eq!(
+            without_session.providers["deepseek"].model.as_deref(),
+            Some("deepseek-flash")
+        );
+    }
+
+    #[test]
     fn invalid_stored_order_falls_back_to_the_environment() {
         let db = Db::open_in_memory().expect("db");
         settings::put(&db, "provider.order", "[\"unknown\"]").expect("put");
