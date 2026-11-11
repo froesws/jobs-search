@@ -107,3 +107,40 @@ describe('ProfileView long values', () => {
     });
   });
 });
+
+describe('ProfileView role history', () => {
+  it('does not warn for multiple work-history roles', async () => {
+    vi.mocked(getProfile).mockResolvedValue({
+      ...profile,
+      extras: {
+        resumes_available: true,
+        work_history: [
+          {
+            title: 'Staff Engineer',
+            company: 'Acme',
+            start: '2024',
+            end: null,
+            highlights: [],
+          },
+          {
+            title: 'Rust Engineer',
+            company: 'Acme',
+            start: '2022',
+            end: null,
+            highlights: [],
+          },
+        ],
+        conflicts: [],
+      },
+    });
+
+    render(
+      <FeedbackProvider>
+        <ProfileView />
+      </FeedbackProvider>,
+    );
+
+    expect(await screen.findByText('My Profile')).toBeInTheDocument();
+    expect(screen.queryByText(/conflicting value/)).not.toBeInTheDocument();
+  });
+});

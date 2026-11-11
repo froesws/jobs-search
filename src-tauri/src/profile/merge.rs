@@ -1,7 +1,7 @@
 //! Multi-resume merge with conflicts.
 #![allow(missing_docs)]
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 
 use serde::{Deserialize, Serialize};
 
@@ -54,8 +54,8 @@ pub struct ProfileConflict {
 ///
 /// List-valued fields are unioned case-insensitively. Existing operator fields
 /// (manual technologies, cities, dealbreakers, target roles, authorization)
-/// are preserved. Conflicting current-title values are recorded, never
-/// overwritten.
+/// are preserved. Work history is unioned by role identity; multiple roles
+/// are never treated as a scalar conflict.
 #[must_use = "the merged profile must be persisted by the caller"]
 pub fn merge_extracted(
     existing: Option<&CandidateProfile>,
@@ -80,8 +80,12 @@ pub fn merge_extracted(
     );
     profile.extras.certifications =
         union(&profile.extras.certifications, &extracted.certifications);
-    record_current_title_conflict(&mut profile, extracted, source_document);
-    profile.extras.work_history = extracted.work_history.clone();
+    profile
+        .extras
+        .conflicts
+        .retain(|conflict| conflict.field != "current_title");
+    profile.extras.work_history =
+        merge_work_history(&profile.extras.work_history, &extracted.work_history);
     profile.extras.education = extracted.education.clone();
 
     if !profile
@@ -150,44 +154,30 @@ fn bootstrap(extracted: &ExtractedProfile) -> CandidateProfile {
     }
 }
 
-fn record_current_title_conflict(
-    profile: &mut CandidateProfile,
-    extracted: &ExtractedProfile,
-    source_document: &str,
-) {
-    let existing_title = profile
-        .extras
-        .work_history
-        .first()
-        .map(|entry| entry.title.clone());
-    let extracted_title = extracted
-        .work_history
-        .first()
-        .map(|entry| entry.title.clone());
-    let (Some(old), Some(new)) = (existing_title, extracted_title) else {
-        return;
-    };
-    if old.trim().eq_ignore_ascii_case(new.trim()) {
-        return;
+fn merge_work_history(
+    existing: &[WorkHistoryEntry],
+    extracted: &[WorkHistoryEntry],
+) -> Vec<WorkHistoryEntry> {
+    let mut result = Vec::new();
+    let mut seen = HashSet::new();
+    for entry in extracted.iter().chain(existing.iter()) {
+        let key = format!(
+            "{}|{}|{}|{}",
+            entry.title.trim().to_ascii_lowercase(),
+            entry.company.trim().to_ascii_lowercase(),
+            entry.start.trim().to_ascii_lowercase(),
+            entry
+                .end
+                .as_deref()
+                .unwrap_or_default()
+                .trim()
+                .to_ascii_lowercase()
+        );
+        if seen.insert(key) {
+            result.push(entry.clone());
+        }
     }
-    if profile
-        .extras
-        .conflicts
-        .iter()
-        .any(|conflict| conflict.field == "current_title" && conflict.values.contains(&new))
-    {
-        return;
-    }
-    profile.extras.conflicts.push(ProfileConflict {
-        field: "current_title".to_string(),
-        values: vec![old, new],
-        sources: profile
-            .source_documents
-            .clone()
-            .into_iter()
-            .chain([source_document.to_string()])
-            .collect(),
-    });
+    result
 }
 
 fn union(left: &[String], right: &[String]) -> Vec<String> {
@@ -256,20 +246,62 @@ mod tests {
         assert_eq!(second.source_documents.len(), 2);
     }
 
+    fn history(title: &str, start: &str) -> WorkHistoryEntry {
+        WorkHistoryEntry {
+            title: title.to_string(),
+            company: "Acme".into(),
+            start: start.into(),
+            end: None,
+            highlights: vec![],
+        }
+    }
+
     #[test]
-    fn flags_conflicting_current_titles_without_discarding_values() {
-        let first = merge_extracted(None, &extracted("Rust Engineer", &["Rust"]), "resume-1")
-            .expect("merge");
-        let second = merge_extracted(
-            Some(&first),
+    fn multiple_roles_do_not_create_conflicts_and_are_unioned() {
+        let mut first_extracted = extracted("Rust Engineer", &["Rust"]);
+        first_extracted.work_history = vec![
+            history("Rust Engineer", "2022"),
+            history("Staff Engineer", "2024"),
+        ];
+        let first = merge_extracted(None, &first_extracted, "resume-1").expect("first");
+
+        let mut second_extracted = extracted("Principal Engineer", &["Rust"]);
+        second_extracted.work_history = vec![
+            history("Principal Engineer", "2025"),
+            history("Staff Engineer", "2024"),
+        ];
+        let second = merge_extracted(Some(&first), &second_extracted, "resume-2").expect("second");
+
+        assert!(second.extras.conflicts.is_empty());
+        assert_eq!(
+            second
+                .extras
+                .work_history
+                .iter()
+                .map(|entry| entry.title.as_str())
+                .collect::<Vec<_>>(),
+            ["Principal Engineer", "Staff Engineer", "Rust Engineer"]
+        );
+    }
+
+    #[test]
+    fn legacy_current_title_conflicts_are_cleared() {
+        let mut existing =
+            merge_extracted(None, &extracted("Rust Engineer", &["Rust"]), "resume-1")
+                .expect("merge");
+        existing.extras.conflicts.push(ProfileConflict {
+            field: "current_title".to_string(),
+            values: vec!["Rust Engineer".to_string(), "Staff Engineer".to_string()],
+            sources: vec!["resume-1".to_string()],
+        });
+
+        let merged = merge_extracted(
+            Some(&existing),
             &extracted("Staff Engineer", &["Rust"]),
             "resume-2",
         )
         .expect("merge");
-
-        let conflict = &second.extras.conflicts[0];
-        assert_eq!(conflict.field, "current_title");
-        assert_eq!(conflict.values, ["Rust Engineer", "Staff Engineer"]);
+        assert!(merged.extras.conflicts.is_empty());
     }
 
     #[test]

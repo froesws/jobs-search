@@ -39,7 +39,11 @@ pub fn load_active_profile(db: &Db) -> Result<Option<CandidateProfile>, AppError
 
     match json {
         Some(value) => {
-            let profile: CandidateProfile = serde_json::from_str(&value)?;
+            let mut profile: CandidateProfile = serde_json::from_str(&value)?;
+            profile
+                .extras
+                .conflicts
+                .retain(|conflict| conflict.field != "current_title");
             Ok(Some(profile))
         }
         None => Ok(None),
@@ -219,6 +223,7 @@ fn resume_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<StoredResume> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::profile::merge::ProfileConflict;
 
     fn profile() -> CandidateProfile {
         let mut value: CandidateProfile =
@@ -266,6 +271,21 @@ mod tests {
         invalid.target_roles.clear();
         assert!(save_profile(&db, invalid).is_err());
         assert!(load_active_profile(&db).expect("load").is_some());
+    }
+
+    #[test]
+    fn legacy_current_title_conflicts_are_filtered_on_load() {
+        let db = Db::open_in_memory().expect("db");
+        let mut value = profile();
+        value.extras.conflicts.push(ProfileConflict {
+            field: "current_title".to_string(),
+            values: vec!["Rust Engineer".to_string(), "Staff Engineer".to_string()],
+            sources: vec!["resume-1".to_string()],
+        });
+        save_profile(&db, value).expect("save");
+
+        let loaded = load_active_profile(&db).expect("load").expect("profile");
+        assert!(loaded.extras.conflicts.is_empty());
     }
 
     #[test]

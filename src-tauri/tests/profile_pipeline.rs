@@ -182,25 +182,6 @@ fn merge_unions_lists_without_duplicates() {
 }
 
 #[test]
-fn merge_flags_scalar_conflicts_instead_of_overwriting() {
-    let first =
-        merge_extracted(None, &extracted("Rust Engineer", &["Rust"]), "resume-1").expect("first");
-    let second = merge_extracted(
-        Some(&first),
-        &extracted("Staff Engineer", &["Rust"]),
-        "resume-2",
-    )
-    .expect("second");
-
-    assert_eq!(second.extras.conflicts.len(), 1);
-    assert_eq!(second.extras.conflicts[0].field, "current_title");
-    assert_eq!(
-        second.extras.conflicts[0].values,
-        ["Rust Engineer", "Staff Engineer"]
-    );
-}
-
-#[test]
 fn merge_preserves_manual_profile_precedence() {
     let mut existing =
         merge_extracted(None, &extracted("Rust Engineer", &["Rust"]), "resume-1").expect("first");
@@ -466,6 +447,28 @@ async fn saving_the_profile_advances_version_and_clears_no_resume_state() {
     assert_eq!(saved.acceptable_technologies, ["React"]);
 }
 
+struct RoleExtractor;
+
+#[async_trait]
+impl ProfileExtractor for RoleExtractor {
+    async fn extract(&self, resume_text: &str) -> Result<ExtractedProfile, AppError> {
+        let title = if resume_text.contains("C#") {
+            "C# Engineer"
+        } else {
+            "Rust Engineer"
+        };
+        let mut profile = extracted(title, &["Rust"]);
+        profile.work_history = vec![WorkHistoryEntry {
+            title: title.to_string(),
+            company: "Acme".to_string(),
+            start: "2024".to_string(),
+            end: None,
+            highlights: vec![],
+        }];
+        Ok(profile)
+    }
+}
+
 struct TextExtractor;
 
 #[async_trait]
@@ -478,6 +481,37 @@ impl ProfileExtractor for TextExtractor {
         };
         Ok(extracted("Engineer", &core))
     }
+}
+
+#[tokio::test]
+async fn multiple_roles_from_two_resumes_are_kept_without_conflicts() {
+    let directory = tempfile::tempdir().expect("tempdir");
+    let state = app_state(directory.path());
+    let first_path = directory.path().join("rust.pdf");
+    let second_path = directory.path().join("csharp.pdf");
+    std::fs::write(&first_path, text_pdf("Rust systems work")).expect("first");
+    std::fs::write(&second_path, text_pdf("C# migration tools")).expect("second");
+
+    upload_resume_with(&state, &first_path.display().to_string(), &RoleExtractor)
+        .await
+        .expect("first upload");
+    upload_resume_with(&state, &second_path.display().to_string(), &RoleExtractor)
+        .await
+        .expect("second upload");
+
+    let profile = load_active_profile(&state.db)
+        .expect("load")
+        .expect("profile");
+    assert!(profile.extras.conflicts.is_empty());
+    assert_eq!(
+        profile
+            .extras
+            .work_history
+            .iter()
+            .map(|entry| entry.title.as_str())
+            .collect::<Vec<_>>(),
+        ["C# Engineer", "Rust Engineer"]
+    );
 }
 
 #[tokio::test]
