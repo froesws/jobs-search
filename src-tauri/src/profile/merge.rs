@@ -9,7 +9,7 @@ use crate::profile::schema::{EducationEntry, ExtractedProfile, WorkHistoryEntry}
 
 /// Extra profile data that is extracted from resumes but not used by the
 /// hard-filter/scoring contract. Stored inside the profile JSON.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct ProfileExtras {
     pub work_history: Vec<WorkHistoryEntry>,

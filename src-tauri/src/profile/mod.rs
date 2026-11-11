@@ -12,7 +12,7 @@ use crate::types::Seniority;
 ///
 /// The first milestone loads a synthetic fixture. Real PDF extraction and
 /// merge/versioning belong to the P1 milestone.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CandidateProfile {
     pub profile_id: String,
