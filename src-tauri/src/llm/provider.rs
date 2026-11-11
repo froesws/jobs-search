@@ -197,10 +197,53 @@ impl LlmRouter {
         self
     }
 
-    pub async fn evaluate(
-        &self,
-        input: &EvaluationInput,
+    pub async fn evaluate<'a>(
+        &'a self,
+        input: &'a EvaluationInput,
     ) -> Result<EvaluationOutcome, RouterError> {
+        let (evidence, provider, model, attempts) = self
+            .route(|provider: Arc<dyn LlmProvider>, attempt| async move {
+                provider.evaluate(input, attempt).await
+            })
+            .await?;
+        Ok(EvaluationOutcome {
+            evidence,
+            provider,
+            model,
+            attempts,
+        })
+    }
+
+    pub async fn extract_profile<'a>(
+        &'a self,
+        resume_text: &'a str,
+    ) -> Result<ProfileExtractionOutcome, RouterError> {
+        let (profile, provider, model, attempts) = self
+            .route(|provider: Arc<dyn LlmProvider>, attempt| async move {
+                provider.extract_profile(resume_text, attempt).await
+            })
+            .await?;
+        Ok(ProfileExtractionOutcome {
+            profile,
+            provider,
+            model,
+            attempts,
+        })
+    }
+
+    /// Shared fallback loop: try each provider plan in order, honoring the
+    /// per-plan attempt budgets and the fatal/transient error classification.
+    /// Returns the successful payload, the provider/model that produced it,
+    /// and every attempt for metrics.
+    async fn route<T, Fut, F>(
+        &self,
+        mut run: F,
+    ) -> Result<(T, String, String, Vec<ProviderAttempt>), RouterError>
+    where
+        T: Send,
+        Fut: std::future::Future<Output = Result<T, LlmError>> + Send,
+        F: FnMut(Arc<dyn LlmProvider>, u32) -> Fut,
+    {
         if self.plans.is_empty() {
             return Err(RouterError {
                 category: ErrorCategory::Config,
@@ -223,12 +266,11 @@ impl LlmRouter {
                 let model = plan.provider.model_for_attempt(attempt);
                 let started = Instant::now();
                 let result =
-                    tokio::time::timeout(self.timeout, plan.provider.evaluate(input, attempt))
-                        .await;
+                    tokio::time::timeout(self.timeout, run(plan.provider.clone(), attempt)).await;
                 let latency_ms = started.elapsed().as_millis() as i64;
 
                 match result {
-                    Ok(Ok(evidence)) => {
+                    Ok(Ok(value)) => {
                         attempts.push(ProviderAttempt {
                             provider: provider_name.clone(),
                             model: model.clone(),
@@ -237,111 +279,7 @@ impl LlmRouter {
                             error_category: None,
                             fallback_from,
                         });
-                        return Ok(EvaluationOutcome {
-                            evidence,
-                            provider: provider_name,
-                            model,
-                            attempts,
-                        });
-                    }
-                    Ok(Err(error)) => {
-                        attempts.push(ProviderAttempt {
-                            provider: provider_name.clone(),
-                            model: model.clone(),
-                            latency_ms,
-                            outcome: "ERROR".to_string(),
-                            error_category: Some(error.category.as_str().to_string()),
-                            fallback_from: fallback_from.clone(),
-                        });
-                        last_provider = Some(provider_name.clone());
-                        last_model = Some(model.clone());
-                        fallback_from = Some(format!("{provider_name}/{model}"));
-                        if !error.retryable {
-                            return Err(RouterError {
-                                category: error.category,
-                                message: error.message,
-                                fatal: true,
-                                attempts,
-                                last_provider,
-                                last_model,
-                            });
-                        }
-                    }
-                    Err(_) => {
-                        attempts.push(ProviderAttempt {
-                            provider: provider_name.clone(),
-                            model: model.clone(),
-                            latency_ms,
-                            outcome: "ERROR".to_string(),
-                            error_category: Some(ErrorCategory::Timeout.as_str().to_string()),
-                            fallback_from: fallback_from.clone(),
-                        });
-                        last_provider = Some(provider_name.clone());
-                        last_model = Some(model.clone());
-                        fallback_from = Some(format!("{provider_name}/{model}"));
-                    }
-                }
-            }
-        }
-
-        Err(RouterError {
-            category: ErrorCategory::Unknown,
-            message: "all configured LLM providers were exhausted".to_string(),
-            fatal: false,
-            attempts,
-            last_provider,
-            last_model,
-        })
-    }
-
-    pub async fn extract_profile(
-        &self,
-        resume_text: &str,
-    ) -> Result<ProfileExtractionOutcome, RouterError> {
-        if self.plans.is_empty() {
-            return Err(RouterError {
-                category: ErrorCategory::Config,
-                message: "no LLM provider is configured".to_string(),
-                fatal: true,
-                attempts: Vec::new(),
-                last_provider: None,
-                last_model: None,
-            });
-        }
-
-        let mut attempts = Vec::new();
-        let mut fallback_from: Option<String> = None;
-        let mut last_provider = None;
-        let mut last_model = None;
-
-        for plan in &self.plans {
-            let provider_name = plan.provider.provider().to_string();
-            for attempt in 1..=plan.attempts.max(1) {
-                let model = plan.provider.model_for_attempt(attempt);
-                let started = Instant::now();
-                let result = tokio::time::timeout(
-                    self.timeout,
-                    plan.provider.extract_profile(resume_text, attempt),
-                )
-                .await;
-                let latency_ms = started.elapsed().as_millis() as i64;
-
-                match result {
-                    Ok(Ok(profile)) => {
-                        attempts.push(ProviderAttempt {
-                            provider: provider_name.clone(),
-                            model: model.clone(),
-                            latency_ms,
-                            outcome: "SUCCESS".to_string(),
-                            error_category: None,
-                            fallback_from,
-                        });
-                        return Ok(ProfileExtractionOutcome {
-                            profile,
-                            provider: provider_name,
-                            model,
-                            attempts,
-                        });
+                        return Ok((value, provider_name, model, attempts));
                     }
                     Ok(Err(error)) => {
                         attempts.push(ProviderAttempt {
