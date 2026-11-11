@@ -97,6 +97,14 @@ impl SourceAdapter for RemoteOkAdapter {
     }
 
     async fn fetch(&self, request: &IngestionRequest) -> Result<Vec<RawJob>, SourceError> {
+        if !request.modalities.is_empty()
+            && !request
+                .modalities
+                .contains(&crate::types::WorkModality::Remote)
+        {
+            return Ok(Vec::new());
+        }
+
         let mut last_error =
             SourceError::transient("API_REQUEST_FAILED", "RemoteOK request failed");
 
@@ -144,7 +152,11 @@ impl SourceAdapter for RemoteOkAdapter {
                 SourceError::transient("API_INVALID_RESPONSE", "RemoteOK returned invalid JSON")
             })?;
 
-            let query_terms = query_terms(&request.query, &request.stack_keyword);
+            let query_terms = if request.titles.is_empty() {
+                query_terms(std::slice::from_ref(&request.query), &request.stack_keyword)
+            } else {
+                query_terms(&request.titles, &request.stack_keyword)
+            };
             let mut jobs = Vec::new();
             for item in payload {
                 let Some(position) = item.position.filter(|value| !value.trim().is_empty()) else {
@@ -208,13 +220,19 @@ impl SourceAdapter for RemoteOkAdapter {
     }
 }
 
-fn query_terms(query: &str, stack_keyword: &str) -> Vec<String> {
+fn query_terms(queries: &[String], stack_keyword: &str) -> Vec<String> {
     let mut terms = Vec::new();
-    for value in query.split(" OR ").chain(std::iter::once(stack_keyword)) {
-        let term = value.trim().to_ascii_lowercase();
-        if term.len() >= 2 && !matches!(term.as_str(), "or" | "and" | "the") {
-            terms.push(term);
+    for query in queries {
+        for value in query.split(" OR ") {
+            let term = value.trim().to_ascii_lowercase();
+            if term.len() >= 2 && !matches!(term.as_str(), "or" | "and" | "the") {
+                terms.push(term);
+            }
         }
+    }
+    let stack = stack_keyword.trim().to_ascii_lowercase();
+    if stack.len() >= 2 {
+        terms.push(stack);
     }
     terms.sort();
     terms.dedup();

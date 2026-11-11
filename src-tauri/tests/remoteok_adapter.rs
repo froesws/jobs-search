@@ -3,6 +3,7 @@ use std::time::Duration;
 use jobs_search_lib::config::RateLimitConfig;
 use jobs_search_lib::ingestion::adapter::{IngestionRequest, SourceAdapter};
 use jobs_search_lib::ingestion::api::RemoteOkAdapter;
+use jobs_search_lib::types::WorkModality;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -220,4 +221,69 @@ async fn exhausted_server_errors_are_reported() {
 #[test]
 fn default_source_timeout_is_fifteen_seconds() {
     assert_eq!(RateLimitConfig::default().timeout_seconds, 15);
+}
+
+#[tokio::test]
+async fn skips_remoteok_when_remote_is_not_selected() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(payload()))
+        .expect(0)
+        .mount(&server)
+        .await;
+
+    let adapter = RemoteOkAdapter::new(
+        "remoteok",
+        "remoteok",
+        format!("{}/api", server.uri()),
+        50,
+        1,
+        Duration::from_millis(1),
+        Duration::from_secs(5),
+    )
+    .expect("adapter");
+    let request = IngestionRequest {
+        query: "Rust".to_string(),
+        stack_keyword: "Rust".to_string(),
+        modalities: vec![WorkModality::Hybrid],
+        ..IngestionRequest::default()
+    };
+
+    let jobs = adapter.fetch(&request).await.expect("jobs");
+    assert!(jobs.is_empty());
+    server.verify().await;
+}
+
+#[tokio::test]
+async fn uses_title_terms_instead_of_full_query_variants() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(payload()))
+        .mount(&server)
+        .await;
+
+    let adapter = RemoteOkAdapter::new(
+        "remoteok",
+        "remoteok",
+        format!("{}/api", server.uri()),
+        50,
+        1,
+        Duration::from_millis(1),
+        Duration::from_secs(5),
+    )
+    .expect("adapter");
+    let request = IngestionRequest {
+        query: "Rust Engineer pleno (remoto)".to_string(),
+        queries: vec!["Rust Engineer pleno (remoto)".to_string()],
+        titles: vec!["Rust Engineer".to_string()],
+        stack_keyword: "Rust".to_string(),
+        modalities: vec![WorkModality::Remote],
+        ..IngestionRequest::default()
+    };
+
+    let jobs = adapter.fetch(&request).await.expect("jobs");
+    assert_eq!(jobs.len(), 1);
+    assert_eq!(jobs[0].title, "Rust Engineer");
 }

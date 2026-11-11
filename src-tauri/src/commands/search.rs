@@ -132,6 +132,7 @@ impl SearchFilters {
         IngestionRequest {
             query: queries.first().cloned().unwrap_or_default(),
             queries,
+            titles: self.titles.clone(),
             stack_keyword: self.stack_keyword.clone(),
             location: "Brazil".to_string(),
             sites: Vec::new(),

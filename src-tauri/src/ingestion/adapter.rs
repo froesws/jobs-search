@@ -59,6 +59,7 @@ pub struct SourceFailure {
 pub struct IngestionRequest {
     pub query: String,
     pub queries: Vec<String>,
+    pub titles: Vec<String>,
     pub stack_keyword: String,
     pub location: String,
     pub sites: Vec<String>,
@@ -75,6 +76,7 @@ impl Default for IngestionRequest {
         Self {
             query: String::new(),
             queries: Vec::new(),
+            titles: Vec::new(),
             stack_keyword: String::new(),
             location: "Brazil".to_string(),
             sites: vec!["linkedin".to_string(), "indeed".to_string()],
