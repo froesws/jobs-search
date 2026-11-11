@@ -193,7 +193,7 @@ row uses top alignment so all filter groups start at the same height.
   `visibility: 'hidden'` when a value is selected) and change the filter row
   from `alignItems: 'center'` to `alignItems: 'flex-start'`; apply it to both
   Seniority and Work type.
-- [ ] T012 [US3] Run `npm test -- src/components/TopBar.test.tsx` and verify in
+- [x] T012 [US3] Run `npm test -- src/components/TopBar.test.tsx` and verify in
   the dev app that selecting one seniority and one work type keeps every group
   and the cards below aligned (path: `src/components/TopBar.tsx`).
 
@@ -347,3 +347,4 @@ is `PENDING`; setting `MATCH_THRESHOLD=70` restores the old boundary.
 - **T001 baseline**: `./scripts/verify.sh` passed before the changes.
 - **T004**: `npm test -- src/components/JobDrawer.test.tsx` passed (6).
 - **T009**: `cargo test --test match_filters` passed (12).
+- **T012**: `npm test -- src/components/TopBar.test.tsx` passed (5).
