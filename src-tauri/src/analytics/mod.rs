@@ -53,10 +53,12 @@ pub struct FunnelPayload {
     pub rejected_by_reason: BTreeMap<String, i64>,
     pub pending: i64,
     pub approved: i64,
+    pub error: i64,
     pub applied: i64,
     pub ignored: i64,
     pub approval_rate: f64,
     pub application_rate: f64,
+    pub source_failures: Vec<String>,
     pub source_breakdown: BTreeMap<String, i64>,
     pub provider_breakdown: BTreeMap<String, i64>,
 }
@@ -235,6 +237,7 @@ pub fn get_analytics(db: &Db, request: AnalyticsRequest) -> Result<AnalyticsPayl
         .max()
         .unwrap_or_else(crate::db::now_rfc3339);
     let stale = jobs.iter().any(|job| job.stale);
+    let funnel = funnel::compute_funnel(db, request.scope, run_id.as_deref())?;
 
     Ok(AnalyticsPayload {
         scope: request.scope,
@@ -243,7 +246,7 @@ pub fn get_analytics(db: &Db, request: AnalyticsRequest) -> Result<AnalyticsPayl
         last_updated,
         stale,
         skill_gap: skill_gap::compute(&jobs, profile.as_ref()),
-        funnel: FunnelPayload::default(),
+        funnel,
         score_distribution: Vec::new(),
         llm_metrics: LlmMetricsPayload::default(),
     })

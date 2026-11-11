@@ -185,10 +185,12 @@ export interface FunnelPayload {
   rejected_by_reason: Record<string, number>;
   pending: number;
   approved: number;
+  error: number;
   applied: number;
   ignored: number;
   approval_rate: number;
   application_rate: number;
+  source_failures: string[];
   source_breakdown: Record<string, number>;
   provider_breakdown: Record<string, number>;
 }
