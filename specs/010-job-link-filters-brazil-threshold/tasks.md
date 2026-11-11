@@ -155,7 +155,7 @@ passes when no foreign region is named.
   when the location is known; replace the `mentions_restricted_region`
   blocklist fallback; keep unknown/empty location allowed unless the text names
   a foreign region; keep the accepted-cities rule for Hybrid/Onsite.
-- [ ] T008 [US2] Update the "Search filters" section in `README.md` to state
+- [x] T008 [US2] Update the "Search filters" section in `README.md` to state
   that Remote now accepts Brazil only and that unknown locations are kept only
   when nothing proves a foreign location.
 - [ ] T009 [US2] Run

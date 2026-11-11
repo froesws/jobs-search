@@ -131,11 +131,12 @@ The UI labels are English, but the external source query terms are Portuguese:
 query is generated per selected seniority, for example
 `Rust Engineer pleno (remoto OR híbrido)`. The hard filters enforce the exact
 selected levels and modalities before the LLM call: Hybrid/Onsite require a
-city from the profile's accepted cities, Remote accepts Brazil/global, and
-`is_remote` is true only for a Remote-only selection. Unknown metadata never
-rejects a posting on its own: an absent modality, location, or seniority is a
-gap to review, and `NO_CORE_TECHNOLOGY` only applies when the description is
-present but lacks an accepted technology.
+city from the profile's accepted cities, Remote requires a Brazil/Brasil
+mention, and `is_remote` is true only for a Remote-only selection. Unknown
+metadata never rejects a posting on its own: an absent modality, location, or
+seniority is a gap to review, and an unknown location is kept only when no
+foreign region is named; `NO_CORE_TECHNOLOGY` only applies when the description
+is present but lacks an accepted technology.
 
 ## Analytics
 
