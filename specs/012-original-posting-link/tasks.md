@@ -203,7 +203,7 @@ the URL; pressing Enter on the focused link opens the browser.
 
 ### Implementation for User Story 3
 
-- [ ] T017 [US3] In `src/components/JobDrawer.tsx`, use `const feedback =
+- [X] T017 [US3] In `src/components/JobDrawer.tsx`, use `const feedback =
   useFeedback();` and append
   `.catch(() => feedback.notify(\`Could not open the posting link. Select the
   address in the drawer to copy it: ${url}\`, 'error'))` to the wrapper call.

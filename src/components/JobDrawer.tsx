@@ -11,6 +11,7 @@ import { openExternalUrl } from '@/lib/ipc';
 import type { JobDetail } from '@/lib/types';
 import { tokens } from '@/theme/tokens';
 import { ErrorState } from '@/components/ErrorState';
+import { useFeedback } from '@/components/FeedbackProvider';
 import { RequirementRatio } from '@/components/RequirementRatio';
 import { ScoreBadge } from '@/components/ScoreBadge';
 
@@ -47,6 +48,7 @@ export function JobDrawer({
   onApprove?: (jobId: string) => void;
 }) {
   const url = job ? safeExternalUrl(job.url) : null;
+  const feedback = useFeedback();
 
   return (
     <Drawer
@@ -264,7 +266,12 @@ export function JobDrawer({
                     data-testid="original-posting-url"
                     onClick={(event) => {
                       event.preventDefault();
-                      void openExternalUrl(url);
+                      void openExternalUrl(url).catch(() =>
+                        feedback.notify(
+                          `Could not open the posting link. Select the address in the drawer to copy it: ${url}`,
+                          'error',
+                        ),
+                      );
                     }}
                     sx={{ display: 'block', color: 'primary.main' }}
                     style={{ wordBreak: 'break-all', userSelect: 'text' }}
