@@ -4,6 +4,7 @@ pub mod skill_gap;
 
 use std::collections::BTreeMap;
 
+use rusqlite::OptionalExtension;
 use serde::{Deserialize, Serialize};
 
 use crate::db::Db;
@@ -109,6 +110,117 @@ pub fn export_csv(_db: &Db, _request: ExportRequest) -> Result<ExportResult, App
     Err(AppError::Config(
         "analytics CSV export is not available yet".to_string(),
     ))
+}
+
+#[derive(Debug, Clone)]
+pub struct EligibleJob {
+    pub job_id: String,
+    pub evaluated_at: Option<String>,
+    pub missing_keywords: Vec<String>,
+    pub matched_keywords: Vec<String>,
+    pub score: Option<i64>,
+    pub stale: bool,
+}
+
+/// Jobs eligible for analytics: completed APPROVED or PENDING evaluations.
+/// Rejected, ERROR, incomplete, and deleted evaluations are excluded.
+pub fn eligible_jobs(
+    db: &Db,
+    scope: AnalyticsScope,
+    run_id: Option<&str>,
+) -> Result<Vec<EligibleJob>, AppError> {
+    db.with_connection(|connection| {
+        let mut values = Vec::new();
+        match scope {
+            AnalyticsScope::CurrentRun => {
+                let Some(run_id) = run_id else {
+                    return Ok(values);
+                };
+                let mut statement = connection.prepare(
+                    "SELECT job_id, evaluated_at, missing_keywords_json, matched_keywords_json,
+                            match_score, stale
+                     FROM job_evaluations
+                     WHERE run_id = ?1 AND evaluation_status IN ('APPROVED', 'PENDING')
+                     ORDER BY evaluated_at ASC",
+                )?;
+                collect_jobs(&mut statement, rusqlite::params![run_id], &mut values)?;
+            }
+            AnalyticsScope::Last7Days => {
+                let mut statement = connection.prepare(
+                    "SELECT job_id, evaluated_at, missing_keywords_json, matched_keywords_json,
+                            match_score, stale
+                     FROM job_evaluations
+                     WHERE evaluation_status IN ('APPROVED', 'PENDING')
+                       AND datetime(evaluated_at) >= datetime('now', '-7 days')
+                     ORDER BY evaluated_at ASC",
+                )?;
+                collect_jobs(&mut statement, rusqlite::params![], &mut values)?;
+            }
+        }
+        Ok(values)
+    })
+}
+
+fn collect_jobs<P: rusqlite::Params>(
+    statement: &mut rusqlite::Statement<'_>,
+    params: P,
+    values: &mut Vec<EligibleJob>,
+) -> Result<(), AppError> {
+    let rows = statement.query_map(params, |row| {
+        Ok(EligibleJob {
+            job_id: row.get(0)?,
+            evaluated_at: row.get(1)?,
+            missing_keywords: parse_keywords(row.get(2)?),
+            matched_keywords: parse_keywords(row.get(3)?),
+            score: row.get(4)?,
+            stale: row.get(5)?,
+        })
+    })?;
+    for row in rows {
+        values.push(row?);
+    }
+    Ok(())
+}
+
+fn parse_keywords(value: Option<String>) -> Vec<String> {
+    value
+        .and_then(|value| serde_json::from_str::<Vec<String>>(&value).ok())
+        .unwrap_or_default()
+}
+
+/// The stored run selected for CURRENT_RUN: explicit run when supplied,
+/// otherwise the most recent SUCCESS/PARTIAL run.
+pub fn resolve_run_id(
+    db: &Db,
+    requested: Option<&str>,
+    scope: AnalyticsScope,
+) -> Result<Option<String>, AppError> {
+    if scope != AnalyticsScope::CurrentRun {
+        return Ok(None);
+    }
+    if let Some(run_id) = requested {
+        let exists: Option<String> = db.with_connection(|connection| {
+            Ok(connection
+                .query_row(
+                    "SELECT id FROM execution_runs WHERE id = ?1",
+                    [run_id],
+                    |row| row.get(0),
+                )
+                .optional()?)
+        })?;
+        return exists.map(Some).ok_or_else(|| AppError::not_found("run"));
+    }
+    db.with_connection(|connection| {
+        Ok(connection
+            .query_row(
+                "SELECT id FROM execution_runs
+                 WHERE status IN ('SUCCESS', 'PARTIAL')
+                 ORDER BY started_at DESC LIMIT 1",
+                [],
+                |row| row.get(0),
+            )
+            .optional()?)
+    })
 }
 
 /// Placeholder until the aggregation queries land.
