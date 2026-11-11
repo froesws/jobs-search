@@ -48,6 +48,7 @@ struct JobOutcome {
     fatal: bool,
 }
 
+#[tracing::instrument(skip(db, profile, router), fields(run_id, max_jobs = settings.max_jobs))]
 pub async fn evaluate_run(
     db: &Db,
     run_id: &str,

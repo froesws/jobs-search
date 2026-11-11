@@ -224,6 +224,7 @@ pub fn resolve_run_id(
 }
 
 /// Placeholder until the aggregation queries land.
+#[tracing::instrument(skip(db), fields(scope = ?request.scope))]
 pub fn get_analytics(db: &Db, request: AnalyticsRequest) -> Result<AnalyticsPayload, AppError> {
     let run_id = resolve_run_id(db, request.run_id.as_deref(), request.scope)?;
     let jobs = eligible_jobs(db, request.scope, run_id.as_deref())?;

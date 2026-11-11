@@ -52,6 +52,7 @@ impl IngestionOutcome {
 
 /// Fetch every enabled source concurrently with a small central call limit.
 /// A failure is isolated to that source and never aborts the run.
+#[tracing::instrument(skip(adapters), fields(sources = adapters.len()))]
 pub async fn ingest(
     adapters: &[Arc<dyn SourceAdapter>],
     request: &IngestionRequest,
