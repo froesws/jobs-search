@@ -353,6 +353,33 @@ pub fn cmd_save_provider_credential(
     build_view(&state).map_err(Into::into)
 }
 
+#[tauri::command]
+pub fn cmd_remove_provider_credential(
+    state: State<'_, AppState>,
+    provider: String,
+    remove_env_entry: Option<bool>,
+) -> Result<ProviderConfigView, ErrorPayload> {
+    validate_provider_id(&provider)?;
+    credentials::delete_from_store(&provider)?;
+
+    if remove_env_entry == Some(true)
+        && let Some(key) = credentials::env_key(&provider)
+    {
+        let config = state.config()?;
+        if let Some(env_file) = config.env_file.as_deref() {
+            credentials::remove_env_value(env_file, key)?;
+        }
+    }
+
+    if let Some(selection) = state.session_selection()?
+        && selection.provider == provider
+    {
+        state.set_session_selection(None)?;
+    }
+
+    build_view(&state).map_err(Into::into)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
