@@ -240,7 +240,7 @@ is `PENDING`; setting `MATCH_THRESHOLD=70` restores the old boundary.
 
 ## Phase 7: Polish & Cross-Cutting Concerns
 
-- [ ] T019 [P] Update `README.md` with a short UI note: the original posting is
+- [x] T019 [P] Update `README.md` with a short UI note: the original posting is
   selectable text, the filter footer reserves its line, and only Brazil jobs are
   accepted by default.
 - [ ] T020 Run `./scripts/verify.sh` and both sidecar pytest suites; report

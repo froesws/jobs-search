@@ -138,6 +138,11 @@ seniority is a gap to review, and an unknown location is kept only when no
 foreign region is named; `NO_CORE_TECHNOLOGY` only applies when the description
 is present but lacks an accepted technology.
 
+The job drawer shows the original posting URL as selectable link text, not a
+button. The Seniority and Work type footers keep their line even when a value is
+selected, so the filter row and the cards below stay aligned. Only postings
+whose location proves Brazil are accepted by default.
+
 ## Analytics
 
 The `Analytics` tab is read-only. It aggregates eligible evaluations
