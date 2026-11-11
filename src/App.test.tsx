@@ -2,28 +2,13 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import App from './App';
-import { getJobs, getProfile } from './lib/ipc';
+import { getActiveProvider, getJobs, getProfile, listResumes } from './lib/ipc';
+import { providerFixture } from './test/fixtures';
 
-vi.mock('./lib/ipc', () => ({
-  getJobs: vi.fn(),
-  getProfile: vi.fn(),
-  getJob: vi.fn(),
-  triggerSearch: vi.fn(),
-  listResumes: vi.fn().mockResolvedValue([]),
-  uploadResume: vi.fn(),
-  deleteResume: vi.fn(),
-  saveProfile: vi.fn(),
-  applyJob: vi.fn(),
-  ignoreJob: vi.fn(),
-  restoreJob: vi.fn(),
-  approveJob: vi.fn(),
-  getAudit: vi.fn(),
-  getActiveProvider: vi.fn().mockResolvedValue({
-    provider: 'deepseek',
-    model: 'deepseek-chat',
-    fallback_enabled: false,
-  }),
-}));
+vi.mock('./lib/ipc', async () => {
+  const { createIpcMock } = await import('./test/ipc-mock');
+  return createIpcMock();
+});
 
 const emptyPage = {
   items: [],
@@ -56,6 +41,8 @@ describe('dashboard shell', () => {
   beforeEach(() => {
     vi.mocked(getJobs).mockResolvedValue(emptyPage);
     vi.mocked(getProfile).mockResolvedValue(profile);
+    vi.mocked(listResumes).mockResolvedValue([]);
+    vi.mocked(getActiveProvider).mockResolvedValue(providerFixture);
   });
 
   it('renders the four fixed tabs and the theme toggle', async () => {

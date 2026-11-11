@@ -5,10 +5,10 @@ import { getProfile, saveProfile } from '../lib/ipc';
 import type { CandidateProfile } from '../lib/types';
 import { useProfileViewModel } from './useProfileViewModel';
 
-vi.mock('../lib/ipc', () => ({
-  getProfile: vi.fn(),
-  saveProfile: vi.fn(),
-}));
+vi.mock('../lib/ipc', async () => {
+  const { createIpcMock } = await import('../test/ipc-mock');
+  return createIpcMock();
+});
 
 const profile: CandidateProfile = {
   profile_id: 'p1',

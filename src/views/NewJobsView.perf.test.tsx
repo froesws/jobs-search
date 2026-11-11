@@ -5,9 +5,10 @@ import { getJobs } from '../lib/ipc';
 import type { JobSummary } from '../lib/types';
 import { NewJobsView } from './NewJobsView';
 
-vi.mock('../lib/ipc', () => ({
-  getJobs: vi.fn(),
-}));
+vi.mock('../lib/ipc', async () => {
+  const { createIpcMock } = await import('../test/ipc-mock');
+  return createIpcMock();
+});
 
 function job(index: number): JobSummary {
   return {

@@ -11,11 +11,10 @@ vi.mock('@tauri-apps/plugin-dialog', () => ({
   open: vi.fn(),
 }));
 
-vi.mock('../lib/ipc', () => ({
-  listResumes: vi.fn(),
-  uploadResume: vi.fn(),
-  deleteResume: vi.fn(),
-}));
+vi.mock('../lib/ipc', async () => {
+  const { createIpcMock } = await import('../test/ipc-mock');
+  return createIpcMock();
+});
 
 const profile = {
   profile_id: 'p1',

@@ -4,59 +4,19 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { FeedbackProvider } from '../components/FeedbackProvider';
 import { exportAnalyticsCsv, getAnalytics } from '../lib/ipc';
-import type { AnalyticsPayload } from '../lib/types';
+import { analyticsPayloadFixture } from '../test/fixtures';
 import { AnalyticsView } from './AnalyticsView';
 
 vi.mock('@tauri-apps/plugin-dialog', () => ({
   save: vi.fn(),
 }));
 
-vi.mock('../lib/ipc', () => ({
-  getAnalytics: vi.fn(),
-  exportAnalyticsCsv: vi.fn(),
-}));
+vi.mock('../lib/ipc', async () => {
+  const { createIpcMock } = await import('../test/ipc-mock');
+  return createIpcMock();
+});
 
-const payload: AnalyticsPayload = {
-  scope: 'LAST_7_DAYS',
-  run_id: null,
-  denominator: 100,
-  last_updated: '2026-11-10T00:00:00Z',
-  stale: true,
-  skill_gap: [
-    {
-      skill: 'kubernetes',
-      display_name: 'Kubernetes',
-      demand_count: 50,
-      demand_percentage: 50,
-      rank: 1,
-    },
-  ],
-  funnel: {
-    ingested: 100,
-    duplicates: 0,
-    rejected_by_reason: {},
-    pending: 0,
-    approved: 100,
-    error: 0,
-    applied: 0,
-    ignored: 0,
-    approval_rate: 100,
-    application_rate: 0,
-    source_failures: [],
-    source_breakdown: {},
-    provider_breakdown: {},
-  },
-  score_distribution: [{ range: '80-89', count: 100 }],
-  llm_metrics: {
-    call_count: 1,
-    success_count: 1,
-    error_count: 0,
-    fallback_count: 0,
-    p50_latency_ms: 100,
-    p95_latency_ms: 100,
-    by_provider: [],
-  },
-};
+const payload = analyticsPayloadFixture;
 
 describe('AnalyticsView trust and export', () => {
   beforeEach(() => {

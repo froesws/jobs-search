@@ -5,9 +5,10 @@ import { getJob } from '../lib/ipc';
 import type { JobDetail } from '../lib/types';
 import { useJobDetailViewModel } from './useJobDetailViewModel';
 
-vi.mock('../lib/ipc', () => ({
-  getJob: vi.fn(),
-}));
+vi.mock('../lib/ipc', async () => {
+  const { createIpcMock } = await import('../test/ipc-mock');
+  return createIpcMock();
+});
 
 const detail = {
   job_id: 'j1',

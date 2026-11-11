@@ -6,10 +6,10 @@ import { getAnalytics } from '../lib/ipc';
 import type { AnalyticsPayload, SkillGapMetric } from '../lib/types';
 import { AnalyticsView } from './AnalyticsView';
 
-vi.mock('../lib/ipc', () => ({
-  getAnalytics: vi.fn(),
-  exportAnalyticsCsv: vi.fn(),
-}));
+vi.mock('../lib/ipc', async () => {
+  const { createIpcMock } = await import('../test/ipc-mock');
+  return createIpcMock();
+});
 
 function metrics(count: number): SkillGapMetric[] {
   return Array.from({ length: count }, (_, index) => ({

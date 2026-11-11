@@ -5,10 +5,10 @@ import { getAnalytics } from '../lib/ipc';
 import type { AnalyticsPayload } from '../lib/types';
 import { useAnalyticsViewModel } from './useAnalyticsViewModel';
 
-vi.mock('../lib/ipc', () => ({
-  getAnalytics: vi.fn(),
-  exportAnalyticsCsv: vi.fn(),
-}));
+vi.mock('../lib/ipc', async () => {
+  const { createIpcMock } = await import('../test/ipc-mock');
+  return createIpcMock();
+});
 
 function payload(overrides: Partial<AnalyticsPayload> = {}): AnalyticsPayload {
   return {

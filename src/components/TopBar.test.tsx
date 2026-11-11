@@ -1,20 +1,24 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
+import { getActiveProvider, listResumes } from '../lib/ipc';
 import { DEFAULT_FILTERS } from '../lib/types';
+import { providerFixture } from '../test/fixtures';
+import { beforeEach } from 'vitest';
 import { FeedbackProvider } from './FeedbackProvider';
 import { TopBar } from './TopBar';
 
-vi.mock('../lib/ipc', () => ({
-  listResumes: vi.fn().mockResolvedValue([]),
-  getActiveProvider: vi.fn().mockResolvedValue({
-    provider: 'deepseek',
-    model: 'deepseek-chat',
-    fallback_enabled: false,
-  }),
-}));
+vi.mock('../lib/ipc', async () => {
+  const { createIpcMock } = await import('../test/ipc-mock');
+  return createIpcMock();
+});
 
 describe('TopBar', () => {
+  beforeEach(() => {
+    vi.mocked(listResumes).mockResolvedValue([]);
+    vi.mocked(getActiveProvider).mockResolvedValue(providerFixture);
+  });
+
   it('renders the fixed search controls and triggers a run', () => {
     const onChange = vi.fn();
     const onSearch = vi.fn();

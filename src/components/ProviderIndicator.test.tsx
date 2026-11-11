@@ -4,9 +4,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getActiveProvider } from '../lib/ipc';
 import { ProviderIndicator } from './ProviderIndicator';
 
-vi.mock('../lib/ipc', () => ({
-  getActiveProvider: vi.fn(),
-}));
+vi.mock('../lib/ipc', async () => {
+  const { createIpcMock } = await import('../test/ipc-mock');
+  return createIpcMock();
+});
 
 describe('ProviderIndicator', () => {
   beforeEach(() => {

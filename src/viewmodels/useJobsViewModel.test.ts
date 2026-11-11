@@ -4,10 +4,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getJobs } from '../lib/ipc';
 import { useJobsViewModel } from './useJobsViewModel';
 
-vi.mock('../lib/ipc', () => ({
-  getJobs: vi.fn(),
-  triggerSearch: vi.fn(),
-}));
+vi.mock('../lib/ipc', async () => {
+  const { createIpcMock } = await import('../test/ipc-mock');
+  return createIpcMock();
+});
 
 const page = {
   items: [],
