@@ -121,7 +121,7 @@ impl ProviderSettings {
                 if provider.as_str() == "ollama" {
                     return setting.enabled && !setting.attempt_models().is_empty();
                 }
-                let (secret, _) = credentials::resolve(provider, config.env_file.as_deref());
+                let (secret, _) = resolve_credential(config, provider);
                 secret.is_some()
             })
             .cloned()
@@ -236,6 +236,33 @@ fn resolve_provider(
         attempts: attempts.clamp(1, 10),
         enabled,
     })
+}
+
+/// Resolve a provider credential: OS store, then the in-memory configuration
+/// loaded from `.env`/OS environment, then the `.env` file itself.
+pub fn resolve_credential(
+    config: &AppConfig,
+    provider: &str,
+) -> (Option<String>, credentials::CredentialSource) {
+    if let Ok(Some(secret)) = credentials::get_from_store(provider) {
+        return (Some(secret), credentials::CredentialSource::CredentialStore);
+    }
+    let in_memory = match provider {
+        "gemini" => config.gemini_api_key.clone(),
+        "openrouter" => config.openrouter_api_key.clone(),
+        "deepseek" => config.deepseek_api_key.clone(),
+        _ => None,
+    };
+    if let Some(secret) = in_memory {
+        return (Some(secret), credentials::CredentialSource::Env);
+    }
+    if let Some(key) = credentials::env_key(provider)
+        && let Some(path) = config.env_file.as_deref()
+        && let Some(value) = credentials::read_env_value(path, key)
+    {
+        return (Some(value), credentials::CredentialSource::Env);
+    }
+    (None, credentials::CredentialSource::None)
 }
 
 /// Built-in attempt budget for a provider.

@@ -17,7 +17,6 @@ use std::time::Duration;
 use reqwest::Client;
 
 use crate::config::{AppConfig, ProviderSettings};
-use crate::credentials;
 use crate::llm::deepseek::DeepSeekProvider;
 use crate::llm::gemini::GeminiProvider;
 use crate::llm::ollama::OllamaProvider;
@@ -44,7 +43,8 @@ pub fn router_from_config(
 
         match provider.as_str() {
             "gemini" => {
-                let (secret, _) = credentials::resolve("gemini", config.env_file.as_deref());
+                let (secret, _) =
+                    crate::config::provider_settings::resolve_credential(config, "gemini");
                 if let (Some(key), Some(model)) = (secret, setting.model.clone()) {
                     plans.push(ProviderPlan {
                         provider: Arc::new(GeminiProvider::new(
@@ -59,7 +59,8 @@ pub fn router_from_config(
                 }
             }
             "openrouter" => {
-                let (secret, _) = credentials::resolve("openrouter", config.env_file.as_deref());
+                let (secret, _) =
+                    crate::config::provider_settings::resolve_credential(config, "openrouter");
                 if let Some(key) = secret
                     && !setting.models.is_empty()
                 {
@@ -76,7 +77,8 @@ pub fn router_from_config(
                 }
             }
             "deepseek" => {
-                let (secret, _) = credentials::resolve("deepseek", config.env_file.as_deref());
+                let (secret, _) =
+                    crate::config::provider_settings::resolve_credential(config, "deepseek");
                 if let (Some(key), Some(model)) = (secret, setting.model.clone()) {
                     plans.push(ProviderPlan {
                         provider: Arc::new(DeepSeekProvider::new(
