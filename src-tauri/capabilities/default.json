@@ -2,5 +2,5 @@
   "identifier": "default",
   "description": "Default capabilities for Jobs Search",
   "windows": ["main"],
-  "permissions": ["core:default"]
+  "permissions": ["core:default", "dialog:default"]
 }
