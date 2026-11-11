@@ -2,9 +2,34 @@
 
 use std::collections::BTreeMap;
 
-use crate::analytics::{AnalyticsScope, FunnelPayload};
+use crate::analytics::{AnalyticsScope, FunnelPayload, ScoreBucket};
 use crate::db::Db;
 use crate::error::AppError;
+
+const BUCKETS: [(&str, i64, i64); 6] = [
+    ("0-49", 0, 49),
+    ("50-59", 50, 59),
+    ("60-69", 60, 69),
+    ("70-79", 70, 79),
+    ("80-89", 80, 89),
+    ("90-100", 90, 100),
+];
+
+pub fn score_distribution(jobs: &[crate::analytics::EligibleJob]) -> Vec<ScoreBucket> {
+    BUCKETS
+        .iter()
+        .map(|(range, min, max)| ScoreBucket {
+            range: (*range).to_string(),
+            count: jobs
+                .iter()
+                .filter(|job| {
+                    job.score
+                        .is_some_and(|score| score >= *min && score <= *max)
+                })
+                .count() as i64,
+        })
+        .collect()
+}
 
 pub fn compute_funnel(
     db: &Db,

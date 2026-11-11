@@ -247,7 +247,7 @@ pub fn get_analytics(db: &Db, request: AnalyticsRequest) -> Result<AnalyticsPayl
         stale,
         skill_gap: skill_gap::compute(&jobs, profile.as_ref()),
         funnel,
-        score_distribution: Vec::new(),
+        score_distribution: funnel::score_distribution(&jobs),
         llm_metrics: LlmMetricsPayload::default(),
     })
 }
