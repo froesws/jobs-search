@@ -517,6 +517,12 @@ chore(spec): confirm the opener capability scope
 
 ## 13. Pitfalls
 
+- Tauri uses WebKitGTK on Linux, which does not reliably deliver HTML5 `drop`
+  events inside a modal. A `draggable` element fires `dragstart`, but `onDrop`
+  often never runs. Build reordering with pointer events instead: `pointerdown`
+  on a handle, `pointermove`/`pointerup` on `window`, and hit-test rows with
+  `getBoundingClientRect`. Keep keyboard move buttons for accessibility;
+  `ProviderConfigDialog` is the reference implementation.
 - `matching` is an alias for the `match/` directory. Do not create both.
 - The crate root has `#![warn(missing_docs)]`; do not silence it globally just
   to add a module. Follow the existing per-module pattern.
