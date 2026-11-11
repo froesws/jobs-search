@@ -2,6 +2,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use async_trait::async_trait;
+use jobs_search_lib::commands::search::SearchFilters;
 use jobs_search_lib::db::evaluations::score_distribution;
 use jobs_search_lib::db::jobs::{get_detail, list_summaries};
 use jobs_search_lib::db::runs::start_run;
@@ -12,7 +13,7 @@ use jobs_search_lib::llm::schemas::{
     EvaluationEvidence, MatchType, Requirement, RequirementDimension,
 };
 use jobs_search_lib::matching::{EvaluationSettings, evaluate_run};
-use jobs_search_lib::types::{EvaluationStatus, JobTab, WorkModality};
+use jobs_search_lib::types::{EvaluationStatus, JobId, JobTab, Seniority, WorkModality};
 
 mod common;
 
@@ -304,4 +305,67 @@ fn provider_attempt_serializes_for_metrics() {
     let value = serde_json::to_value(attempt).expect("serialize");
     assert_eq!(value["provider"], "fake");
     assert_eq!(value["model"], "fake-model");
+}
+
+#[tokio::test]
+async fn selected_panels_drive_query_plan_and_hard_filters() {
+    let db = common::test_db();
+    seed(&db);
+    let profile = common::fixture_profile();
+    let calls = Arc::new(AtomicUsize::new(0));
+    let router = LlmRouter::from_plans(vec![ProviderPlan {
+        provider: Arc::new(FakeProvider {
+            calls: calls.clone(),
+        }),
+        attempts: 1,
+    }]);
+    let filters = SearchFilters {
+        seniorities: vec![Seniority::Trainee, Seniority::Junior, Seniority::Pleno],
+        modalities: vec![WorkModality::Remote, WorkModality::Hybrid],
+        ..SearchFilters::default()
+    }
+    .resolve(&profile);
+    let queries = filters.ingestion_queries();
+    assert_eq!(queries.len(), 3);
+    assert!(
+        queries
+            .iter()
+            .all(|query| query.contains("(remoto OR híbrido)"))
+    );
+
+    let run = start_run(&db, "{}").expect("run");
+    let summary = evaluate_run(
+        &db,
+        &run.run_id,
+        &profile,
+        &router,
+        &EvaluationSettings {
+            criteria: filters.criteria(),
+            ..Default::default()
+        },
+    )
+    .await
+    .expect("evaluation");
+
+    assert_eq!(summary.approved, 1);
+    assert_eq!(summary.pending, 1);
+    assert_eq!(summary.rejected, 3);
+    assert_eq!(summary.error, 1);
+
+    let onsite_id: String = db
+        .with_connection(|connection| {
+            Ok(connection.query_row(
+                "SELECT id FROM job_postings WHERE title = 'Rust Engineer Onsite'",
+                [],
+                |row| row.get(0),
+            )?)
+        })
+        .expect("onsite id");
+    let detail = get_detail(&db, &JobId::from(onsite_id)).expect("detail");
+    assert!(
+        detail
+            .hard_filter_rejections
+            .iter()
+            .any(|reason| reason.code == "MODALITY_NOT_ELIGIBLE")
+    );
 }

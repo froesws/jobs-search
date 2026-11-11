@@ -193,7 +193,7 @@ enforced.
 **Purpose**: Prove the panels and query plan reach evaluation end to end,
 document the semantics, and run the full gate.
 
-- [ ] T026 [P] Add an end-to-end backend test that builds `SearchFilters` with Trainee + Junior + Pleno and Remote + Hybrid, maps them through `ingestion_queries()` and `criteria()`, runs `evaluate_run` with a fake provider, and proves three Portuguese queries are produced and the hard filters accept/reject the expected levels and modalities (path: `src-tauri/tests/fixture_match.rs`).
+- [X] T026 [P] Add an end-to-end backend test that builds `SearchFilters` with Trainee + Junior + Pleno and Remote + Hybrid, maps them through `ingestion_queries()` and `criteria()`, runs `evaluate_run` with a fake provider, and proves three Portuguese queries are produced and the hard filters accept/reject the expected levels and modalities (path: `src-tauri/tests/fixture_match.rs`).
 - [ ] T027 [P] Add an end-to-end frontend test that clicks Trainee + Junior + Pleno and Remote + Hybrid in the panels and asserts `triggerSearch` receives the deduplicated arrays (no “Any”/“All” values) (path: `src/views/DashboardView.test.tsx`).
 - [ ] T028 [P] Document in `README.md`: the four seniority buttons, three work-type buttons, no Any/All, per-seniority Portuguese query terms, work-type Portuguese terms, `is_remote`, profile defaults, and the city/unknown-modality hard-filter rules (path: `README.md`).
 - [ ] T029 Run the full local gate: `./scripts/verify.sh` (format, lint, typecheck, frontend tests, Rust fmt/check/clippy/test, and sidecar pytest); report exactly which checks ran and which could not run (path: `scripts/verify.sh`).
