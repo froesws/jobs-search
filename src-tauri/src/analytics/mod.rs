@@ -108,10 +108,8 @@ pub struct ExportRequest {
 }
 
 /// Placeholder until the CSV writer lands.
-pub fn export_csv(_db: &Db, _request: ExportRequest) -> Result<ExportResult, AppError> {
-    Err(AppError::Config(
-        "analytics CSV export is not available yet".to_string(),
-    ))
+pub fn export_csv(db: &Db, request: ExportRequest) -> Result<ExportResult, AppError> {
+    csv::export(db, request)
 }
 
 #[derive(Debug, Clone)]
