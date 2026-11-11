@@ -243,7 +243,7 @@ is `PENDING`; setting `MATCH_THRESHOLD=70` restores the old boundary.
 - [x] T019 [P] Update `README.md` with a short UI note: the original posting is
   selectable text, the filter footer reserves its line, and only Brazil jobs are
   accepted by default.
-- [ ] T020 Run `./scripts/verify.sh` and both sidecar pytest suites; report
+- [x] T020 Run `./scripts/verify.sh` and both sidecar pytest suites; report
   exactly which checks ran and which could not run (path: `scripts/verify.sh`).
 - [ ] T021 Manual acceptance: open a job, select and copy the URL; select one
   seniority and one work type and compare alignment; run a real search and
@@ -350,3 +350,4 @@ is `PENDING`; setting `MATCH_THRESHOLD=70` restores the old boundary.
 - **T012**: `npm test -- src/components/TopBar.test.tsx` passed (5).
 - **T016 local only**: `.env` is gitignored; `.env.example` is committed with 50.
 - **T018**: threshold tests passed, including the 50/49 boundary and override.
+- **T020**: `./scripts/verify.sh` passed (Rust, frontend, sidecars).
