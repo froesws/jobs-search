@@ -12,6 +12,7 @@ use crate::profile::merge::{ProfileExtras, merge_extracted};
 use crate::profile::schema::ExtractedProfile;
 use crate::profile::{CandidateProfile, fixture};
 use crate::state::AppState;
+use crate::types::ResumeId;
 
 #[derive(Debug, Clone)]
 pub struct UploadOutcome {
@@ -163,7 +164,8 @@ pub async fn upload_resume_with(
 }
 
 pub fn delete_resume_with(state: &AppState, file_id: &str) -> Result<CandidateProfile, AppError> {
-    let deleted = db::profile::delete_resume(&state.db, file_id)?
+    let resume_id = ResumeId::from(file_id);
+    let deleted = db::profile::delete_resume(&state.db, &resume_id)?
         .ok_or_else(|| AppError::not_found("resume"))?;
     let _ = std::fs::remove_file(&deleted.local_path);
 
@@ -261,7 +263,7 @@ pub fn list_resume_summaries(state: &AppState) -> Result<Vec<ResumeSummary>, App
     Ok(db::profile::list_resumes(&state.db)?
         .into_iter()
         .map(|resume| ResumeSummary {
-            id: resume.id,
+            id: resume.id.as_str().to_string(),
             filename: resume.filename,
             content_hash: resume.content_hash,
             uploaded_at: resume.uploaded_at,

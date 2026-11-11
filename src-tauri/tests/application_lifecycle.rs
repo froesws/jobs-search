@@ -9,7 +9,12 @@ use jobs_search_lib::types::{EvaluationStatus, WorkModality};
 
 mod common;
 
-fn approved_job(db: &Db, title: &str, status: EvaluationStatus, score: i64) -> String {
+fn approved_job(
+    db: &Db,
+    title: &str,
+    status: EvaluationStatus,
+    score: i64,
+) -> jobs_search_lib::types::JobId {
     common::ensure_source(db, "src", "src", jobs_search_lib::config::SourceType::Api);
     let job = common::new_job(
         title,

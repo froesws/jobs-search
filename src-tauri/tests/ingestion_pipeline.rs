@@ -121,7 +121,7 @@ async fn hybrid_ingestion_dedups_and_preserves_lineage_with_one_failure() {
     assert_eq!(outcome.failures()[0].source_id, "broken");
 
     let mut duplicates = 0;
-    let mut canonical_job_id: Option<String> = None;
+    let mut canonical_job_id: Option<jobs_search_lib::types::JobId> = None;
     for (source_id, source_name, raw) in outcome.jobs() {
         let job = normalize::normalize(raw, &source_id, &source_name).expect("normalized");
         let new_job = jobs_search_lib::db::jobs::NewJob {
@@ -170,7 +170,7 @@ async fn hybrid_ingestion_dedups_and_preserves_lineage_with_one_failure() {
             .len(),
         2
     );
-    let conflicts = jobs_search_lib::db::jobs::conflicts(&db, &job_id).expect("conflicts");
+    let conflicts = jobs_search_lib::db::jobs::conflicts(&db, job_id.as_str()).expect("conflicts");
     assert!(
         conflicts
             .iter()
@@ -205,7 +205,7 @@ async fn hybrid_ingestion_dedups_and_preserves_lineage_with_one_failure() {
             Ok(connection.query_row(
                 "SELECT total_ingested, duplicates_merged, status
                  FROM execution_runs WHERE id = ?1",
-                [&run.run_id],
+                [run.run_id.as_str()],
                 |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
             )?)
         })
@@ -288,7 +288,7 @@ async fn zero_result_run_is_persisted_as_success() {
         .with_connection(|connection| {
             Ok(connection.query_row(
                 "SELECT status FROM execution_runs WHERE id = ?1",
-                [&run.run_id],
+                [run.run_id.as_str()],
                 |row| row.get(0),
             )?)
         })

@@ -5,7 +5,7 @@ use rusqlite::{OptionalExtension, params};
 use crate::db::Db;
 use crate::db::now_rfc3339;
 use crate::error::AppError;
-use crate::types::{EvaluationStatus, HardFilterRejection, JobTab, WorkModality};
+use crate::types::{EvaluationStatus, HardFilterRejection, JobId, JobTab, WorkModality};
 
 const SUMMARY_COLUMNS: &str = "
     j.id, j.title, j.company, j.location, j.work_modality, j.url, j.posted_at,
@@ -31,7 +31,7 @@ pub struct NewJob {
 
 #[derive(Debug, Clone)]
 pub struct StoredJob {
-    pub id: String,
+    pub id: JobId,
     pub title: String,
     pub company: String,
     pub location: String,
@@ -44,7 +44,7 @@ pub struct StoredJob {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UpsertOutcome {
-    pub job_id: String,
+    pub job_id: JobId,
     pub inserted: bool,
 }
 
@@ -56,7 +56,7 @@ impl UpsertOutcome {
 
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct JobSummary {
-    pub job_id: String,
+    pub job_id: JobId,
     pub title: String,
     pub company: String,
     pub location: String,
@@ -155,11 +155,11 @@ pub fn upsert_job(db: &Db, job: &NewJob) -> Result<UpsertOutcome, AppError> {
                 ],
             )?;
             Ok(UpsertOutcome {
-                job_id: existing.id,
+                job_id: JobId::from(existing.id),
                 inserted: false,
             })
         } else {
-            let job_id = uuid::Uuid::new_v4().to_string();
+            let job_id = JobId::new(uuid::Uuid::new_v4().to_string());
             connection.execute(
                 "INSERT INTO job_postings
                  (id, canonical_key, canonical_hash, title, company, location,
@@ -167,7 +167,7 @@ pub fn upsert_job(db: &Db, job: &NewJob) -> Result<UpsertOutcome, AppError> {
                   extracted_metadata_json, needs_review, conflicts_json, created_at, updated_at)
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, '[]', ?13, ?14)",
                 params![
-                    job_id,
+                    job_id.as_str(),
                     job.canonical_key,
                     job.canonical_hash,
                     job.title,
@@ -241,7 +241,7 @@ fn conflict_entries(existing: &ExistingJob, job: &NewJob) -> Result<String, AppE
 
 pub fn add_lineage(
     db: &Db,
-    job_id: &str,
+    job_id: &JobId,
     source_id: &str,
     external_id: &str,
     url: &str,
@@ -255,7 +255,7 @@ pub fn add_lineage(
              DO UPDATE SET url = excluded.url, ingested_at = excluded.ingested_at",
             params![
                 uuid::Uuid::new_v4().to_string(),
-                job_id,
+                job_id.as_str(),
                 source_id,
                 external_id,
                 url,
@@ -266,13 +266,13 @@ pub fn add_lineage(
     })
 }
 
-pub fn lineage(db: &Db, job_id: &str) -> Result<Vec<SourceLineage>, AppError> {
+pub fn lineage(db: &Db, job_id: &JobId) -> Result<Vec<SourceLineage>, AppError> {
     db.with_connection(|connection| lineage_with_connection(connection, job_id))
 }
 
 fn lineage_with_connection(
     connection: &rusqlite::Connection,
-    job_id: &str,
+    job_id: &JobId,
 ) -> Result<Vec<SourceLineage>, AppError> {
     let mut statement = connection.prepare(
         "SELECT s.id, s.name, l.external_id, l.url, l.ingested_at
@@ -281,7 +281,7 @@ fn lineage_with_connection(
          WHERE l.job_id = ?1
          ORDER BY s.name ASC, l.ingested_at ASC",
     )?;
-    let rows = statement.query_map([job_id], |row| {
+    let rows = statement.query_map([job_id.as_str()], |row| {
         Ok(SourceLineage {
             source_id: row.get(0)?,
             source_name: row.get(1)?,
@@ -297,7 +297,7 @@ fn lineage_with_connection(
     Ok(values)
 }
 
-pub fn lineage_urls(db: &Db, job_id: &str) -> Result<Vec<String>, AppError> {
+pub fn lineage_urls(db: &Db, job_id: &JobId) -> Result<Vec<String>, AppError> {
     let mut urls = lineage(db, job_id)?
         .into_iter()
         .map(|value| value.url)
@@ -325,13 +325,13 @@ pub fn conflicts(db: &Db, job_id: &str) -> Result<Vec<serde_json::Value>, AppErr
 
 pub fn update_extracted_metadata(
     db: &Db,
-    job_id: &str,
+    job_id: &JobId,
     metadata_json: &str,
 ) -> Result<(), AppError> {
     db.with_connection(|connection| {
         connection.execute(
             "UPDATE job_postings SET extracted_metadata_json = ?1, updated_at = ?2 WHERE id = ?3",
-            params![metadata_json, now_rfc3339(), job_id],
+            params![metadata_json, now_rfc3339(), job_id.as_str()],
         )?;
         Ok(())
     })
@@ -350,7 +350,7 @@ pub fn list_for_evaluation(db: &Db, limit: usize) -> Result<Vec<StoredJob>, AppE
         )?;
         let rows = statement.query_map([limit as i64], |row| {
             Ok(StoredJob {
-                id: row.get(0)?,
+                id: JobId::from(row.get::<_, String>(0)?),
                 title: row.get(1)?,
                 company: row.get(2)?,
                 location: row.get(3)?,
@@ -440,7 +440,7 @@ pub fn list_summaries(
     })
 }
 
-pub fn get_detail(db: &Db, job_id: &str) -> Result<JobDetail, AppError> {
+pub fn get_detail(db: &Db, job_id: &JobId) -> Result<JobDetail, AppError> {
     db.with_connection(|connection| {
         let query = format!(
             "SELECT {SUMMARY_COLUMNS}, j.description_clean,
@@ -454,7 +454,7 @@ pub fn get_detail(db: &Db, job_id: &str) -> Result<JobDetail, AppError> {
         );
 
         let mut statement = connection.prepare(&query)?;
-        let mut rows = statement.query([job_id])?;
+        let mut rows = statement.query([job_id.as_str()])?;
         let Some(row) = rows.next()? else {
             return Err(AppError::not_found("job"));
         };
@@ -493,7 +493,7 @@ pub fn get_detail(db: &Db, job_id: &str) -> Result<JobDetail, AppError> {
 
 fn summary_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<JobSummary> {
     Ok(JobSummary {
-        job_id: row.get(0)?,
+        job_id: JobId::from(row.get::<_, String>(0)?),
         title: row.get(1)?,
         company: row.get(2)?,
         location: row.get(3)?,
@@ -695,7 +695,7 @@ mod tests {
             db.with_connection(|connection| {
                 connection.execute(
                     "UPDATE job_posting_sources SET ingested_at = ?1 WHERE job_id = ?2",
-                    rusqlite::params![ingested, job.job_id],
+                    rusqlite::params![ingested, job.job_id.as_str()],
                 )?;
                 Ok(())
             })

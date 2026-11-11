@@ -92,7 +92,10 @@ fn excludes_rejected_and_error_and_keeps_lifecycle_neutral() {
         .with_connection(|connection| {
             let mut statement =
                 connection.prepare("SELECT job_id FROM job_evaluations ORDER BY job_id")?;
-            let rows = statement.query_map([], |row| row.get::<_, String>(0))?;
+            let rows = statement.query_map([], |row| {
+                row.get::<_, String>(0)
+                    .map(jobs_search_lib::types::JobId::from)
+            })?;
             let mut ids = Vec::new();
             for row in rows {
                 ids.push(row?);
@@ -182,7 +185,7 @@ fn funnel_and_csv_reconcile_with_seeded_records() {
         &db,
         AnalyticsRequest {
             scope: AnalyticsScope::CurrentRun,
-            run_id: Some(seed.run_id.clone()),
+            run_id: Some(seed.run_id.as_str().to_string()),
         },
     )
     .expect("analytics");
@@ -202,7 +205,7 @@ fn funnel_and_csv_reconcile_with_seeded_records() {
         &db,
         jobs_search_lib::analytics::ExportRequest {
             scope: AnalyticsScope::CurrentRun,
-            run_id: Some(seed.run_id),
+            run_id: Some(seed.run_id.as_str().to_string()),
             destination: path.display().to_string(),
         },
     )
@@ -229,7 +232,7 @@ fn current_run_and_last_seven_days_agree_for_a_fresh_run() {
         &db,
         AnalyticsRequest {
             scope: AnalyticsScope::CurrentRun,
-            run_id: Some(seed.run_id),
+            run_id: Some(seed.run_id.as_str().to_string()),
         },
     )
     .expect("current");
@@ -252,7 +255,10 @@ fn set_missing(db: &jobs_search_lib::db::Db, values: &[&[&str]]) {
         .with_connection(|connection| {
             let mut statement =
                 connection.prepare("SELECT job_id FROM job_evaluations ORDER BY job_id")?;
-            let rows = statement.query_map([], |row| row.get::<_, String>(0))?;
+            let rows = statement.query_map([], |row| {
+                row.get::<_, String>(0)
+                    .map(jobs_search_lib::types::JobId::from)
+            })?;
             let mut ids = Vec::new();
             for row in rows {
                 ids.push(row?);

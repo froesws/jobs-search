@@ -11,7 +11,7 @@ use crate::db::jobs::StoredJob;
 use crate::error::AppError;
 use crate::llm::provider::{EvaluationInput, EvaluationJob, LlmRouter};
 use crate::profile::CandidateProfile;
-use crate::types::EvaluationStatus;
+use crate::types::{EvaluationStatus, RunId};
 
 #[derive(Debug, Clone)]
 pub struct EvaluationSettings {
@@ -51,7 +51,7 @@ struct JobOutcome {
 #[tracing::instrument(skip(db, profile, router), fields(run_id, max_jobs = settings.max_jobs))]
 pub async fn evaluate_run(
     db: &Db,
-    run_id: &str,
+    run_id: &RunId,
     profile: &CandidateProfile,
     router: &LlmRouter,
     settings: &EvaluationSettings,
@@ -63,7 +63,7 @@ pub async fn evaluate_run(
     let db = db.clone();
     let profile = profile.clone();
     let router = router.clone();
-    let run_id = run_id.to_string();
+    let run_id = run_id.clone();
 
     let outcomes = futures::stream::iter(jobs.into_iter().map(move |job| {
         let db = db.clone();
@@ -102,7 +102,7 @@ pub async fn evaluate_run(
 
 async fn evaluate_one(
     db: &Db,
-    run_id: &str,
+    run_id: &RunId,
     profile: &CandidateProfile,
     router: &LlmRouter,
     job: StoredJob,
@@ -121,7 +121,7 @@ async fn evaluate_one(
             db,
             &EvaluationRecord {
                 job_id: job_id.clone(),
-                run_id: run_id.to_string(),
+                run_id: run_id.clone(),
                 profile_version,
                 status: EvaluationStatus::Rejected,
                 score: None,
@@ -175,7 +175,7 @@ async fn evaluate_one(
                 db,
                 &EvaluationRecord {
                     job_id: job_id.clone(),
-                    run_id: run_id.to_string(),
+                    run_id: run_id.clone(),
                     profile_version,
                     status,
                     score: Some(scored.score),
@@ -203,7 +203,7 @@ async fn evaluate_one(
                 db,
                 &EvaluationRecord {
                     job_id: job_id.clone(),
-                    run_id: run_id.to_string(),
+                    run_id: run_id.clone(),
                     profile_version,
                     status: EvaluationStatus::Error,
                     score: None,
@@ -232,7 +232,7 @@ async fn evaluate_one(
 
 fn record_attempts(
     db: &Db,
-    run_id: &str,
+    run_id: &RunId,
     attempts: &[crate::llm::provider::ProviderAttempt],
 ) -> Result<(), AppError> {
     for attempt in attempts {

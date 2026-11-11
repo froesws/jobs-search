@@ -216,7 +216,7 @@ mod tests {
 
     fn job(title: &str, location: &str, modality: WorkModality, description: &str) -> StoredJob {
         StoredJob {
-            id: "job".to_string(),
+            id: crate::types::JobId::from("job"),
             title: title.to_string(),
             company: "Acme".to_string(),
             location: location.to_string(),

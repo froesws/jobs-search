@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::db::Db;
 use crate::error::AppError;
+use crate::types::{JobId, RunId};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
@@ -114,7 +115,7 @@ pub fn export_csv(db: &Db, request: ExportRequest) -> Result<ExportResult, AppEr
 
 #[derive(Debug, Clone)]
 pub struct EligibleJob {
-    pub job_id: String,
+    pub job_id: JobId,
     pub evaluated_at: Option<String>,
     pub missing_keywords: Vec<String>,
     pub matched_keywords: Vec<String>,
@@ -127,7 +128,7 @@ pub struct EligibleJob {
 pub fn eligible_jobs(
     db: &Db,
     scope: AnalyticsScope,
-    run_id: Option<&str>,
+    run_id: Option<&RunId>,
 ) -> Result<Vec<EligibleJob>, AppError> {
     db.with_connection(|connection| {
         let mut values = Vec::new();
@@ -143,7 +144,11 @@ pub fn eligible_jobs(
                      WHERE run_id = ?1 AND evaluation_status IN ('APPROVED', 'PENDING')
                      ORDER BY evaluated_at ASC",
                 )?;
-                collect_jobs(&mut statement, rusqlite::params![run_id], &mut values)?;
+                collect_jobs(
+                    &mut statement,
+                    rusqlite::params![run_id.as_str()],
+                    &mut values,
+                )?;
             }
             AnalyticsScope::Last7Days => {
                 let mut statement = connection.prepare(
@@ -168,7 +173,7 @@ fn collect_jobs<P: rusqlite::Params>(
 ) -> Result<(), AppError> {
     let rows = statement.query_map(params, |row| {
         Ok(EligibleJob {
-            job_id: row.get(0)?,
+            job_id: JobId::from(row.get::<_, String>(0)?),
             evaluated_at: row.get(1)?,
             missing_keywords: parse_keywords(row.get(2)?),
             matched_keywords: parse_keywords(row.get(3)?),
@@ -194,7 +199,7 @@ pub fn resolve_run_id(
     db: &Db,
     requested: Option<&str>,
     scope: AnalyticsScope,
-) -> Result<Option<String>, AppError> {
+) -> Result<Option<RunId>, AppError> {
     if scope != AnalyticsScope::CurrentRun {
         return Ok(None);
     }
@@ -208,7 +213,10 @@ pub fn resolve_run_id(
                 )
                 .optional()?)
         })?;
-        return exists.map(Some).ok_or_else(|| AppError::not_found("run"));
+        return exists
+            .map(RunId::from)
+            .map(Some)
+            .ok_or_else(|| AppError::not_found("run"));
     }
     db.with_connection(|connection| {
         Ok(connection
@@ -217,7 +225,7 @@ pub fn resolve_run_id(
                  WHERE status IN ('SUCCESS', 'PARTIAL')
                  ORDER BY started_at DESC LIMIT 1",
                 [],
-                |row| row.get(0),
+                |row| row.get::<_, String>(0).map(RunId::from),
             )
             .optional()?)
     })
@@ -227,7 +235,7 @@ pub fn resolve_run_id(
 #[tracing::instrument(skip(db), fields(scope = ?request.scope))]
 pub fn get_analytics(db: &Db, request: AnalyticsRequest) -> Result<AnalyticsPayload, AppError> {
     let run_id = resolve_run_id(db, request.run_id.as_deref(), request.scope)?;
-    let jobs = eligible_jobs(db, request.scope, run_id.as_deref())?;
+    let jobs = eligible_jobs(db, request.scope, run_id.as_ref())?;
     let profile = crate::db::profile::load_active_profile(db)?;
     let denominator = u32::try_from(jobs.len())
         .map_err(|_| AppError::validation("too many eligible jobs for analytics"))?;
@@ -237,12 +245,13 @@ pub fn get_analytics(db: &Db, request: AnalyticsRequest) -> Result<AnalyticsPayl
         .max()
         .unwrap_or_else(crate::db::now_rfc3339);
     let stale = jobs.iter().any(|job| job.stale);
-    let funnel = funnel::compute_funnel(db, request.scope, run_id.as_deref())?;
-    let llm_metrics = funnel::llm_metrics(db, request.scope, run_id.as_deref())?;
+    let run_ref = run_id.as_ref().map(RunId::as_str);
+    let funnel = funnel::compute_funnel(db, request.scope, run_ref)?;
+    let llm_metrics = funnel::llm_metrics(db, request.scope, run_ref)?;
 
     Ok(AnalyticsPayload {
         scope: request.scope,
-        run_id,
+        run_id: run_id.map(|value| value.as_str().to_string()),
         denominator,
         last_updated,
         stale,

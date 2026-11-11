@@ -363,7 +363,7 @@ async fn deleting_the_last_resume_blocks_new_searches() {
         .expect("upload");
     let resume = list_resumes(&state.db).expect("resumes").remove(0);
 
-    let profile = delete_resume_with(&state, &resume.id).expect("delete");
+    let profile = delete_resume_with(&state, resume.id.as_str()).expect("delete");
     assert!(!profile.has_resumes());
     assert_eq!(resume_count(&state.db).expect("count"), 0);
     assert!(!std::path::Path::new(&resume.local_path).exists());
@@ -428,7 +428,7 @@ async fn deleting_one_resume_removes_only_its_contributions() {
     assert!(merged.profile.core_competencies.contains(&"C#".to_string()));
 
     let first_resume = list_resumes(&state.db).expect("resumes").remove(0);
-    let recalculated = delete_resume_with(&state, &first_resume.id).expect("delete");
+    let recalculated = delete_resume_with(&state, first_resume.id.as_str()).expect("delete");
 
     assert_eq!(recalculated.core_competencies, ["C#"]);
     assert_eq!(recalculated.source_documents.len(), 1);

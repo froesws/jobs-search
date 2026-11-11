@@ -9,10 +9,11 @@ use serde::Serialize;
 
 use crate::db::{Db, now_rfc3339};
 use crate::error::AppError;
+use crate::types::JobId;
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct JobApplication {
-    pub job_id: String,
+    pub job_id: JobId,
     pub lifecycle_state: String,
     pub applied_at: Option<String>,
     pub approval_source: String,
@@ -21,7 +22,7 @@ pub struct JobApplication {
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct JobEvaluationView {
-    pub job_id: String,
+    pub job_id: JobId,
     pub evaluation_status: String,
     pub match_score: Option<i64>,
     pub approval_source: String,
@@ -55,13 +56,13 @@ struct EvaluationSnapshot {
     profile_version: i64,
 }
 
-pub fn get_application(db: &Db, job_id: &str) -> Result<Option<JobApplication>, AppError> {
+pub fn get_application(db: &Db, job_id: &JobId) -> Result<Option<JobApplication>, AppError> {
     db.with_connection(|connection| {
         Ok(connection
             .query_row(
                 "SELECT job_id, lifecycle_state, applied_at, approval_source, evaluation_snapshot_json
                  FROM job_applications WHERE job_id = ?1",
-                [job_id],
+                [job_id.as_str()],
                 application_from_row,
             )
             .optional()?)
@@ -69,7 +70,7 @@ pub fn get_application(db: &Db, job_id: &str) -> Result<Option<JobApplication>, 
 }
 
 /// Mark an APPROVED job as applied and capture an immutable evaluation snapshot.
-pub fn apply_job(db: &Db, job_id: &str) -> Result<JobApplication, AppError> {
+pub fn apply_job(db: &Db, job_id: &JobId) -> Result<JobApplication, AppError> {
     let evaluation =
         load_evaluation(db, job_id)?.ok_or_else(|| AppError::not_found("evaluation"))?;
     if evaluation.status != "APPROVED" {
@@ -85,7 +86,7 @@ pub fn apply_job(db: &Db, job_id: &str) -> Result<JobApplication, AppError> {
     let snapshot = snapshot_json(job_id, &evaluation);
     let now = now_rfc3339();
     let application = JobApplication {
-        job_id: job_id.to_string(),
+        job_id: job_id.clone(),
         lifecycle_state: "APPLIED".to_string(),
         applied_at: Some(now.clone()),
         approval_source: evaluation.approval_source.clone(),
@@ -105,7 +106,7 @@ pub fn apply_job(db: &Db, job_id: &str) -> Result<JobApplication, AppError> {
                 evaluation_snapshot_json = excluded.evaluation_snapshot_json,
                 updated_at = excluded.updated_at",
             params![
-                job_id,
+                job_id.as_str(),
                 now,
                 application.approval_source,
                 snapshot,
@@ -127,15 +128,20 @@ pub fn apply_job(db: &Db, job_id: &str) -> Result<JobApplication, AppError> {
     Ok(application)
 }
 
-pub fn ignore_job(db: &Db, job_id: &str) -> Result<JobApplication, AppError> {
+pub fn ignore_job(db: &Db, job_id: &JobId) -> Result<JobApplication, AppError> {
     transition(db, job_id, "IGNORED", "operator ignored the job")
 }
 
-pub fn restore_job(db: &Db, job_id: &str) -> Result<JobApplication, AppError> {
+pub fn restore_job(db: &Db, job_id: &JobId) -> Result<JobApplication, AppError> {
     transition(db, job_id, "DISCOVERED", "operator restored the job")
 }
 
-fn transition(db: &Db, job_id: &str, next: &str, reason: &str) -> Result<JobApplication, AppError> {
+fn transition(
+    db: &Db,
+    job_id: &JobId,
+    next: &str,
+    reason: &str,
+) -> Result<JobApplication, AppError> {
     if crate::db::jobs::get_detail(db, job_id).is_err() {
         return Err(AppError::not_found("job"));
     }
@@ -156,7 +162,7 @@ fn transition(db: &Db, job_id: &str, next: &str, reason: &str) -> Result<JobAppl
         previous.as_ref().and_then(|value| value.applied_at.clone())
     };
     let application = JobApplication {
-        job_id: job_id.to_string(),
+        job_id: job_id.clone(),
         lifecycle_state: next.to_string(),
         applied_at,
         approval_source,
@@ -176,7 +182,7 @@ fn transition(db: &Db, job_id: &str, next: &str, reason: &str) -> Result<JobAppl
                 evaluation_snapshot_json = excluded.evaluation_snapshot_json,
                 updated_at = excluded.updated_at",
             params![
-                job_id,
+                job_id.as_str(),
                 application.lifecycle_state,
                 application.applied_at,
                 application.approval_source,
@@ -202,7 +208,7 @@ fn transition(db: &Db, job_id: &str, next: &str, reason: &str) -> Result<JobAppl
 
 /// Manually approve a PENDING evaluation. The original score and breakdown are
 /// preserved; only the status and approval source change.
-pub fn approve_job(db: &Db, job_id: &str) -> Result<JobEvaluationView, AppError> {
+pub fn approve_job(db: &Db, job_id: &JobId) -> Result<JobEvaluationView, AppError> {
     let evaluation =
         load_evaluation(db, job_id)?.ok_or_else(|| AppError::not_found("evaluation"))?;
     if evaluation.score.is_none() {
@@ -223,7 +229,7 @@ pub fn approve_job(db: &Db, job_id: &str) -> Result<JobEvaluationView, AppError>
             "UPDATE job_evaluations
              SET evaluation_status = 'APPROVED', approval_source = 'manual'
              WHERE job_id = ?1",
-            [job_id],
+            [job_id.as_str()],
         )?;
         append_event_with_connection(
             &transaction,
@@ -239,20 +245,20 @@ pub fn approve_job(db: &Db, job_id: &str) -> Result<JobEvaluationView, AppError>
     })?;
 
     Ok(JobEvaluationView {
-        job_id: job_id.to_string(),
+        job_id: job_id.clone(),
         evaluation_status: "APPROVED".to_string(),
         match_score: evaluation.score,
         approval_source: "manual".to_string(),
     })
 }
 
-pub fn events(db: &Db, job_id: &str) -> Result<Vec<StatusEvent>, AppError> {
+pub fn events(db: &Db, job_id: &JobId) -> Result<Vec<StatusEvent>, AppError> {
     db.with_connection(|connection| {
         let mut statement = connection.prepare(
             "SELECT event_type, old_value, new_value, reason, created_at
              FROM job_status_events WHERE job_id = ?1 ORDER BY created_at ASC, id ASC",
         )?;
-        let rows = statement.query_map([job_id], |row| {
+        let rows = statement.query_map([job_id.as_str()], |row| {
             Ok(StatusEvent {
                 event_type: row.get(0)?,
                 old_value: row.get(1)?,
@@ -269,7 +275,7 @@ pub fn events(db: &Db, job_id: &str) -> Result<Vec<StatusEvent>, AppError> {
     })
 }
 
-fn load_evaluation(db: &Db, job_id: &str) -> Result<Option<EvaluationSnapshot>, AppError> {
+fn load_evaluation(db: &Db, job_id: &JobId) -> Result<Option<EvaluationSnapshot>, AppError> {
     db.with_connection(|connection| {
         Ok(connection
             .query_row(
@@ -280,7 +286,7 @@ fn load_evaluation(db: &Db, job_id: &str) -> Result<Option<EvaluationSnapshot>, 
                         provider, model, approval_source, evaluated_at, stale,
                         profile_version
                  FROM job_evaluations WHERE job_id = ?1",
-                [job_id],
+                [job_id.as_str()],
                 |row| {
                     Ok(EvaluationSnapshot {
                         status: row.get(0)?,
@@ -306,9 +312,9 @@ fn load_evaluation(db: &Db, job_id: &str) -> Result<Option<EvaluationSnapshot>, 
     })
 }
 
-fn snapshot_json(job_id: &str, evaluation: &EvaluationSnapshot) -> String {
+fn snapshot_json(job_id: &JobId, evaluation: &EvaluationSnapshot) -> String {
     serde_json::json!({
-        "job_id": job_id,
+        "job_id": job_id.as_str(),
         "evaluation_status": evaluation.status,
         "match_score": evaluation.score,
         "matching_items_count": evaluation.matching,
@@ -341,7 +347,7 @@ fn event_for_state(state: &str) -> &'static str {
 #[allow(clippy::too_many_arguments)]
 fn append_event_with_connection(
     connection: &rusqlite::Connection,
-    job_id: &str,
+    job_id: &JobId,
     event_type: &str,
     old_value: Option<&str>,
     new_value: &str,
@@ -354,7 +360,7 @@ fn append_event_with_connection(
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
         params![
             uuid::Uuid::new_v4().to_string(),
-            job_id,
+            job_id.as_str(),
             event_type,
             old_value,
             new_value,
@@ -377,7 +383,7 @@ fn sanitize_reason(reason: Option<&str>) -> Option<String> {
 
 fn application_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<JobApplication> {
     Ok(JobApplication {
-        job_id: row.get(0)?,
+        job_id: JobId::from(row.get::<_, String>(0)?),
         lifecycle_state: row.get(1)?,
         applied_at: row.get(2)?,
         approval_source: row.get(3)?,

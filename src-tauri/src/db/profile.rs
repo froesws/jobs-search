@@ -8,10 +8,11 @@ use rusqlite::{OptionalExtension, params};
 use crate::db::{Db, now_rfc3339};
 use crate::error::AppError;
 use crate::profile::CandidateProfile;
+use crate::types::ResumeId;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StoredResume {
-    pub id: String,
+    pub id: ResumeId,
     pub filename: String,
     pub content_hash: String,
     pub local_path: String,
@@ -113,7 +114,7 @@ pub fn insert_resume(
     }
 
     let resume = StoredResume {
-        id: uuid::Uuid::new_v4().to_string(),
+        id: ResumeId::new(uuid::Uuid::new_v4().to_string()),
         filename: filename.to_string(),
         content_hash: content_hash.to_string(),
         local_path: local_path.to_string(),
@@ -127,7 +128,7 @@ pub fn insert_resume(
              (id, filename, content_hash, local_path, uploaded_at, extracted_json)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
             params![
-                resume.id,
+                resume.id.as_str(),
                 resume.filename,
                 resume.content_hash,
                 resume.local_path,
@@ -159,13 +160,13 @@ pub fn list_resumes(db: &Db) -> Result<Vec<StoredResume>, AppError> {
     })
 }
 
-pub fn delete_resume(db: &Db, id: &str) -> Result<Option<StoredResume>, AppError> {
+pub fn delete_resume(db: &Db, id: &ResumeId) -> Result<Option<StoredResume>, AppError> {
     let resume = db.with_connection(|connection| {
         Ok(connection
             .query_row(
                 "SELECT id, filename, content_hash, local_path, uploaded_at, extracted_json
                  FROM resumes WHERE id = ?1",
-                [id],
+                [id.as_str()],
                 resume_from_row,
             )
             .optional()?)
@@ -173,7 +174,7 @@ pub fn delete_resume(db: &Db, id: &str) -> Result<Option<StoredResume>, AppError
 
     if resume.is_some() {
         db.with_connection(|connection| {
-            connection.execute("DELETE FROM resumes WHERE id = ?1", [id])?;
+            connection.execute("DELETE FROM resumes WHERE id = ?1", [id.as_str()])?;
             Ok(())
         })?;
     }
@@ -189,7 +190,7 @@ pub fn resume_count(db: &Db) -> Result<i64, AppError> {
 
 fn resume_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<StoredResume> {
     Ok(StoredResume {
-        id: row.get(0)?,
+        id: ResumeId::from(row.get::<_, String>(0)?),
         filename: row.get(1)?,
         content_hash: row.get(2)?,
         local_path: row.get(3)?,

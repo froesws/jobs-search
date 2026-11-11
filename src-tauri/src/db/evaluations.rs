@@ -4,14 +4,14 @@ use rusqlite::params;
 
 use crate::db::{Db, now_rfc3339};
 use crate::error::AppError;
-use crate::types::{EvaluationStatus, HardFilterRejection};
+use crate::types::{EvaluationStatus, HardFilterRejection, JobId, RunId};
 
 pub const RULES_VERSION: &str = "v1-40-25-20-15";
 
 #[derive(Debug, Clone)]
 pub struct EvaluationRecord {
-    pub job_id: String,
-    pub run_id: String,
+    pub job_id: JobId,
+    pub run_id: RunId,
     pub profile_version: i64,
     pub status: EvaluationStatus,
     pub score: Option<i64>,
@@ -65,8 +65,8 @@ pub fn upsert_evaluation(db: &Db, record: &EvaluationRecord) -> Result<(), AppEr
                 stale = 0",
             params![
                 uuid::Uuid::new_v4().to_string(),
-                record.job_id,
-                record.run_id,
+                record.job_id.as_str(),
+                record.run_id.as_str(),
                 record.profile_version,
                 record.status.as_str(),
                 record.score,
@@ -90,7 +90,7 @@ pub fn upsert_evaluation(db: &Db, record: &EvaluationRecord) -> Result<(), AppEr
              VALUES (?1, ?2, 'EVALUATED', NULL, ?3, NULL, ?4)",
             params![
                 uuid::Uuid::new_v4().to_string(),
-                record.job_id,
+                record.job_id.as_str(),
                 record.status.as_str(),
                 now,
             ],
@@ -108,7 +108,7 @@ pub fn upsert_evaluation(db: &Db, record: &EvaluationRecord) -> Result<(), AppEr
                  VALUES (?1, ?2, ?3, NULL, ?4, ?5, ?6)",
                 params![
                     uuid::Uuid::new_v4().to_string(),
-                    record.job_id,
+                    record.job_id.as_str(),
                     event_type,
                     record.status.as_str(),
                     format!("{RULES_VERSION}; threshold {}", record.threshold),

@@ -198,7 +198,7 @@ async fn fixture_profile_evaluates_approved_pending_rejected_and_error_jobs() {
         .with_connection(|connection| {
             Ok(connection.query_row(
                 "SELECT COUNT(*) FROM job_evaluations WHERE run_id = ?1",
-                [&run.run_id],
+                [run.run_id.as_str()],
                 |row| row.get(0),
             )?)
         })
@@ -209,7 +209,7 @@ async fn fixture_profile_evaluates_approved_pending_rejected_and_error_jobs() {
         .with_connection(|connection| {
             Ok(connection.query_row(
                 "SELECT COUNT(*) FROM llm_metrics WHERE run_id = ?1",
-                [&run.run_id],
+                [run.run_id.as_str()],
                 |row| row.get(0),
             )?)
         })

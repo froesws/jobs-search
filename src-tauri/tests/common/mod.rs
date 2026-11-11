@@ -97,7 +97,12 @@ pub fn new_job(
     }
 }
 
-pub fn seed_job(db: &Db, source_id: &str, external_id: &str, job: &NewJob) -> String {
+pub fn seed_job(
+    db: &Db,
+    source_id: &str,
+    external_id: &str,
+    job: &NewJob,
+) -> jobs_search_lib::types::JobId {
     let outcome = upsert_job(db, job).expect("upsert job");
     add_lineage(db, &outcome.job_id, source_id, external_id, &job.url).expect("lineage");
     outcome.job_id

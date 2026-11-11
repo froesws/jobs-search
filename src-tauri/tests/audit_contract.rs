@@ -60,7 +60,8 @@ fn audit_reconciles_with_the_run_records() {
 #[test]
 fn audit_returns_not_found_for_an_unknown_run() {
     let db = common::test_db();
-    let error = get_audit(&db, "missing").expect_err("missing run");
+    let error =
+        get_audit(&db, &jobs_search_lib::types::RunId::from("missing")).expect_err("missing run");
     assert_eq!(error.code(), "NOT_FOUND");
 }
 

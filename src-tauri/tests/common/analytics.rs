@@ -8,7 +8,7 @@ use jobs_search_lib::types::{EvaluationStatus, WorkModality};
 use super::{ensure_source, new_job, seed_job};
 
 pub struct AnalyticsSeed {
-    pub run_id: String,
+    pub run_id: jobs_search_lib::types::RunId,
     pub eligible: usize,
 }
 

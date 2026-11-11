@@ -2,18 +2,20 @@ use std::collections::BTreeMap;
 
 use rusqlite::{OptionalExtension, params};
 
+use crate::types::RunId;
+
 use crate::db::{Db, now_rfc3339};
 use crate::error::AppError;
 
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct RunStart {
-    pub run_id: String,
+    pub run_id: RunId,
     pub started_at: String,
 }
 
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct SearchMetrics {
-    pub run_id: String,
+    pub run_id: RunId,
     pub status: String,
     pub total_ingested: i64,
     pub duplicates_merged: i64,
@@ -28,7 +30,7 @@ pub struct SearchMetrics {
 
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct ExecutionAudit {
-    pub run_id: String,
+    pub run_id: RunId,
     pub status: String,
     pub started_at: String,
     pub finished_at: Option<String>,
@@ -51,7 +53,7 @@ pub struct ExecutionAudit {
 }
 
 pub struct RunFinish<'a> {
-    pub run_id: &'a str,
+    pub run_id: &'a RunId,
     pub status: &'a str,
     pub total_ingested: i64,
     pub duplicates_merged: i64,
@@ -80,14 +82,14 @@ impl RunFinish<'_> {
 }
 
 pub fn start_run(db: &Db, search_config_json: &str) -> Result<RunStart, AppError> {
-    let run_id = uuid::Uuid::new_v4().to_string();
+    let run_id = RunId::new(uuid::Uuid::new_v4().to_string());
     let started_at = now_rfc3339();
     db.with_connection(|connection| {
         connection.execute(
             "INSERT INTO execution_runs
              (id, started_at, finished_at, search_config_json, status)
              VALUES (?1, ?2, NULL, ?3, 'RUNNING')",
-            params![run_id, started_at, search_config_json],
+            params![run_id.as_str(), started_at, search_config_json],
         )?;
         Ok(())
     })?;
@@ -119,11 +121,12 @@ pub fn finish_run(db: &Db, finish: &RunFinish<'_>) -> Result<SearchMetrics, AppE
                 finish.approved_count,
                 finish.error_count,
                 source_failures_json,
-                finish.run_id,
+                finish.run_id.as_str(),
             ],
         )?;
 
-        let provider_breakdown = provider_breakdown_with_connection(&transaction, finish.run_id)?;
+        let provider_breakdown =
+            provider_breakdown_with_connection(&transaction, finish.run_id.as_str())?;
         transaction.execute(
             "INSERT INTO run_metrics
              (run_id, total_ingested, duplicates_merged, rejected_by_reason_json,
@@ -143,7 +146,7 @@ pub fn finish_run(db: &Db, finish: &RunFinish<'_>) -> Result<SearchMetrics, AppE
                 provider_breakdown_json = excluded.provider_breakdown_json,
                 updated_at = excluded.updated_at",
             params![
-                finish.run_id,
+                finish.run_id.as_str(),
                 finish.total_ingested,
                 finish.duplicates_merged,
                 rejected_by_reason,
@@ -158,7 +161,7 @@ pub fn finish_run(db: &Db, finish: &RunFinish<'_>) -> Result<SearchMetrics, AppE
         )?;
         transaction.commit()?;
         Ok(SearchMetrics {
-            run_id: finish.run_id.to_string(),
+            run_id: RunId::from(finish.run_id.as_str()),
             status: finish.status.to_string(),
             total_ingested: finish.total_ingested,
             duplicates_merged: finish.duplicates_merged,
@@ -175,7 +178,7 @@ pub fn finish_run(db: &Db, finish: &RunFinish<'_>) -> Result<SearchMetrics, AppE
     Ok(metrics)
 }
 
-pub fn get_audit(db: &Db, run_id: &str) -> Result<ExecutionAudit, AppError> {
+pub fn get_audit(db: &Db, run_id: &RunId) -> Result<ExecutionAudit, AppError> {
     db.with_connection(|connection| {
         let audit = connection
             .query_row(
@@ -194,12 +197,12 @@ pub fn get_audit(db: &Db, run_id: &str) -> Result<ExecutionAudit, AppError> {
                  FROM execution_runs r
                  LEFT JOIN run_metrics m ON m.run_id = r.id
                  WHERE r.id = ?1",
-                [run_id],
+                [run_id.as_str()],
                 |row| {
                     let search_config: String = row.get(4)?;
                     let source_failures: String = row.get(11)?;
                     Ok(ExecutionAudit {
-                        run_id: row.get(0)?,
+                        run_id: RunId::from(row.get::<_, String>(0)?),
                         status: row.get(1)?,
                         started_at: row.get(2)?,
                         finished_at: row.get(3)?,
@@ -255,7 +258,7 @@ fn provider_breakdown_with_connection(
 #[allow(clippy::too_many_arguments)]
 pub fn record_llm_metric(
     db: &Db,
-    run_id: &str,
+    run_id: &RunId,
     provider: &str,
     model: &str,
     operation: &str,
@@ -272,7 +275,7 @@ pub fn record_llm_metric(
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
             params![
                 uuid::Uuid::new_v4().to_string(),
-                run_id,
+                run_id.as_str(),
                 provider,
                 model,
                 operation,
