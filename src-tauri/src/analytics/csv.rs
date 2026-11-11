@@ -1,5 +1,6 @@
 //! CSV export for the current analytics view.
 
+use std::io::{BufWriter, Write};
 use std::path::Path;
 
 use crate::analytics::{
@@ -36,92 +37,112 @@ pub fn export(db: &Db, request: ExportRequest) -> Result<ExportResult, AppError>
     )?;
     let jobs = export_jobs(db, request.scope, analytics.run_id.as_deref())?;
 
-    let mut text = String::new();
-    write_pair(&mut text, "metric", "value");
-    write_pair(&mut text, "scope", scope_label(request.scope));
+    let file = std::fs::File::create(destination)?;
+    let mut writer = BufWriter::new(file);
+    write_pair(&mut writer, "metric", "value")?;
+    write_pair(&mut writer, "scope", scope_label(request.scope))?;
     write_pair(
-        &mut text,
+        &mut writer,
         "run_id",
         analytics.run_id.as_deref().unwrap_or(""),
-    );
-    write_pair(&mut text, "denominator", &analytics.denominator.to_string());
-    write_pair(&mut text, "last_updated", &analytics.last_updated);
-    write_pair(&mut text, "stale", &analytics.stale.to_string());
+    )?;
     write_pair(
-        &mut text,
+        &mut writer,
+        "denominator",
+        &analytics.denominator.to_string(),
+    )?;
+    write_pair(&mut writer, "last_updated", &analytics.last_updated)?;
+    write_pair(&mut writer, "stale", &analytics.stale.to_string())?;
+    write_pair(
+        &mut writer,
         "ingested",
         &analytics.funnel.ingested.to_string(),
-    );
+    )?;
     write_pair(
-        &mut text,
+        &mut writer,
         "duplicates",
         &analytics.funnel.duplicates.to_string(),
-    );
-    write_pair(&mut text, "pending", &analytics.funnel.pending.to_string());
+    )?;
     write_pair(
-        &mut text,
+        &mut writer,
+        "pending",
+        &analytics.funnel.pending.to_string(),
+    )?;
+    write_pair(
+        &mut writer,
         "approved",
         &analytics.funnel.approved.to_string(),
-    );
-    write_pair(&mut text, "error", &analytics.funnel.error.to_string());
-    write_pair(&mut text, "applied", &analytics.funnel.applied.to_string());
-    write_pair(&mut text, "ignored", &analytics.funnel.ignored.to_string());
+    )?;
+    write_pair(&mut writer, "error", &analytics.funnel.error.to_string())?;
     write_pair(
-        &mut text,
+        &mut writer,
+        "applied",
+        &analytics.funnel.applied.to_string(),
+    )?;
+    write_pair(
+        &mut writer,
+        "ignored",
+        &analytics.funnel.ignored.to_string(),
+    )?;
+    write_pair(
+        &mut writer,
         "approval_rate",
         &analytics.funnel.approval_rate.to_string(),
-    );
+    )?;
     write_pair(
-        &mut text,
+        &mut writer,
         "application_rate",
         &analytics.funnel.application_rate.to_string(),
-    );
+    )?;
     for (reason, count) in &analytics.funnel.rejected_by_reason {
-        write_pair(&mut text, &format!("rejected.{reason}"), &count.to_string());
+        write_pair(
+            &mut writer,
+            &format!("rejected.{reason}"),
+            &count.to_string(),
+        )?;
     }
     for (source, count) in &analytics.funnel.source_breakdown {
-        write_pair(&mut text, &format!("source.{source}"), &count.to_string());
+        write_pair(&mut writer, &format!("source.{source}"), &count.to_string())?;
     }
     for (provider, count) in &analytics.funnel.provider_breakdown {
         write_pair(
-            &mut text,
+            &mut writer,
             &format!("provider.{provider}"),
             &count.to_string(),
-        );
+        )?;
     }
     for bucket in &analytics.score_distribution {
         write_pair(
-            &mut text,
+            &mut writer,
             &format!("score.{}", bucket.range),
             &bucket.count.to_string(),
-        );
+        )?;
     }
     for metric in &analytics.skill_gap {
         write_pair(
-            &mut text,
+            &mut writer,
             &format!("skill.{}", metric.display_name),
             &format!("{} ({:.1}%)", metric.demand_count, metric.demand_percentage),
-        );
+        )?;
     }
     write_pair(
-        &mut text,
+        &mut writer,
         "llm.calls",
         &analytics.llm_metrics.call_count.to_string(),
-    );
+    )?;
     write_pair(
-        &mut text,
+        &mut writer,
         "llm.p50_latency_ms",
         &analytics.llm_metrics.p50_latency_ms.to_string(),
-    );
+    )?;
     write_pair(
-        &mut text,
+        &mut writer,
         "llm.p95_latency_ms",
         &analytics.llm_metrics.p95_latency_ms.to_string(),
-    );
-    text.push('\n');
+    )?;
 
     write_row(
-        &mut text,
+        &mut writer,
         &[
             "title".to_string(),
             "company".to_string(),
@@ -138,10 +159,10 @@ pub fn export(db: &Db, request: ExportRequest) -> Result<ExportResult, AppError>
             "missing_keywords".to_string(),
             "description_clean".to_string(),
         ],
-    );
+    )?;
     for job in &jobs {
         write_row(
-            &mut text,
+            &mut writer,
             &[
                 job.title.clone(),
                 job.company.clone(),
@@ -160,10 +181,10 @@ pub fn export(db: &Db, request: ExportRequest) -> Result<ExportResult, AppError>
                 job.missing.clone(),
                 job.description.clone(),
             ],
-        );
+        )?;
     }
 
-    std::fs::write(destination, text.as_bytes())?;
+    writer.flush()?;
     let bytes = std::fs::metadata(destination)?.len();
     let rows = u32::try_from(jobs.len())
         .map_err(|_| AppError::validation("too many rows for a single CSV export"))?;
@@ -268,18 +289,19 @@ fn scope_label(scope: AnalyticsScope) -> &'static str {
     }
 }
 
-fn write_pair(text: &mut String, key: &str, value: &str) {
-    write_row(text, &[key.to_string(), value.to_string()]);
+fn write_pair<W: Write>(writer: &mut W, key: &str, value: &str) -> Result<(), AppError> {
+    write_row(writer, &[key.to_string(), value.to_string()])?;
+    Ok(())
 }
 
-fn write_row(text: &mut String, values: &[String]) {
+fn write_row<W: Write>(writer: &mut W, values: &[String]) -> Result<(), AppError> {
     let line = values
         .iter()
         .map(|value| escape(value))
         .collect::<Vec<_>>()
         .join(",");
-    text.push_str(&line);
-    text.push('\n');
+    writeln!(writer, "{line}")?;
+    Ok(())
 }
 
 fn escape(value: &str) -> String {
