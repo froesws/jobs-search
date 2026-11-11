@@ -104,6 +104,33 @@ export function ProviderConfigDialog({
     }
   }, [open, providers, state.config, loadCatalog]);
 
+  // Ollama has no static catalog: query the local server when the dialog opens
+  // and pre-select the first model it reports.
+  useEffect(() => {
+    if (!open) return;
+    if (!providers.some((provider) => provider.id === 'ollama')) return;
+    let cancelled = false;
+    refreshProviderModels('ollama', false, true)
+      .then((catalog) => {
+        if (cancelled) return;
+        setCatalogs((current) => ({ ...current, ollama: catalog }));
+        const first = catalog.models[0]?.id;
+        if (!first) return;
+        setDraft((current) => {
+          const value = current.providers.ollama;
+          if (!value || value.model) return current;
+          return {
+            ...current,
+            providers: { ...current.providers, ollama: { ...value, model: first } },
+          };
+        });
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [open, providers]);
+
   const updateProvider = (id: string, patch: Partial<ProviderDraft>) => {
     setDraft((current) => ({
       ...current,
