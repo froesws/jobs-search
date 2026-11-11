@@ -435,7 +435,10 @@ pub async fn cmd_upload_resume(
     file_path: String,
 ) -> Result<UploadResumeResult, ErrorPayload> {
     let config = state.config()?;
-    let router = crate::llm::router_from_config(&config, state.http.clone());
+    let session = state.session_selection()?;
+    let provider_settings =
+        crate::config::ProviderSettings::resolve(&state.db, &config, session.as_ref())?;
+    let router = crate::llm::router_from_config(&config, &provider_settings, state.http.clone());
     let extractor = LlmProfileExtractor::new(router);
     upload_resume_with(&state, &file_path, &extractor)
         .await

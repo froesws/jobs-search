@@ -175,7 +175,10 @@ pub async fn trigger(state: &AppState, filters: SearchFilters) -> Result<SearchM
     let run = crate::db::runs::start_run(&state.db, &search_config_json)?;
 
     let ingestion = ingest_jobs(state, &enabled, &filters).await?;
-    let router = llm::router_from_config(&config, state.http.clone());
+    let session = state.session_selection()?;
+    let provider_settings =
+        crate::config::ProviderSettings::resolve(&state.db, &config, session.as_ref())?;
+    let router = llm::router_from_config(&config, &provider_settings, state.http.clone());
     let settings = crate::matching::EvaluationSettings {
         threshold: config.match_threshold,
         max_jobs: config.max_evaluations,
