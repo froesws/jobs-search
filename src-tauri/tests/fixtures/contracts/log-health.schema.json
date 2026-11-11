@@ -5,12 +5,7 @@
   "description": "Payload returned by cmd_get_log_health. It contains no log content, credentials, URLs, paths, payloads, prompts, or candidate data.",
   "type": "object",
   "additionalProperties": false,
-  "required": [
-    "available",
-    "queue_depth",
-    "queue_capacity",
-    "dropped_count"
-  ],
+  "required": ["available", "queue_depth", "queue_capacity", "dropped_count"],
   "properties": {
     "available": {
       "type": "boolean"

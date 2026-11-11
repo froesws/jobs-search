@@ -5,13 +5,7 @@
   "description": "One JSON Lines record written by the local telemetry writer. URLs, filesystem paths, raw payloads, model prompts/responses, job content, candidate data, and credentials are forbidden.",
   "type": "object",
   "additionalProperties": false,
-  "required": [
-    "timestamp",
-    "level",
-    "event_type",
-    "component",
-    "outcome"
-  ],
+  "required": ["timestamp", "level", "event_type", "component", "outcome"],
   "properties": {
     "timestamp": {
       "type": "string",
@@ -42,15 +36,7 @@
     },
     "component": {
       "type": "string",
-      "enum": [
-        "app",
-        "ingestion",
-        "llm",
-        "match",
-        "db",
-        "ui",
-        "telemetry"
-      ]
+      "enum": ["app", "ingestion", "llm", "match", "db", "ui", "telemetry"]
     },
     "source": {
       "type": ["string", "null"],
@@ -78,17 +64,7 @@
     },
     "error_category": {
       "type": ["string", "null"],
-      "enum": [
-        "TIMEOUT",
-        "RATE_LIMIT",
-        "AUTH",
-        "NETWORK",
-        "PARSE",
-        "IO",
-        "CONFIG",
-        "UNKNOWN",
-        null
-      ]
+      "enum": ["TIMEOUT", "RATE_LIMIT", "AUTH", "NETWORK", "PARSE", "IO", "CONFIG", "UNKNOWN", null]
     },
     "job_ref": {
       "type": ["string", "null"],
