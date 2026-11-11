@@ -2,6 +2,7 @@
 
 use std::collections::{BTreeMap, HashSet};
 
+use crate::analytics::{EligibleJob, SkillGapMetric};
 use crate::profile::CandidateProfile;
 
 /// Canonical key for a skill: trimmed, case-folded, whitespace-collapsed, with
@@ -47,7 +48,6 @@ pub fn display_name(key: &str) -> String {
     }
 }
 
-#[allow(dead_code)]
 fn profile_skills(profile: Option<&CandidateProfile>) -> HashSet<String> {
     profile
         .map(|profile| {
@@ -60,16 +60,63 @@ fn profile_skills(profile: Option<&CandidateProfile>) -> HashSet<String> {
         .unwrap_or_default()
 }
 
-#[allow(dead_code)]
-fn counted_once(values: &[String]) -> BTreeMap<String, String> {
-    let mut result = BTreeMap::new();
-    for value in values {
-        let key = normalize_skill(value);
-        if !key.is_empty() {
-            result
+/// Aggregate missing-skill demand over the eligible jobs.
+pub fn compute(jobs: &[EligibleJob], profile: Option<&CandidateProfile>) -> Vec<SkillGapMetric> {
+    let excluded = profile_skills(profile);
+    let mut counts: BTreeMap<String, u32> = BTreeMap::new();
+    let mut displays: BTreeMap<String, String> = BTreeMap::new();
+
+    for job in jobs {
+        let matched = job
+            .matched_keywords
+            .iter()
+            .map(|value| normalize_skill(value))
+            .collect::<HashSet<_>>();
+        let mut counted = HashSet::new();
+        for missing in &job.missing_keywords {
+            let key = normalize_skill(missing);
+            if key.is_empty()
+                || excluded.contains(&key)
+                || matched.contains(&key)
+                || !counted.insert(key.clone())
+            {
+                continue;
+            }
+            *counts.entry(key.clone()).or_insert(0) += 1;
+            displays
                 .entry(key)
-                .or_insert_with(|| value.trim().to_string());
+                .or_insert_with(|| display_name(&normalize_skill(missing)));
         }
     }
-    result
+
+    let denominator = jobs.len() as f64;
+    let mut metrics = counts
+        .into_iter()
+        .map(|(key, demand_count)| SkillGapMetric {
+            skill: key.clone(),
+            display_name: displays.remove(&key).unwrap_or_else(|| display_name(&key)),
+            demand_count,
+            demand_percentage: if denominator == 0.0 {
+                0.0
+            } else {
+                round_one_decimal(demand_count as f64 / denominator * 100.0)
+            },
+            rank: 0,
+        })
+        .collect::<Vec<_>>();
+
+    metrics.sort_by(|left, right| {
+        right
+            .demand_count
+            .cmp(&left.demand_count)
+            .then_with(|| left.display_name.cmp(&right.display_name))
+    });
+    for (index, metric) in metrics.iter_mut().enumerate() {
+        metric.rank = (index + 1) as u32;
+    }
+    metrics
+}
+
+fn round_one_decimal(value: f64) -> f64 {
+    (value * 10.0).round() / 10.0
 }
