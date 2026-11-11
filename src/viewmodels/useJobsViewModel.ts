@@ -4,7 +4,9 @@ import { safeMessage } from '../lib/errors';
 import { getJobs } from '../lib/ipc';
 import type { JobSummary, JobTab } from '../lib/types';
 
-const PAGE_SIZE = 12;
+import { tokens } from '../theme/tokens';
+
+const PAGE_SIZE = tokens.pageSize;
 
 type Status = 'idle' | 'loading' | 'ready' | 'empty' | 'error';
 

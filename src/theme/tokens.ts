@@ -7,6 +7,8 @@ export const tokens = {
   lightPaper: '#ffffff',
   radiusCard: 18,
   radiusControl: 10,
+  pageSize: 12,
+  drawerWidth: 520,
 } as const;
 
 export function scoreTone(score: number | null | undefined) {

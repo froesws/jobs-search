@@ -7,6 +7,10 @@ use crate::db::now_rfc3339;
 use crate::error::AppError;
 use crate::types::{EvaluationStatus, HardFilterRejection, JobId, JobTab, WorkModality};
 
+const FROM_JOBS: &str = "job_postings j
+    LEFT JOIN job_evaluations e ON e.job_id = j.id
+    LEFT JOIN job_applications a ON a.job_id = j.id";
+
 const SUMMARY_COLUMNS: &str = "
     j.id, j.title, j.company, j.location, j.work_modality, j.url, j.posted_at,
     e.evaluation_status, COALESCE(a.lifecycle_state, 'DISCOVERED'),
@@ -406,19 +410,12 @@ pub fn list_summaries(
     };
 
     db.with_connection(|connection| {
-        let count_sql = format!(
-            "SELECT COUNT(*) FROM job_postings j
-             LEFT JOIN job_evaluations e ON e.job_id = j.id
-             LEFT JOIN job_applications a ON a.job_id = j.id
-             {filter}"
-        );
+        let count_sql = format!("SELECT COUNT(*) FROM {FROM_JOBS} {filter}");
         let total: i64 = connection.query_row(&count_sql, [], |row| row.get(0))?;
 
         let query = format!(
             "SELECT {SUMMARY_COLUMNS}
-             FROM job_postings j
-             LEFT JOIN job_evaluations e ON e.job_id = j.id
-             LEFT JOIN job_applications a ON a.job_id = j.id
+             FROM {FROM_JOBS}
              {filter}
              {order}
              LIMIT ?1 OFFSET ?2"

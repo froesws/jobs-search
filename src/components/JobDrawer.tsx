@@ -8,6 +8,7 @@ import Typography from '@mui/material/Typography';
 
 import { formatDate, modalityLabel, postingAge, safeExternalUrl, statusLabel } from '../lib/format';
 import type { JobDetail } from '../lib/types';
+import { tokens } from '../theme/tokens';
 import { ErrorState } from './ErrorState';
 import { RequirementRatio } from './RequirementRatio';
 import { ScoreBadge } from './ScoreBadge';
@@ -54,7 +55,7 @@ export function JobDrawer({
       slotProps={{
         paper: {
           sx: {
-            width: 520,
+            width: tokens.drawerWidth,
             maxWidth: '100vw',
             bgcolor: 'background.default',
             backgroundImage:
