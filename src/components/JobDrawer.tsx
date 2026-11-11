@@ -258,11 +258,9 @@ export function JobDrawer({
                   <Typography variant="overline" color="text.secondary">
                     Original posting
                   </Typography>
-                  <Typography
-                    component="a"
-                    href={url}
-                    rel="noreferrer"
-                    variant="body2"
+                  <Button
+                    variant="contained"
+                    size="small"
                     data-testid="original-posting-url"
                     onClick={(event) => {
                       event.preventDefault();
@@ -273,8 +271,15 @@ export function JobDrawer({
                         ),
                       );
                     }}
-                    sx={{ display: 'block', color: 'primary.main' }}
-                    style={{ wordBreak: 'break-all', userSelect: 'text' }}
+                    sx={{ maxWidth: 'full' }}
+                  >
+                    Open original posting
+                  </Button>
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    data-testid="original-posting-url-text"
+                    sx={{ mt: 1, wordBreak: 'break-all', userSelect: 'text' }}
                   >
                     {url}
                   </Typography>

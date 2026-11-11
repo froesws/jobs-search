@@ -1,14 +1,19 @@
 ---
 
-description: "Task list for opening the original posting link in the default browser"
+description: "Task list for opening the original posting in the default browser, including the button-affordance follow-up"
 ---
 
-# Tasks: Original Posting Link Opens in the Default Browser
+# Tasks: Original Posting Action Opens in the Default Browser
 
 **Input**: Bug report: "The original link announce is a link but when I click on
 it the default navigator doesn't open" (the "Original posting" link in the job
 drawer). Clicking the link does nothing; no browser window and no in-app window
 appears.
+
+**Follow-up (2026-11-11)**: "With the link opening the external browser, we can
+return the button in place of the link." Restore the primary affordance to an
+"Open original posting" button while keeping the normalized URL visible and
+selectable as the copy fallback.
 
 **No `spec.md` or `plan.md` exists for this feature**, so these tasks are derived
 from the report and the current source. The active feature pointer still targets
@@ -23,7 +28,9 @@ registered for `http`/`https` (Linux: `xdg-open`/`gio open`).
 
 **Organization**: `US1` (P1) makes the link open the system browser. `US2` (P2)
 guarantees non-`http(s)` URLs never reach the OS. `US3` (P2) adds failure
-feedback and keyboard acceptance. No story depends on another.
+feedback and keyboard acceptance. `US4` (P1) restores the "Open original
+posting" button while preserving the selectable URL text. No story depends on
+another.
 
 ## Root Cause Notes (verified in the current source)
 
@@ -51,7 +58,7 @@ feedback and keyboard acceptance. No story depends on another.
 - **[P]**: Can run in parallel (different files, no dependency on an incomplete
   task).
 - **[Story]**: `[US1]` open in default browser, `[US2]` URL safety,
-  `[US3]` failure feedback/accessibility.
+  `[US3]` failure feedback/accessibility, `[US4]` button affordance.
 - Every task includes an exact file path.
 
 ## Path Conventions
@@ -228,6 +235,77 @@ the URL; pressing Enter on the focused link opens the browser.
 
 ---
 
+## Phase 7: Follow-up - Restore the Open button (Priority: P1) 🎯 MVP
+
+**Goal**: Present the posting action as a button labelled "Open original
+posting" and keep the normalized URL visible below it as selectable text.
+Clicking the button opens the stored URL in the OS default browser; it is not a
+navigation link and never creates a second webview.
+
+**Independent Test**: Render the drawer for a valid `https` job; a `button`
+named "Open original posting" exists with `data-testid="original-posting-url"`,
+has no `href`/`target`, clicking it calls `openExternalUrl` once with `job.url`,
+and `data-testid="original-posting-url-text"` still exposes the selectable URL.
+No `link` role for the posting remains.
+
+### Tests for User Story 4
+
+> **NOTE: Update these tests FIRST; they must fail before T024.**
+
+- [X] T021 [US4] Update the success test in
+  `src/components/JobDrawer.test.tsx`: replace the link lookup with
+  `screen.getByRole('button', { name: 'Open original posting' })`, assert the
+  button's `data-testid` is `original-posting-url`, assert it has no `href` and
+  no `target`, assert `screen.getByTestId('original-posting-url-text')` contains
+  `job.url` with `wordBreak: 'break-all'` and `userSelect: 'text'`, assert
+  `screen.queryByRole('link', { name: job.url })` is absent, click the button,
+  and assert `openExternalUrl` is called once with `job.url`.
+- [X] T022 [US4] Update the failure test in
+  `src/components/JobDrawer.test.tsx`: click the button, await `notify`, assert
+  severity `'error'` and a message containing `job.url`, and assert both the
+  button and `original-posting-url-text` remain visible after the rejection.
+- [X] T023 [US4] Update the invalid-URL cases in
+  `src/components/JobDrawer.test.tsx`: for `javascript:alert(1)`,
+  `file:///etc/passwd`, `data:text/html,x`, and `'not a url'`, assert the
+  "Original URL is missing or invalid" warning renders,
+  `original-posting-url` and `original-posting-url-text` are absent, and
+  `openExternalUrl` is not called.
+
+### Implementation for User Story 4
+
+- [X] T024 [US4] In `src/components/JobDrawer.tsx`, replace the
+  `Typography component="a"` link under the "Original posting" overline with a
+  `Button variant="contained"` labelled "Open original posting" and
+  `data-testid="original-posting-url"`; move the existing `openExternalUrl`
+  call and `.catch(notify)` handler to the button's `onClick` and drop
+  `preventDefault`. Keep `safeExternalUrl` as the render gate. Below the
+  button, render `Typography variant="caption"` with
+  `data-testid="original-posting-url-text"`, `{url}` as children, a secondary
+  color, `wordBreak: 'break-all'`, and `userSelect: 'text'`. Do not add `href`,
+  `target`, `rel`, or `window.open`; the URL text must stay selectable so the
+  existing error notification remains accurate.
+- [X] T025 [P] [US4] Update the drawer note in `README.md` (around line 141):
+  state that the original posting is opened by an "Open original posting"
+  button, while the normalized URL remains visible and selectable below it; do
+  not claim the URL is a link or that no button exists.
+- [ ] T026 [US4] Run and report exactly:
+  `npm test -- src/components/JobDrawer.test.tsx`, `npm run typecheck`,
+  `npm run lint`, and `npm run format:check`. Fix only failures introduced by
+  T021-T025 (`src/components/JobDrawer.tsx`,
+  `src/components/JobDrawer.test.tsx`).
+- [ ] T027 [US4] Manual acceptance: run `npm run tauri dev`, open a job with a
+  real `https` URL, and click "Open original posting". The OS default browser
+  opens exactly the stored URL, no blank Tauri window appears, and the drawer
+  stays open. Focus the button with Tab and press Enter/Space; confirm the URL
+  text is selectable and wraps for a long URL. Repeat after `npm run tauri
+  build` if a release build is available
+  (`src/components/JobDrawer.tsx`).
+
+**Checkpoint**: The button is the primary affordance, the copy fallback is
+preserved, and no navigation link remains.
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies
@@ -236,14 +314,19 @@ the URL; pressing Enter on the focused link opens the browser.
   are needed before T004.
 - **Foundational (Phase 2)**: Depends on Phase 1; blocks all stories. T005
   depends on T002; T006 depends on T003; T007 depends on T004 and T005.
-- **User Stories (Phase 3+)**: All depend on Phase 2. US1, US2, and US3 edit the
+- **User Stories (Phase 3-5)**: All depend on Phase 2. US1, US2, and US3 edit the
   same two test files, so run them sequentially in priority order to avoid
   conflicts; the `[P]` markers are for independent files within a story.
 - **Polish (Phase 6)**: Depends on all selected stories.
+- **Follow-up (Phase 7)**: Depends on the completed Phase 3 and Phase 5.
+  T021-T023 edit the same test file and run sequentially; T024 follows once they
+  fail. T025 (README) can run in parallel with T024. T026 depends on T024;
+  T027 depends on T024 and T026.
 
 ### Within Each User Story
 
 - Tests (T008/T009, T012/T013, T015) are written first and must fail.
+- Follow-up tests T021-T023 are written first and must fail before T024.
 - Wrapper (`src/lib/ipc.ts`) before the component (`src/components/JobDrawer.tsx`).
 - Manual acceptance before marking the story complete.
 
@@ -253,6 +336,7 @@ the URL; pressing Enter on the focused link opens the browser.
 - T008 and T009 touch different files and can run together.
 - T012 and T013 touch different files and can run together.
 - T018 and T020 can run together after the stories land.
+- T025 can update `README.md` while T024 edits the component.
 
 ---
 
@@ -262,6 +346,14 @@ the URL; pressing Enter on the focused link opens the browser.
 # US1 tests (different files, same contract):
 Task: "Create src/lib/ipc.test.ts covering openExternalUrl"
 Task: "Update src/components/JobDrawer.test.tsx to assert the click handler"
+```
+
+## Parallel Example: User Story 4
+
+```bash
+# T025 is independent of the component change:
+Task: "Update the README.md drawer note (T025)"
+Task: "Implement the button and URL caption in src/components/JobDrawer.tsx (T024)"
 ```
 
 ---
@@ -283,6 +375,15 @@ Task: "Update src/components/JobDrawer.test.tsx to assert the click handler"
 3. US2 → validate → no unsafe scheme can be opened.
 4. US3 → validate → failures are actionable and keyboard-friendly.
 5. Phase 6 → full verification and capability review.
+6. US4 → validate → button affordance with the URL copy fallback.
+
+### Follow-Up Delivery (User Story 4)
+
+1. Update T021-T023 and confirm they fail against the current link.
+2. Implement T024 (button plus selectable URL caption).
+3. Update `README.md` (T025) and run T026.
+4. Complete T027 manually in `npm run tauri dev`.
+5. Commit the follow-up separately from the completed link fix.
 
 ---
 
@@ -293,4 +394,10 @@ Task: "Update src/components/JobDrawer.test.tsx to assert the click handler"
   `target="_blank"` anchor; Tauri drops both.
 - Keep the visible URL text selectable as a manual fallback.
 - Do not add `opener:allow-open-path` or accept `file:`/`data:` URLs.
+- The follow-up uses a real MUI `Button`; do not keep `component="a"`, `href`,
+  `target`, or `rel`.
+- `data-testid="original-posting-url"` belongs to the button;
+  `data-testid="original-posting-url-text"` belongs to the caption.
+- Keep the URL text and the existing "Select the address" error wording: the
+  button is the action, the text is the copy fallback.
 - Commit after each story; stop at each checkpoint to validate independently.

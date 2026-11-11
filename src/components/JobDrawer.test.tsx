@@ -72,17 +72,21 @@ describe('JobDrawer', () => {
     expect(onApprove).toHaveBeenCalledWith(job.job_id);
   });
 
-  it('opens the original posting URL through the IPC wrapper', () => {
+  it('opens the original posting URL through the IPC wrapper when clicking the button', () => {
     renderDrawer();
-    const link = screen.getByTestId('original-posting-url');
+    const button = screen.getByRole('button', { name: 'Open original posting' });
 
-    expect(link).toHaveTextContent(job.url);
-    expect(link).toHaveAttribute('href', job.url);
-    expect(link).not.toHaveAttribute('target');
-    expect(link).toHaveStyle({ wordBreak: 'break-all', userSelect: 'text' });
-    expect(screen.queryByRole('button', { name: 'Open original posting' })).not.toBeInTheDocument();
+    expect(button).toHaveAttribute('data-testid', 'original-posting-url');
+    expect(button).not.toHaveAttribute('href');
+    expect(button).not.toHaveAttribute('target');
+    expect(screen.getByTestId('original-posting-url-text')).toHaveTextContent(job.url);
+    expect(screen.getByTestId('original-posting-url-text')).toHaveStyle({
+      wordBreak: 'break-all',
+      userSelect: 'text',
+    });
+    expect(screen.queryByRole('link', { name: job.url })).not.toBeInTheDocument();
 
-    fireEvent.click(link);
+    fireEvent.click(button);
 
     expect(openExternalUrl).toHaveBeenCalledTimes(1);
     expect(openExternalUrl).toHaveBeenCalledWith(job.url);
@@ -91,12 +95,14 @@ describe('JobDrawer', () => {
   it('reports an open failure and keeps the drawer usable', async () => {
     openExternalUrl.mockRejectedValue(new Error('no browser handler'));
     renderDrawer();
+    const button = screen.getByRole('button', { name: 'Open original posting' });
 
-    fireEvent.click(screen.getByTestId('original-posting-url'));
+    fireEvent.click(button);
 
     await waitFor(() => expect(notify).toHaveBeenCalledTimes(1));
     expect(notify).toHaveBeenCalledWith(expect.stringContaining(job.url), 'error');
-    expect(screen.getByTestId('original-posting-url')).toHaveTextContent(job.url);
+    expect(screen.getByTestId('original-posting-url-text')).toHaveTextContent(job.url);
+    expect(button).toBeInTheDocument();
     expect(screen.getByText('Senior Rust Engineer')).toBeInTheDocument();
   });
 
