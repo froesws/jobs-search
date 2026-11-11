@@ -67,6 +67,7 @@ impl Seniority {
 
 /// Search timeframe accepted by the command contract.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[non_exhaustive]
 pub enum SearchTimeframe {
     H24,
     #[default]

@@ -13,6 +13,7 @@ use crate::types::{JobId, RunId};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+#[non_exhaustive]
 pub enum AnalyticsScope {
     CurrentRun,
     Last7Days,

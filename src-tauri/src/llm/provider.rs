@@ -26,6 +26,7 @@ pub struct EvaluationInput {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+#[non_exhaustive]
 pub enum ErrorCategory {
     Timeout,
     RateLimit,

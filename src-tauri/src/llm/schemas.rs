@@ -8,6 +8,7 @@ use crate::types::WorkModality;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+#[non_exhaustive]
 pub enum RequirementDimension {
     CoreTechnical,
     Domain,
@@ -37,6 +38,7 @@ impl RequirementDimension {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+#[non_exhaustive]
 pub enum MatchType {
     Exact,
     Inferred,
