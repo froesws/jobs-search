@@ -254,7 +254,7 @@ the docs, and cleanup cannot hit unrelated servers.
 
 ## Phase 7: Polish & Cross-Cutting Concerns
 
-- [ ] T019 Run `./scripts/verify.sh`, `pytest sidecar/jobspy_mcp/tests`, and
+- [x] T019 Run `./scripts/verify.sh`, `pytest sidecar/jobspy_mcp/tests`, and
   `pytest sidecar/linkedin_scraper_mcp/tests`; report exactly which checks ran
   and which could not run (path: `scripts/verify.sh`).
 - [ ] T020 Manual acceptance: start both local sidecars, send SIGTERM, confirm
@@ -361,3 +361,4 @@ the docs, and cleanup cannot hit unrelated servers.
 - **T010**: child-environment tests passed (generic 8, LinkedIn 3).
 - **T014**: exit-status test passed; the message includes `status=143`.
 - **T018**: documented commands and paths were re-checked.
+- **T019**: `./scripts/verify.sh` passed (Rust, frontend, both sidecars).
