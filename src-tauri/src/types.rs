@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 /// Controlled work modality used by sources, storage, and matching.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "PascalCase")]
+/// Controlled work modality used by sources, storage, and matching.
 pub enum WorkModality {
     Remote,
     Hybrid,
@@ -34,6 +35,7 @@ impl WorkModality {
 /// Seniority values accepted by the operator profile and the hard filters.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
+/// Seniority values accepted by the operator profile and the hard filters.
 pub enum Seniority {
     Trainee,
     Intern,
@@ -68,6 +70,7 @@ impl Seniority {
 /// Search timeframe accepted by the command contract.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[non_exhaustive]
+/// Search timeframe accepted by the command contract.
 pub enum SearchTimeframe {
     H24,
     #[default]
@@ -88,6 +91,7 @@ impl SearchTimeframe {
 /// Feed tab selector.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+/// Feed tab selector.
 pub enum JobTab {
     #[default]
     NewJobs,
@@ -98,6 +102,7 @@ pub enum JobTab {
 /// Evaluation status is separate from the application lifecycle.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+/// Evaluation status is separate from the application lifecycle.
 pub enum EvaluationStatus {
     Pending,
     Approved,
@@ -129,6 +134,7 @@ impl EvaluationStatus {
 /// Application lifecycle state, kept independent from evaluation status.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+/// Application lifecycle state, kept independent from evaluation status.
 pub enum LifecycleState {
     Discovered,
     Applied,
@@ -168,10 +174,12 @@ impl HardFilterRejection {
 pub struct JobId(String);
 
 impl JobId {
+    /// Create from the raw string.
     pub fn new(value: impl Into<String>) -> Self {
         Self(value.into())
     }
 
+    /// Borrow the raw string.
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -207,10 +215,12 @@ impl From<&str> for JobId {
 pub struct RunId(String);
 
 impl RunId {
+    /// Create from the raw string.
     pub fn new(value: impl Into<String>) -> Self {
         Self(value.into())
     }
 
+    /// Borrow the raw string.
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -246,10 +256,12 @@ impl From<&str> for RunId {
 pub struct ResumeId(String);
 
 impl ResumeId {
+    /// Create from the raw string.
     pub fn new(value: impl Into<String>) -> Self {
         Self(value.into())
     }
 
+    /// Borrow the raw string.
     pub fn as_str(&self) -> &str {
         &self.0
     }

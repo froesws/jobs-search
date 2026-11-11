@@ -20,6 +20,7 @@ pub enum AnalyticsScope {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+/// Analytics query: scope plus an optional run for CURRENT_RUN.
 pub struct AnalyticsRequest {
     pub scope: AnalyticsScope,
     #[serde(default)]
@@ -27,6 +28,7 @@ pub struct AnalyticsRequest {
 }
 
 #[derive(Debug, Clone, Serialize)]
+/// Full analytics response for one scope.
 pub struct AnalyticsPayload {
     pub scope: AnalyticsScope,
     pub run_id: Option<String>,
@@ -40,6 +42,7 @@ pub struct AnalyticsPayload {
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
+/// One ranked missing-skill demand entry.
 pub struct SkillGapMetric {
     pub skill: String,
     pub display_name: String,
@@ -49,6 +52,7 @@ pub struct SkillGapMetric {
 }
 
 #[derive(Debug, Clone, Default, Serialize)]
+/// Funnel counts, rates, and breakdowns for one scope.
 pub struct FunnelPayload {
     pub ingested: i64,
     pub duplicates: i64,
@@ -66,12 +70,14 @@ pub struct FunnelPayload {
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+/// Score range and the count of evaluated jobs in it.
 pub struct ScoreBucket {
     pub range: String,
     pub count: i64,
 }
 
 #[derive(Debug, Clone, Default, Serialize)]
+/// LLM call counts and latency percentiles for one scope.
 pub struct LlmMetricsPayload {
     pub call_count: i64,
     pub success_count: i64,
@@ -83,6 +89,7 @@ pub struct LlmMetricsPayload {
 }
 
 #[derive(Debug, Clone, Serialize)]
+/// Per provider/model LLM call metrics.
 pub struct ProviderMetric {
     pub provider: String,
     pub model: String,
@@ -95,6 +102,7 @@ pub struct ProviderMetric {
 }
 
 #[derive(Debug, Clone, Serialize)]
+/// CSV export outcome: local path, row count, and byte size.
 pub struct ExportResult {
     pub path: String,
     pub rows: u32,
@@ -102,6 +110,7 @@ pub struct ExportResult {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+/// CSV export request with an operator-selected local destination.
 pub struct ExportRequest {
     pub scope: AnalyticsScope,
     #[serde(default)]
