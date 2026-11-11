@@ -7,6 +7,7 @@ import Drawer from '@mui/material/Drawer';
 import Typography from '@mui/material/Typography';
 
 import { formatDate, modalityLabel, postingAge, safeExternalUrl, statusLabel } from '@/lib/format';
+import { openExternalUrl } from '@/lib/ipc';
 import type { JobDetail } from '@/lib/types';
 import { tokens } from '@/theme/tokens';
 import { ErrorState } from '@/components/ErrorState';
@@ -258,10 +259,13 @@ export function JobDrawer({
                   <Typography
                     component="a"
                     href={url}
-                    target="_blank"
                     rel="noreferrer"
                     variant="body2"
                     data-testid="original-posting-url"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      void openExternalUrl(url);
+                    }}
                     sx={{ display: 'block', color: 'primary.main' }}
                     style={{ wordBreak: 'break-all', userSelect: 'text' }}
                   >

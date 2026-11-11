@@ -140,7 +140,7 @@ default browser opens it.
 
 ### Implementation for User Story 1
 
-- [ ] T010 [US1] In `src/components/JobDrawer.tsx`, change the
+- [X] T010 [US1] In `src/components/JobDrawer.tsx`, change the
   "Original posting" anchor: keep `component="a"`, `href={url}`,
   `data-testid="original-posting-url"`, and the existing styles; remove
   `target="_blank"`; add
