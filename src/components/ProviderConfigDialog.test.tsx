@@ -235,6 +235,47 @@ describe('ProviderConfigDialog', () => {
     expect(input.providers[0]).toEqual({ id: 'openrouter', models: ['a', 'b'] });
   });
 
+  it('persists the provider order and fallback toggle', async () => {
+    const save = vi.fn().mockResolvedValue(configView());
+    render(<ProviderConfigDialog open onClose={() => {}} state={state({ save })} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Move ollama up' }));
+    fireEvent.click(screen.getByLabelText('Use fallback across providers'));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(save).toHaveBeenCalled());
+    const input = vi.mocked(save).mock.calls[0]![0];
+    expect(input.fallbackEnabled).toBe(true);
+    expect(input.order.indexOf('ollama')).toBeLessThan(input.order.indexOf('deepseek'));
+  });
+
+  it('saves per-provider attempts within bounds', async () => {
+    const save = vi.fn().mockResolvedValue(configView());
+    render(<ProviderConfigDialog open onClose={() => {}} state={state({ save })} />);
+
+    fireEvent.click(screen.getByText('Gemini'));
+    const attempts = screen.getAllByLabelText('Attempts')[0]!;
+    fireEvent.change(attempts, { target: { value: '5' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(save).toHaveBeenCalled());
+    const input = vi.mocked(save).mock.calls[0]![0];
+    expect(input.providers).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: 'gemini', attempts: 5 })]),
+    );
+  });
+
+  it('disables enabling Ollama when no local models are available', async () => {
+    vi.mocked(refreshProviderModels).mockResolvedValue(catalog({ provider: 'ollama', models: [] }));
+    render(<ProviderConfigDialog open onClose={() => {}} state={state()} />);
+
+    fireEvent.click(screen.getByText('Ollama (local)'));
+    const toggle = screen.getByLabelText(
+      'Enable Ollama (no models found — run ollama pull <model>)',
+    );
+    expect(toggle).toBeDisabled();
+  });
+
   it('resets a field without removing the credential', async () => {
     const resetSetting = vi.fn().mockResolvedValue(configView());
     render(<ProviderConfigDialog open onClose={() => {}} state={state({ resetSetting })} />);
