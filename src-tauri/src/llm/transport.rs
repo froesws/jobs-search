@@ -43,6 +43,39 @@ pub async fn post_json(
         .map_err(|_| LlmError::parse("provider returned invalid JSON"))
 }
 
+/// GET a JSON document. Error messages never contain the request URL (which may
+/// carry credentials) or the response body.
+pub async fn get_json(
+    client: &Client,
+    url: &str,
+    headers: HeaderMap,
+    timeout: Duration,
+) -> Result<serde_json::Value, LlmError> {
+    let response = client
+        .get(url)
+        .headers(headers)
+        .timeout(timeout)
+        .send()
+        .await
+        .map_err(|error| {
+            if error.is_timeout() {
+                LlmError::timeout("provider request timed out")
+            } else {
+                LlmError::network("provider request failed")
+            }
+        })?;
+
+    let status = response.status();
+    if !status.is_success() {
+        return Err(classify_status(status));
+    }
+
+    response
+        .json::<serde_json::Value>()
+        .await
+        .map_err(|_| LlmError::parse("provider returned invalid JSON"))
+}
+
 pub fn classify_status(status: StatusCode) -> LlmError {
     match status.as_u16() {
         401 | 403 => LlmError::auth("provider authentication failed"),
@@ -160,5 +193,31 @@ mod tests {
         assert!(error.retryable);
         assert!(error.message.contains("model"));
         assert!(error.message.contains("endpoint"));
+    }
+
+    #[tokio::test]
+    async fn get_json_maps_errors_without_leaking_the_url() {
+        use wiremock::matchers::method;
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .respond_with(ResponseTemplate::new(401))
+            .mount(&server)
+            .await;
+
+        let client = Client::new();
+        let error = get_json(
+            &client,
+            &format!("{}/models?key=secret", server.uri()),
+            HeaderMap::new(),
+            Duration::from_secs(5),
+        )
+        .await
+        .expect_err("unauthorized");
+
+        assert_eq!(error.category, ErrorCategory::Auth);
+        assert!(!error.message.contains("secret"));
+        assert!(!error.message.contains(&server.uri()));
     }
 }
