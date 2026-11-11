@@ -220,6 +220,15 @@ reliably implement HTML5 dropping inside a modal.
 
 ---
 
+## Phase 13: Drag affordance
+
+**Reported**: reordering worked but there was no visual drag-and-drop feedback.
+
+- [X] T061 [US3] Add a floating ghost that follows the pointer during a drag and lift the dragged row (shadow, scale, selected background), in `src/components/ProviderConfigDialog.tsx`.
+- [X] T062 [P] [US3] Add a test asserting the ghost appears on pointer down and disappears on pointer up, in `src/components/ProviderConfigDialog.test.tsx`.
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies

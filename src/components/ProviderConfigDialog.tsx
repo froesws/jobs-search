@@ -95,6 +95,7 @@ export function ProviderConfigDialog({
   const [showAll, setShowAll] = useState<Record<string, boolean>>({});
   const [dragging, setDragging] = useState<number | null>(null);
   const orderRows = useRef<Array<HTMLDivElement | null>>([]);
+  const dragGhost = useRef<HTMLDivElement | null>(null);
 
   const providers = useMemo(() => state.config?.providers ?? [], [state.config]);
 
@@ -159,6 +160,11 @@ export function ProviderConfigDialog({
   const startDrag = (event: ReactPointerEvent<HTMLElement>, index: number) => {
     event.preventDefault();
     event.currentTarget.setPointerCapture?.(event.pointerId);
+    if (dragGhost.current) {
+      dragGhost.current.style.transform = `translate(${event.clientX + 14}px, ${
+        event.clientY - 18
+      }px)`;
+    }
     setDragging(index);
   };
 
@@ -190,6 +196,11 @@ export function ProviderConfigDialog({
     };
 
     const handleMove = (event: PointerEvent) => {
+      if (dragGhost.current) {
+        dragGhost.current.style.transform = `translate(${event.clientX + 14}px, ${
+          event.clientY - 18
+        }px)`;
+      }
       const target = targetIndex(event.clientY);
       if (target === null || target === dragging) return;
       moveProvider(dragging, target);
@@ -394,10 +405,13 @@ export function ProviderConfigDialog({
                     border: '1px solid',
                     borderColor: dragging === index ? 'primary.main' : 'divider',
                     borderRadius: 1,
-                    bgcolor: 'background.paper',
-                    boxShadow: dragging === index ? 3 : 0,
-                    opacity: dragging === index ? 0.85 : 1,
-                    transition: 'box-shadow 120ms ease, border-color 120ms ease',
+                    bgcolor: dragging === index ? 'action.selected' : 'background.paper',
+                    boxShadow: dragging === index ? 6 : 0,
+                    transform: dragging === index ? 'scale(1.01)' : 'none',
+                    zIndex: dragging === index ? 1 : 0,
+                    position: 'relative',
+                    transition:
+                      'box-shadow 120ms ease, border-color 120ms ease, transform 120ms ease',
                   }}
                 >
                   <Box
@@ -710,6 +724,34 @@ export function ProviderConfigDialog({
           </Button>
         </DialogActions>
       </Dialog>
+
+      {dragging !== null && draft.order[dragging] ? (
+        <Box
+          ref={dragGhost}
+          aria-hidden
+          data-testid="drag-ghost"
+          sx={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            pointerEvents: 'none',
+            zIndex: (theme) => theme.zIndex.modal + 2,
+            px: 1.5,
+            py: 0.75,
+            borderRadius: 1,
+            border: '1px solid',
+            borderColor: 'primary.main',
+            bgcolor: 'background.paper',
+            boxShadow: 6,
+            opacity: 0.95,
+            userSelect: 'none',
+            whiteSpace: 'nowrap',
+            willChange: 'transform',
+          }}
+        >
+          ⠿ {draft.order[dragging] ? labelFor(draft.order[dragging]!) : ''}
+        </Box>
+      ) : null}
 
       <Dialog open={consentProvider !== null} onClose={() => setConsentProvider(null)}>
         <DialogTitle>Credential store unavailable</DialogTitle>

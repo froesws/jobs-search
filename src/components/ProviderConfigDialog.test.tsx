@@ -289,6 +289,18 @@ describe('ProviderConfigDialog', () => {
     expect(rows[1]).toHaveAttribute('data-testid', 'order-gemini');
   });
 
+  it('shows a floating ghost while dragging', () => {
+    render(<ProviderConfigDialog open onClose={() => {}} state={state()} />);
+    stubRowRects();
+
+    expect(screen.queryByTestId('drag-ghost')).not.toBeInTheDocument();
+    fireEvent.pointerDown(screen.getByTestId('handle-ollama'), { pointerId: 1 });
+    expect(screen.getByTestId('drag-ghost')).toHaveTextContent('Ollama (local)');
+
+    fireEvent.pointerUp(window);
+    expect(screen.queryByTestId('drag-ghost')).not.toBeInTheDocument();
+  });
+
   it('does not reorder without an active drag', () => {
     render(<ProviderConfigDialog open onClose={() => {}} state={state()} />);
     stubRowRects();
