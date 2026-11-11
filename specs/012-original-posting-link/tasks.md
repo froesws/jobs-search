@@ -99,7 +99,7 @@ installed; no behavior has changed.
   `src-tauri/capabilities/default.json`. That set grants `allow-open-url` plus
   `allow-default-urls` (`http`, `https`, `mailto`, `tel`). Do not add
   `opener:allow-open-path`; the app only opens web URLs.
-- [ ] T006 Add `openExternalUrl(url: string): Promise<void>` to
+- [X] T006 Add `openExternalUrl(url: string): Promise<void>` to
   `src/lib/ipc.ts`: validate with `safeExternalUrl` from `src/lib/format.ts`,
   throw the project `AppError` (via the existing `toAppError` path) for anything
   that is not `http(s)` **without** invoking the plugin, then

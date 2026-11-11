@@ -1,6 +1,8 @@
 import { invoke } from '@tauri-apps/api/core';
+import { openUrl } from '@tauri-apps/plugin-opener';
 
-import { toAppError } from '@/lib/errors';
+import { AppError, toAppError } from '@/lib/errors';
+import { safeExternalUrl } from '@/lib/format';
 import type {
   ActiveProvider,
   AnalyticsPayload,
@@ -23,6 +25,19 @@ import type {
 async function call<T>(command: string, args?: Record<string, unknown>): Promise<T> {
   try {
     return await invoke<T>(command, args);
+  } catch (error) {
+    throw toAppError(error);
+  }
+}
+
+/** Open an http(s) URL in the OS default browser. */
+export async function openExternalUrl(value: string): Promise<void> {
+  const url = safeExternalUrl(value);
+  if (!url) {
+    throw new AppError('INVALID_URL', 'The original URL is missing or invalid.');
+  }
+  try {
+    await openUrl(url);
   } catch (error) {
     throw toAppError(error);
   }
