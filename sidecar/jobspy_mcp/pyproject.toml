@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jobspy-mcp-server"
+version = "0.1.0"
+description = "Local JobSpy MCP stdio sidecar for Jobs Search"
+requires-python = ">=3.14"
+dependencies = [
+  "python-jobspy==1.4.1",
+  "pandas==3.1.1",
+]
+
+[project.scripts]
+jobspy-mcp-server = "jobspy_mcp_server.server:main"
+
+[tool.setuptools.packages.find]
+include = ["jobspy_mcp_server*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
