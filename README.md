@@ -76,6 +76,25 @@ precedence. Do not commit `.env` or provider credentials.
 Job sources are configured in `sources.yaml` (MCP and API adapters). Keep local
 source credentials in `.env`.
 
+## Analytics
+
+The `Analytics` tab is read-only. It aggregates eligible evaluations
+(`APPROVED`/`PENDING`) for the latest completed run or the last 7 days:
+
+- Skill Gap: missing keywords grouped case-insensitively, excluding skills in
+  the active profile or matched for the same job. Ranked by demand count, then
+  display name; percentages use the full eligible-job denominator.
+- Funnel: ingested, duplicates, rejections by reason, pending, approved,
+  applied, ignored, rates, and source/provider breakdowns.
+- Score distribution: 0-49, 50-59, 60-69, 70-79, 80-89, 90-100.
+- LLM metrics: call/success/error/fallback counts and p50/p95 latency.
+- CSV export writes the current view locally after a sensitive-data warning.
+  It contains `description_clean`, never `description_raw` or credentials.
+
+Analytics never calls a provider and never mutates jobs, evaluations, or
+applications. It reads `execution_runs`, `run_metrics`, `llm_metrics`, and
+`job_evaluations`; `job_evaluations.run_id` links an evaluation to its run.
+
 ## Local telemetry
 
 The backend writes local JSON Lines logs to the application data directory
