@@ -11,6 +11,7 @@ pub const RULES_VERSION: &str = "v1-40-25-20-15";
 #[derive(Debug, Clone)]
 pub struct EvaluationRecord {
     pub job_id: String,
+    pub run_id: String,
     pub profile_version: i64,
     pub status: EvaluationStatus,
     pub score: Option<i64>,
@@ -40,12 +41,13 @@ pub fn upsert_evaluation(db: &Db, record: &EvaluationRecord) -> Result<(), AppEr
         let transaction = connection.transaction()?;
         transaction.execute(
             "INSERT INTO job_evaluations
-             (id, job_id, profile_version, evaluation_status, match_score,
+             (id, job_id, run_id, profile_version, evaluation_status, match_score,
               matching_items_count, total_requirements_count, score_breakdown_json,
               matched_keywords_json, missing_keywords_json, hard_filter_rejections_json,
               rules_version, threshold, provider, model, evaluated_at, stale)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, 0)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, 0)
              ON CONFLICT(job_id) DO UPDATE SET
+                run_id = excluded.run_id,
                 profile_version = excluded.profile_version,
                 evaluation_status = excluded.evaluation_status,
                 match_score = excluded.match_score,
@@ -64,6 +66,7 @@ pub fn upsert_evaluation(db: &Db, record: &EvaluationRecord) -> Result<(), AppEr
             params![
                 uuid::Uuid::new_v4().to_string(),
                 record.job_id,
+                record.run_id,
                 record.profile_version,
                 record.status.as_str(),
                 record.score,

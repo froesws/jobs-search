@@ -118,6 +118,7 @@ async fn evaluate_one(
             db,
             &EvaluationRecord {
                 job_id: job.id.clone(),
+                run_id: run_id.to_string(),
                 profile_version: profile.version as i64,
                 status: EvaluationStatus::Rejected,
                 score: None,
@@ -171,6 +172,7 @@ async fn evaluate_one(
                 db,
                 &EvaluationRecord {
                     job_id: job.id.clone(),
+                    run_id: run_id.to_string(),
                     profile_version: profile.version as i64,
                     status,
                     score: Some(scored.score),
@@ -198,6 +200,7 @@ async fn evaluate_one(
                 db,
                 &EvaluationRecord {
                     job_id: job.id.clone(),
+                    run_id: run_id.to_string(),
                     profile_version: profile.version as i64,
                     status: EvaluationStatus::Error,
                     score: None,

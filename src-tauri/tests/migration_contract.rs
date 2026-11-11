@@ -38,7 +38,13 @@ fn schema_has_no_raw_description_and_survives_reopen() {
             Ok(connection.pragma_query_value(None, "user_version", |row| row.get(0))?)
         })
         .expect("version");
-    assert_eq!(version, 1);
+    assert_eq!(version, 2);
+
+    let evaluation_columns = columns(&db, "job_evaluations");
+    assert!(
+        evaluation_columns.iter().any(|column| column == "run_id"),
+        "job_evaluations must link to the run that produced the evaluation"
+    );
 
     drop(db);
     let reopened = Db::open(&path).expect("reopen");

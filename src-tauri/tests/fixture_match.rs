@@ -194,6 +194,17 @@ async fn fixture_profile_evaluates_approved_pending_rejected_and_error_jobs() {
     assert_eq!(distribution.get("90-100"), Some(&1));
     assert_eq!(distribution.get("0-49"), Some(&1));
 
+    let evaluations_for_run: i64 = db
+        .with_connection(|connection| {
+            Ok(connection.query_row(
+                "SELECT COUNT(*) FROM job_evaluations WHERE run_id = ?1",
+                [&run.run_id],
+                |row| row.get(0),
+            )?)
+        })
+        .expect("evaluations for run");
+    assert_eq!(evaluations_for_run, 6);
+
     let metrics: i64 = db
         .with_connection(|connection| {
             Ok(connection.query_row(

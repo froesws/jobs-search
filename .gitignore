@@ -2,6 +2,7 @@
 node_modules/
 dist/
 coverage/
+specs/
 
 # Husky generated internals
 .husky/_/

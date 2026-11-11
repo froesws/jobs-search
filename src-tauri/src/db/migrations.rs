@@ -2,7 +2,7 @@ use rusqlite::Connection;
 
 use crate::error::AppError;
 
-const SCHEMA_VERSION: i64 = 1;
+const SCHEMA_VERSION: i64 = 2;
 
 const SCHEMA_V1: &str = r#"
 CREATE TABLE resumes (
@@ -158,6 +158,15 @@ CREATE TABLE llm_metrics (
 CREATE INDEX idx_llm_metrics_run ON llm_metrics(run_id, created_at);
 "#;
 
+/// V2 links every evaluation to the discovery/evaluation run that produced it
+/// so analytics can resolve the current run without relying on timestamps.
+const SCHEMA_V2: &str = r#"
+ALTER TABLE job_evaluations
+    ADD COLUMN run_id TEXT REFERENCES execution_runs(id) ON DELETE SET NULL;
+
+CREATE INDEX idx_job_evaluations_run ON job_evaluations(run_id);
+"#;
+
 pub fn apply(connection: &mut Connection) -> Result<(), AppError> {
     let current: i64 = connection.pragma_query_value(None, "user_version", |row| row.get(0))?;
     if current >= SCHEMA_VERSION {
@@ -165,7 +174,12 @@ pub fn apply(connection: &mut Connection) -> Result<(), AppError> {
     }
 
     let transaction = connection.transaction()?;
-    transaction.execute_batch(SCHEMA_V1)?;
+    if current < 1 {
+        transaction.execute_batch(SCHEMA_V1)?;
+    }
+    if current < 2 {
+        transaction.execute_batch(SCHEMA_V2)?;
+    }
     transaction.pragma_update(None, "user_version", SCHEMA_VERSION)?;
     transaction.commit()?;
     Ok(())
