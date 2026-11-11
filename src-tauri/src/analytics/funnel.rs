@@ -40,38 +40,27 @@ pub fn compute_funnel(
 ) -> Result<FunnelPayload, AppError> {
     let mut payload = FunnelPayload::default();
     db.with_connection(|connection| {
-        let (sql, params): (&str, Vec<&str>) = match scope {
-            AnalyticsScope::CurrentRun => (
-                "SELECT r.total_ingested, r.duplicates_merged, r.rejected_count,
-                        r.pending_count, r.approved_count, r.error_count,
-                        r.source_failures_json,
-                        COALESCE(m.rejected_by_reason_json, '{}'),
-                        COALESCE(m.applied_count, 0),
-                        COALESCE(m.ignored_count, 0),
-                        COALESCE(m.source_breakdown_json, '{}'),
-                        COALESCE(m.provider_breakdown_json, '{}')
-                 FROM execution_runs r
-                 LEFT JOIN run_metrics m ON m.run_id = r.id
-                 WHERE r.id = ?1",
-                vec![run_id.unwrap_or_default()],
-            ),
+        let (condition, params) = match scope {
+            AnalyticsScope::CurrentRun => ("WHERE r.id = ?1", vec![run_id.unwrap_or_default()]),
             AnalyticsScope::Last7Days => (
-                "SELECT r.total_ingested, r.duplicates_merged, r.rejected_count,
-                        r.pending_count, r.approved_count, r.error_count,
-                        r.source_failures_json,
-                        COALESCE(m.rejected_by_reason_json, '{}'),
-                        COALESCE(m.applied_count, 0),
-                        COALESCE(m.ignored_count, 0),
-                        COALESCE(m.source_breakdown_json, '{}'),
-                        COALESCE(m.provider_breakdown_json, '{}')
-                 FROM execution_runs r
-                 LEFT JOIN run_metrics m ON m.run_id = r.id
-                 WHERE datetime(r.started_at) >= datetime('now', '-7 days')",
+                "WHERE datetime(r.started_at) >= datetime('now', '-7 days')",
                 Vec::new(),
             ),
         };
-
-        let mut statement = connection.prepare(sql)?;
+        let sql = format!(
+            "SELECT r.total_ingested, r.duplicates_merged, r.rejected_count,
+                    r.pending_count, r.approved_count, r.error_count,
+                    r.source_failures_json,
+                    COALESCE(m.rejected_by_reason_json, '{{}}'),
+                    COALESCE(m.applied_count, 0),
+                    COALESCE(m.ignored_count, 0),
+                    COALESCE(m.source_breakdown_json, '{{}}'),
+                    COALESCE(m.provider_breakdown_json, '{{}}')
+             FROM execution_runs r
+             LEFT JOIN run_metrics m ON m.run_id = r.id
+             {condition}"
+        );
+        let mut statement = connection.prepare(sql.as_str())?;
         let rows = statement.query_map(rusqlite::params_from_iter(params), |row| {
             Ok(RunRow {
                 ingested: row.get(0)?,
