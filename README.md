@@ -65,6 +65,8 @@ OPENROUTER_FREE_MODELS=openrouter/free
 DEEPSEEK_API_KEY=
 DEEPSEEK_MODEL=deepseek-flash
 DEEPSEEK_BASE_URL=https://api.deepseek.com
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=
 LLM_ALLOW_FALLBACK=true
 LLM_TIMEOUT_SECONDS=45
 MATCH_THRESHOLD=50
@@ -87,6 +89,10 @@ provider.
 In production, the app reads `.env` from the application data directory first,
 falls back to the current directory, and lets OS environment variables take
 precedence. Do not commit `.env` or provider credentials.
+
+Ollama runs locally and needs no API key. Set `OLLAMA_BASE_URL` (default
+`http://localhost:11434`) and `OLLAMA_MODEL`; Ollama only joins the provider
+chain when it is enabled in the provider configuration popup.
 
 Job sources are configured in `sources.yaml` (MCP and API adapters). Keep local
 source credentials in `.env`.
