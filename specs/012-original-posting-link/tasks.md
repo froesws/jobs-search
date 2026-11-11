@@ -166,7 +166,7 @@ without calling `openUrl`.
 
 ### Tests for User Story 2
 
-- [ ] T012 [P] [US2] Extend `src/lib/ipc.test.ts`: `openExternalUrl` rejects for
+- [X] T012 [P] [US2] Extend `src/lib/ipc.test.ts`: `openExternalUrl` rejects for
   `javascript:alert(1)`, `file:///etc/passwd`, `data:text/html,x`, and
   `'not a url'`, and `openUrl` is never called.
 - [ ] T013 [P] [US2] Extend `src/components/JobDrawer.test.tsx`: with

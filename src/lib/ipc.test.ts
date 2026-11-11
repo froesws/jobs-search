@@ -35,4 +35,15 @@ describe('openExternalUrl', () => {
     await expect(openExternalUrl('https://example.com/jobs/1')).rejects.toBeInstanceOf(AppError);
     expect(openUrl).toHaveBeenCalledTimes(1);
   });
+
+  it.each(['javascript:alert(1)', 'file:///etc/passwd', 'data:text/html,x', 'not a url'])(
+    'refuses %s without invoking the opener',
+    async (value) => {
+      await expect(openExternalUrl(value)).rejects.toMatchObject({
+        name: 'AppError',
+        code: 'INVALID_URL',
+      });
+      expect(openUrl).not.toHaveBeenCalled();
+    },
+  );
 });
