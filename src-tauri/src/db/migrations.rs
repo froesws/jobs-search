@@ -5,7 +5,7 @@ use rusqlite::Connection;
 
 use crate::error::AppError;
 
-const SCHEMA_VERSION: i64 = 6;
+const SCHEMA_VERSION: i64 = 7;
 
 const SCHEMA_V1: &str = r#"
 CREATE TABLE resumes (
@@ -203,6 +203,16 @@ CREATE INDEX idx_llm_metrics_created_provider
     ON llm_metrics(created_at, provider, model);
 "#;
 
+/// V7 stores operator-editable provider settings. Credentials are never stored
+/// here; they live in the OS credential store.
+const SCHEMA_V7: &str = r#"
+CREATE TABLE app_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+"#;
+
 pub fn apply(connection: &mut Connection) -> Result<(), AppError> {
     let current: i64 = connection.pragma_query_value(None, "user_version", |row| row.get(0))?;
     if current >= SCHEMA_VERSION {
@@ -228,6 +238,9 @@ pub fn apply(connection: &mut Connection) -> Result<(), AppError> {
     if current < 6 {
         transaction.execute_batch(SCHEMA_V6)?;
     }
+    if current < 7 {
+        transaction.execute_batch(SCHEMA_V7)?;
+    }
     transaction.pragma_update(None, "user_version", SCHEMA_VERSION)?;
     transaction.commit()?;
     Ok(())
@@ -251,6 +264,7 @@ mod tests {
             "run_metrics",
             "llm_metrics",
             "job_sources",
+            "app_settings",
         ] {
             assert!(tables.iter().any(|name| name == expected), "{expected}");
         }

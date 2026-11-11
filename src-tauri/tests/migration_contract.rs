@@ -19,6 +19,7 @@ fn schema_has_no_raw_description_and_survives_reopen() {
         "execution_runs",
         "run_metrics",
         "llm_metrics",
+        "app_settings",
     ] {
         assert!(tables.iter().any(|table| table == expected), "{expected}");
     }
@@ -38,7 +39,7 @@ fn schema_has_no_raw_description_and_survives_reopen() {
             Ok(connection.pragma_query_value(None, "user_version", |row| row.get(0))?)
         })
         .expect("version");
-    assert_eq!(version, 6);
+    assert_eq!(version, 7);
 
     let resume_columns = columns(&db, "resumes");
     assert!(
