@@ -74,7 +74,7 @@ change behavior yet.
   no browser opens and no new window appears. Also confirm `xdg-open
   https://example.com` works on this machine so the OS handler is not the cause
   (path: `src/components/JobDrawer.tsx`).
-- [ ] T002 Add `tauri-plugin-opener = "2"` to `[dependencies]` in
+- [X] T002 Add `tauri-plugin-opener = "2"` to `[dependencies]` in
   `src-tauri/Cargo.toml` (`npm run tauri add opener` is the equivalent one-shot
   command and also edits this file).
 - [ ] T003 [P] Add `@tauri-apps/plugin-opener` (v2) to `dependencies` in
