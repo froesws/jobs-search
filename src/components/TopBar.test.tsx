@@ -80,7 +80,7 @@ describe('TopBar', () => {
     expect(seniorityFooter).toHaveAttribute('aria-hidden', 'true');
     expect(seniorityFooter).toHaveStyle({ visibility: 'hidden' });
     expect(screen.getByTestId('modality-footer')).toHaveStyle({
-      visibility: 'visible',
+      visibility: 'hidden',
     });
     expect(screen.getByTestId('filter-row')).toHaveStyle({
       alignItems: 'flex-start',

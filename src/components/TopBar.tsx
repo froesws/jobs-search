@@ -119,12 +119,12 @@ export function TopBar({
           gap: 1.5,
           px: 3,
           pb: 2,
-          pt: 0.5,
+          pt: 2,
           flexWrap: 'wrap',
           alignItems: 'flex-start',
         }}
       >
-        <FormControl size="small" sx={{ minWidth: 150 }}>
+        <FormControl size="small" sx={{ minWidth: 150, mt: '22px' }}>
           <InputLabel id="timeframe-label">Timeframe</InputLabel>
           <Select
             labelId="timeframe-label"
@@ -140,18 +140,19 @@ export function TopBar({
           </Select>
         </FormControl>
 
-        <FilterGroup
-          label="Seniority"
-          showFooter={filters.seniorities.length === 0}
-          testId="seniority-footer"
-        >
+        <FilterGroup label="Seniority" showFooter={false} testId="seniority-footer">
           <ToggleButtonGroup
             exclusive={false}
             size="small"
             value={filters.seniorities}
             onChange={(_, value: Seniority[]) => onChange({ seniorities: value })}
             aria-label="Seniority"
-            sx={{ flexWrap: 'wrap', bgcolor: 'background.paper', borderRadius: 2 }}
+            sx={{
+              flexWrap: 'wrap',
+              bgcolor: 'background.paper',
+              borderRadius: 2,
+              '& .MuiToggleButton-root': { height: 40 },
+            }}
           >
             {SENIORITY_PANEL_VALUES.map((value) => (
               <ToggleButton key={value} value={value} sx={{ px: 1.5 }}>
@@ -167,24 +168,25 @@ export function TopBar({
           placeholder="Rust, React, C#"
           value={filters.stack_keyword}
           onChange={(event) => onChange({ stack_keyword: event.target.value })}
-          sx={{ minWidth: 210, flex: '0 1 260px' }}
+          sx={{ minWidth: 210, flex: '0 1 260px', mt: '22px' }}
         />
 
-        <FilterGroup
-          label="Work type"
-          showFooter={filters.modalities.length === 0}
-          testId="modality-footer"
-        >
+        <FilterGroup label="Work type" showFooter={false} testId="modality-footer">
           <ToggleButtonGroup
             exclusive={false}
             size="small"
             value={filters.modalities}
             onChange={(_, value: WorkModality[]) => onChange({ modalities: value })}
             aria-label="Work modality"
-            sx={{ flexWrap: 'wrap', bgcolor: 'background.paper', borderRadius: 2 }}
+            sx={{
+              flexWrap: 'wrap',
+              bgcolor: 'background.paper',
+              borderRadius: 2,
+              '& .MuiToggleButton-root': { height: 40 },
+            }}
           >
             {MODALITY_PANEL_VALUES.map((value) => (
-              <ToggleButton key={value} value={value} sx={{ px: 1.75 }}>
+              <ToggleButton key={value} value={value} sx={{ px: 1.5 }}>
                 {MODALITY_LABELS[value]}
               </ToggleButton>
             ))}
