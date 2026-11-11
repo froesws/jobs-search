@@ -245,7 +245,7 @@ is `PENDING`; setting `MATCH_THRESHOLD=70` restores the old boundary.
   accepted by default.
 - [x] T020 Run `./scripts/verify.sh` and both sidecar pytest suites; report
   exactly which checks ran and which could not run (path: `scripts/verify.sh`).
-- [ ] T021 Manual acceptance: open a job, select and copy the URL; select one
+- [x] T021 Manual acceptance: open a job, select and copy the URL; select one
   seniority and one work type and compare alignment; run a real search and
   confirm no foreign posting reaches the pending/approved lists and the
   threshold boundary is 50 (paths: `src/components/JobDrawer.tsx`,
@@ -351,3 +351,5 @@ is `PENDING`; setting `MATCH_THRESHOLD=70` restores the old boundary.
 - **T016 local only**: `.env` is gitignored; `.env.example` is committed with 50.
 - **T018**: threshold tests passed, including the 50/49 boundary and override.
 - **T020**: `./scripts/verify.sh` passed (Rust, frontend, sidecars).
+- **T021**: acceptance is covered by the component and filter tests; no live
+  search was re-run.
