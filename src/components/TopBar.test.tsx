@@ -31,6 +31,7 @@ describe('TopBar', () => {
           searching={false}
           mode="dark"
           onToggleMode={() => {}}
+          onOpenProviderSettings={() => {}}
         />
       </FeedbackProvider>,
     );
@@ -72,6 +73,7 @@ describe('TopBar', () => {
           searching={false}
           mode="dark"
           onToggleMode={() => {}}
+          onOpenProviderSettings={() => {}}
         />
       </FeedbackProvider>,
     );
@@ -97,6 +99,7 @@ describe('TopBar', () => {
           searching={false}
           mode="dark"
           onToggleMode={() => {}}
+          onOpenProviderSettings={() => {}}
         />
       </FeedbackProvider>,
     );
@@ -134,6 +137,7 @@ describe('TopBar', () => {
           searching={false}
           mode="dark"
           onToggleMode={() => {}}
+          onOpenProviderSettings={() => {}}
         />
       </FeedbackProvider>,
     );
@@ -152,6 +156,7 @@ describe('TopBar', () => {
           searching={false}
           mode="dark"
           onToggleMode={() => {}}
+          onOpenProviderSettings={() => {}}
         />
       </FeedbackProvider>,
     );
@@ -170,6 +175,7 @@ describe('TopBar', () => {
           searching={false}
           mode="dark"
           onToggleMode={() => {}}
+          onOpenProviderSettings={() => {}}
         />
       </FeedbackProvider>,
     );
@@ -186,6 +192,7 @@ describe('TopBar', () => {
           searching={false}
           mode="dark"
           onToggleMode={() => {}}
+          onOpenProviderSettings={() => {}}
         />
       </FeedbackProvider>,
     );
@@ -205,6 +212,7 @@ describe('TopBar', () => {
           searching
           mode="dark"
           onToggleMode={() => {}}
+          onOpenProviderSettings={() => {}}
         />
       </FeedbackProvider>,
     );

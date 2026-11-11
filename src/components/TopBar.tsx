@@ -4,6 +4,7 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
 import FormControl from '@mui/material/FormControl';
+import IconButton from '@mui/material/IconButton';
 import InputLabel from '@mui/material/InputLabel';
 import MenuItem from '@mui/material/MenuItem';
 import Select from '@mui/material/Select';
@@ -39,6 +40,7 @@ export function TopBar({
   searching,
   mode,
   onToggleMode,
+  onOpenProviderSettings,
 }: {
   filters: SearchFilters;
   onChange: (next: Partial<SearchFilters>) => void;
@@ -46,6 +48,7 @@ export function TopBar({
   searching: boolean;
   mode: ThemeMode;
   onToggleMode: () => void;
+  onOpenProviderSettings: () => void;
 }) {
   return (
     <AppBar
@@ -88,6 +91,16 @@ export function TopBar({
         </Box>
 
         <ProviderIndicator />
+        <Tooltip title="Provider settings">
+          <IconButton
+            size="small"
+            aria-label="Open provider settings"
+            onClick={onOpenProviderSettings}
+            sx={{ border: '1px solid', borderColor: 'divider' }}
+          >
+            <GearIcon />
+          </IconButton>
+        </Tooltip>
         <ResumeManager />
 
         <Tooltip title={mode === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}>
@@ -194,6 +207,24 @@ export function TopBar({
         </FilterGroup>
       </Box>
     </AppBar>
+  );
+}
+
+function GearIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden focusable="false">
+      <path
+        d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"
+        stroke="currentColor"
+        strokeWidth="1.6"
+      />
+      <path
+        d="M19.4 13.5a7.7 7.7 0 0 0 0-3l1.7-1.3-1.8-3.1-2 .8a7.6 7.6 0 0 0-2.6-1.5L14.4 3h-3.6l-.3 2.4a7.6 7.6 0 0 0-2.6 1.5l-2-.8-1.8 3.1 1.7 1.3a7.7 7.7 0 0 0 0 3l-1.7 1.3 1.8 3.1 2-.8a7.6 7.6 0 0 0 2.6 1.5l.3 2.4h3.6l.3-2.4a7.6 7.6 0 0 0 2.6-1.5l2 .8 1.8-3.1-1.7-1.3Z"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 

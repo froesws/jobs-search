@@ -9,8 +9,10 @@ import { JobDrawer } from '@/components/JobDrawer';
 import { useFeedback } from '@/components/FeedbackProvider';
 import { TabBar } from '@/components/TabBar';
 import { TopBar } from '@/components/TopBar';
+import { ProviderConfigDialog } from '@/components/ProviderConfigDialog';
 import { useDashboardState } from '@/viewmodels/useDashboardState';
 import { useJobDetailViewModel } from '@/viewmodels/useJobDetailViewModel';
+import { useProviderConfig } from '@/viewmodels/useProviderConfig';
 import { ApplicationsView } from '@/views/ApplicationsView';
 import { NewJobsView } from '@/views/NewJobsView';
 import { ProfileView } from '@/views/ProfileView';
@@ -26,6 +28,8 @@ export function DashboardView({
 }) {
   const dashboard = useDashboardState();
   const detail = useJobDetailViewModel();
+  const providerConfig = useProviderConfig();
+  const [providerOpen, setProviderOpen] = useState(false);
   const feedback = useFeedback();
   const [refreshToken, setRefreshToken] = useState(0);
   const [searching, setSearching] = useState(false);
@@ -105,6 +109,7 @@ export function DashboardView({
         searching={searching}
         mode={mode}
         onToggleMode={onToggleMode}
+        onOpenProviderSettings={() => setProviderOpen(true)}
       />
       <TabBar value={dashboard.tab} onChange={dashboard.setTab} />
 
@@ -133,6 +138,12 @@ export function DashboardView({
         {dashboard.tab === 'PROFILE' ? <ProfileView /> : null}
         {dashboard.tab === 'ANALYTICS' ? <AnalyticsView /> : null}
       </Box>
+
+      <ProviderConfigDialog
+        open={providerOpen}
+        onClose={() => setProviderOpen(false)}
+        state={providerConfig}
+      />
 
       <JobDrawer
         open={detail.isDrawerOpen}

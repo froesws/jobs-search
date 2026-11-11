@@ -16,6 +16,11 @@ export interface IpcMock {
   approveJob: Mock;
   getAudit: Mock;
   getActiveProvider: Mock;
+  getProviderConfig: Mock;
+  saveProviderConfig: Mock;
+  saveProviderCredential: Mock;
+  removeProviderCredential: Mock;
+  resetProviderSetting: Mock;
   getAnalytics: Mock;
   exportAnalyticsCsv: Mock;
   openExternalUrl: Mock;
@@ -38,6 +43,11 @@ export function createIpcMock(): IpcMock {
     approveJob: vi.fn(),
     getAudit: vi.fn(),
     getActiveProvider: vi.fn(),
+    getProviderConfig: vi.fn(),
+    saveProviderConfig: vi.fn(),
+    saveProviderCredential: vi.fn(),
+    removeProviderCredential: vi.fn(),
+    resetProviderSetting: vi.fn(),
     getAnalytics: vi.fn(),
     exportAnalyticsCsv: vi.fn(),
     openExternalUrl: vi.fn(),
