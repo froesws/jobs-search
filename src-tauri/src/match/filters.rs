@@ -68,7 +68,7 @@ pub fn check(profile: &CandidateProfile, job: &StoredJob) -> HardFilterResult {
     }
 
     for dealbreaker in &profile.dealbreakers {
-        if contains_phrase(&normalized_text, dealbreaker) {
+        if contains_word(&normalized_text, &normalize_text(dealbreaker)) {
             rejections.push(HardFilterRejection::new(
                 "DEALBREAKER",
                 "posting matches a profile dealbreaker",
@@ -90,7 +90,7 @@ pub fn check(profile: &CandidateProfile, job: &StoredJob) -> HardFilterResult {
                 .strip_prefix("domain:")
                 .map(str::trim)
                 .is_some_and(|domain| {
-                    !domain.is_empty() && contains_phrase(&normalized_text, domain)
+                    !domain.is_empty() && contains_word(&normalized_text, &normalize_text(domain))
                 }),
         };
         if !known {
@@ -197,12 +197,6 @@ fn contains_technology(normalized_text: &str, technology: &str) -> bool {
     }
 
     contains_word(normalized_text, &normalized_technology)
-}
-
-fn contains_phrase(normalized_text: &str, phrase: &str) -> bool {
-    let normalized_phrase = normalize_text(phrase);
-    !normalized_phrase.is_empty()
-        && format!(" {normalized_text} ").contains(&format!(" {normalized_phrase} "))
 }
 
 #[cfg(test)]

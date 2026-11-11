@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { safeMessage, toAppError } from '../lib/errors';
-import { getJobs, triggerSearch } from '../lib/ipc';
-import type { JobSummary, JobTab, SearchFilters, SearchMetrics } from '../lib/types';
+import { safeMessage } from '../lib/errors';
+import { getJobs } from '../lib/ipc';
+import type { JobSummary, JobTab } from '../lib/types';
 
 const PAGE_SIZE = 12;
 
@@ -30,8 +30,6 @@ export function useJobsViewModel(tab: JobTab, refreshToken: number) {
   const [state, setState] = useState<JobsState>(INITIAL);
   const [offset, setOffset] = useState(0);
   const [reload, setReload] = useState(0);
-  const [searching, setSearching] = useState(false);
-  const [metrics, setMetrics] = useState<SearchMetrics | null>(null);
 
   useEffect(() => {
     setOffset(0);
@@ -75,28 +73,11 @@ export function useJobsViewModel(tab: JobTab, refreshToken: number) {
     setOffset((value) => Math.max(0, value - PAGE_SIZE));
   }, []);
 
-  const runSearch = useCallback(async (filters: SearchFilters) => {
-    setSearching(true);
-    try {
-      const result = await triggerSearch(filters);
-      setMetrics(result);
-      setOffset(0);
-      return result;
-    } catch (error) {
-      throw toAppError(error);
-    } finally {
-      setSearching(false);
-    }
-  }, []);
-
   return {
     ...state,
-    searching,
-    metrics,
     retry,
     nextPage,
     previousPage,
-    runSearch,
     hasNext: state.offset + state.limit < state.total,
     hasPrevious: state.offset > 0,
   };
