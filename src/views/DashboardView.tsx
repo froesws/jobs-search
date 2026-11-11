@@ -2,7 +2,7 @@ import Box from '@mui/material/Box';
 import { useState } from 'react';
 
 import { safeMessage } from '../lib/errors';
-import { triggerSearch } from '../lib/ipc';
+import { applyJob, approveJob, ignoreJob, restoreJob, triggerSearch } from '../lib/ipc';
 import type { JobSummary, SearchMetrics } from '../lib/types';
 import { JobDrawer } from '../components/JobDrawer';
 import { FeedbackProvider } from '../components/FeedbackProvider';
@@ -29,6 +29,7 @@ export function DashboardView({
   const feedback = useFeedback();
   const [refreshToken, setRefreshToken] = useState(0);
   const [searching, setSearching] = useState(false);
+  const [actionBusy, setActionBusy] = useState(false);
   const [metrics, setMetrics] = useState<SearchMetrics | null>(null);
 
   const handleSearch = async () => {
@@ -59,6 +60,36 @@ export function DashboardView({
     dashboard.openJob(job.job_id);
     detail.open(job.job_id);
   };
+
+  const runAction = async (action: () => Promise<unknown>, success: string) => {
+    setActionBusy(true);
+    try {
+      await action();
+      feedback.notify(success, 'success');
+      detail.close();
+      dashboard.closeJob();
+      setRefreshToken((value) => value + 1);
+    } catch (error) {
+      feedback.notify(safeMessage(error), 'error', true);
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
+  const handleApply = (jobId: string) =>
+    void runAction(
+      () => applyJob(jobId),
+      'Job marked as applied. The evaluation snapshot is preserved.',
+    );
+  const handleIgnore = (jobId: string) =>
+    void runAction(() => ignoreJob(jobId), 'Job ignored and removed from New Jobs.');
+  const handleRestore = (jobId: string) =>
+    void runAction(() => restoreJob(jobId), 'Job restored to New Jobs.');
+  const handleApprove = (jobId: string) =>
+    void runAction(
+      () => approveJob(jobId),
+      'Job approved manually. The original score and breakdown were preserved.',
+    );
 
   return (
     <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -103,11 +134,16 @@ export function DashboardView({
         job={detail.job}
         status={detail.status}
         error={detail.error}
+        busy={actionBusy}
         onClose={() => {
           detail.close();
           dashboard.closeJob();
         }}
         onRetry={detail.retry}
+        onApply={handleApply}
+        onIgnore={handleIgnore}
+        onRestore={handleRestore}
+        onApprove={handleApprove}
       />
     </Box>
   );

@@ -24,15 +24,25 @@ export function JobDrawer({
   job,
   status,
   error,
+  busy = false,
   onClose,
   onRetry,
+  onApply,
+  onIgnore,
+  onRestore,
+  onApprove,
 }: {
   open: boolean;
   job: JobDetail | null;
   status: 'idle' | 'loading' | 'ready' | 'error';
   error: string | null;
+  busy?: boolean;
   onClose: () => void;
   onRetry: () => void;
+  onApply?: (jobId: string) => void;
+  onIgnore?: (jobId: string) => void;
+  onRestore?: (jobId: string) => void;
+  onApprove?: (jobId: string) => void;
 }) {
   const url = job ? safeExternalUrl(job.url) : null;
 
@@ -209,6 +219,36 @@ export function JobDrawer({
             </Section>
 
             <Box sx={{ mt: 'auto', pt: 2, display: 'grid', gap: 1 }}>
+              {job.lifecycle_state === 'APPLIED' ? (
+                <Alert severity="success" variant="outlined">
+                  Applied on {formatDate(job.applied_at)}. The evaluation snapshot is preserved.
+                </Alert>
+              ) : null}
+              {job.lifecycle_state === 'IGNORED' ? (
+                <Button variant="outlined" onClick={() => onRestore?.(job.job_id)} disabled={busy}>
+                  Restore to New Jobs
+                </Button>
+              ) : null}
+              {job.evaluation_status === 'APPROVED' && job.lifecycle_state === 'DISCOVERED' ? (
+                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
+                  <Button variant="contained" onClick={() => onApply?.(job.job_id)} disabled={busy}>
+                    I Applied
+                  </Button>
+                  <Button variant="outlined" onClick={() => onIgnore?.(job.job_id)} disabled={busy}>
+                    Ignore
+                  </Button>
+                </Box>
+              ) : null}
+              {job.evaluation_status === 'PENDING' && job.match_score !== null ? (
+                <Button
+                  variant="outlined"
+                  color="warning"
+                  onClick={() => onApprove?.(job.job_id)}
+                  disabled={busy}
+                >
+                  Approve manually (score {job.match_score})
+                </Button>
+              ) : null}
               {url ? (
                 <Button
                   component="a"
@@ -224,9 +264,6 @@ export function JobDrawer({
                   The original URL is missing or invalid. The stored job data is unchanged.
                 </Alert>
               )}
-              <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center' }}>
-                Read-only milestone · application tracking arrives with the lifecycle backend
-              </Typography>
               {job.provider ? (
                 <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center' }}>
                   Evaluated with {job.provider}
