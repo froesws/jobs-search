@@ -3,8 +3,15 @@ import { useState } from 'react';
 
 import { safeMessage } from '@/lib/errors';
 import { normalizeFilters, validateFilters } from '@/lib/filters';
-import { applyJob, approveJob, ignoreJob, restoreJob, triggerSearch } from '@/lib/ipc';
-import type { JobSummary, SearchMetrics } from '@/lib/types';
+import {
+  applyJob,
+  approveJob,
+  ignoreJob,
+  restoreJob,
+  setSessionSelection,
+  triggerSearch,
+} from '@/lib/ipc';
+import type { JobSummary, ProviderId, SearchMetrics } from '@/lib/types';
 import { JobDrawer } from '@/components/JobDrawer';
 import { useFeedback } from '@/components/FeedbackProvider';
 import { TabBar } from '@/components/TabBar';
@@ -65,6 +72,12 @@ export function DashboardView({
     }
   };
 
+  const handleSelectModel = (providerId: ProviderId, models: string[]) => {
+    void setSessionSelection(providerId, models)
+      .then(() => providerConfig.reload())
+      .catch((cause) => feedback.notify(safeMessage(cause), 'error', true));
+  };
+
   const handleOpenJob = (job: JobSummary) => {
     dashboard.openJob(job.job_id);
     detail.open(job.job_id);
@@ -110,6 +123,8 @@ export function DashboardView({
         mode={mode}
         onToggleMode={onToggleMode}
         onOpenProviderSettings={() => setProviderOpen(true)}
+        provider={providerConfig}
+        onSelectModel={handleSelectModel}
       />
       <TabBar value={dashboard.tab} onChange={dashboard.setTab} />
 

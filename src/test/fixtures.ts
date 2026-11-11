@@ -1,4 +1,6 @@
+import { vi } from 'vitest';
 import type {
+  ProviderConfigView,
   ActiveProvider,
   AnalyticsPayload,
   CandidateProfile,
@@ -8,6 +10,7 @@ import type {
   PaginatedJobs,
   SearchMetrics,
 } from '@/lib/types';
+import type { ProviderConfigState } from '@/viewmodels/useProviderConfig';
 
 export const emptyPage: PaginatedJobs = {
   items: [],
@@ -200,3 +203,76 @@ export const analyticsPayloadFixture: AnalyticsPayload = {
     by_provider: [],
   },
 };
+
+export const providerConfigFixture: ProviderConfigView = {
+  providers: [
+    {
+      id: 'gemini',
+      label: 'Gemini',
+      requiresApiKey: true,
+      hasCredential: true,
+      credentialSource: 'credential_store',
+      model: 'gemini-3.5-flash-lite',
+      models: null,
+      baseUrl: null,
+      attempts: 3,
+      enabled: true,
+    },
+    {
+      id: 'openrouter',
+      label: 'OpenRouter',
+      requiresApiKey: true,
+      hasCredential: true,
+      credentialSource: 'credential_store',
+      model: null,
+      models: ['openrouter/free', 'free/model'],
+      baseUrl: null,
+      attempts: 2,
+      enabled: true,
+    },
+    {
+      id: 'deepseek',
+      label: 'DeepSeek',
+      requiresApiKey: true,
+      hasCredential: false,
+      credentialSource: 'none',
+      model: 'deepseek-flash',
+      models: null,
+      baseUrl: null,
+      attempts: 2,
+      enabled: true,
+    },
+    {
+      id: 'ollama',
+      label: 'Ollama (local)',
+      requiresApiKey: false,
+      hasCredential: false,
+      credentialSource: 'none',
+      model: null,
+      models: null,
+      baseUrl: 'http://localhost:11434',
+      attempts: 2,
+      enabled: false,
+    },
+  ],
+  order: ['gemini', 'openrouter', 'deepseek', 'ollama'],
+  fallbackEnabled: false,
+  sessionOverride: null,
+};
+
+export function providerStateFixture(
+  overrides: Partial<ProviderConfigState> = {},
+): ProviderConfigState {
+  return {
+    config: providerConfigFixture,
+    active: providerFixture,
+    loading: false,
+    error: null,
+    reload: vi.fn(),
+    save: vi.fn(),
+    saveCredential: vi.fn(),
+    removeCredential: vi.fn(),
+    resetSetting: vi.fn(),
+    ...overrides,
+  };
+}

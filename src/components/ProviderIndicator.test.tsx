@@ -1,39 +1,72 @@
-import { render, screen, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
 
-import { getActiveProvider } from '@/lib/ipc';
 import { ProviderIndicator } from '@/components/ProviderIndicator';
+import { providerConfigFixture, providerFixture } from '@/test/fixtures';
+import type { ProviderConfigView } from '@/lib/types';
 
-vi.mock('@/lib/ipc', async () => {
-  const { createIpcMock } = await import('@/test/ipc-mock');
-  return createIpcMock();
-});
+function renderIndicator(
+  overrides: {
+    active?: typeof providerFixture | null;
+    error?: string | null;
+    config?: ProviderConfigView | null;
+  } = {},
+) {
+  const onSelectModel = vi.fn();
+  const onOpenSettings = vi.fn();
+  render(
+    <ProviderIndicator
+      active={overrides.active === undefined ? providerFixture : overrides.active}
+      error={overrides.error ?? null}
+      config={overrides.config === undefined ? providerConfigFixture : overrides.config}
+      onSelectModel={onSelectModel}
+      onOpenSettings={onOpenSettings}
+    />,
+  );
+  return { onSelectModel, onOpenSettings };
+}
 
 describe('ProviderIndicator', () => {
-  beforeEach(() => {
-    vi.mocked(getActiveProvider).mockReset();
+  it('shows the active provider and model without credentials', () => {
+    renderIndicator();
+    expect(screen.getByRole('button', { name: 'Provider and model' })).toHaveTextContent(
+      'deepseek · deepseek-flash',
+    );
   });
 
-  it('shows the active provider and model without credentials', async () => {
-    vi.mocked(getActiveProvider).mockResolvedValue({
-      provider: 'deepseek',
-      model: 'deepseek-flash',
-      fallback_enabled: false,
-    });
-    render(<ProviderIndicator />);
+  it('groups the configured models by provider', () => {
+    renderIndicator();
+    fireEvent.click(screen.getByRole('button', { name: 'Provider and model' }));
 
-    expect(await screen.findByText('deepseek · deepseek-flash')).toBeInTheDocument();
-    expect(screen.queryByText(/secret|key/i)).not.toBeInTheDocument();
-    await waitFor(() => expect(getActiveProvider).toHaveBeenCalledTimes(1));
+    expect(screen.getByText('gemini')).toBeInTheDocument();
+    expect(screen.getByText('openrouter')).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'gemini-3.5-flash-lite' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'openrouter/free' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'free/model' })).toBeInTheDocument();
+    // DeepSeek has no credential in the fixture, but its model is still listed.
+    expect(screen.getByRole('menuitem', { name: 'deepseek-flash' })).toBeInTheDocument();
   });
 
-  it('surfaces a missing provider configuration', async () => {
-    vi.mocked(getActiveProvider).mockRejectedValue({
-      code: 'CONFIG_ERROR',
-      message: 'no LLM provider key is configured',
-    });
-    render(<ProviderIndicator />);
+  it('selects a model for the session', () => {
+    const { onSelectModel } = renderIndicator();
+    fireEvent.click(screen.getByRole('button', { name: 'Provider and model' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'gemini-3.5-flash-lite' }));
 
-    expect(await screen.findByText('Provider not configured')).toBeInTheDocument();
+    expect(onSelectModel).toHaveBeenCalledWith('gemini', ['gemini-3.5-flash-lite']);
+  });
+
+  it('offers to open settings when nothing is configured', () => {
+    const { onOpenSettings } = renderIndicator({ active: null, config: null });
+    fireEvent.click(screen.getByRole('button', { name: 'Provider and model' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /No provider configured/ }));
+
+    expect(onOpenSettings).toHaveBeenCalled();
+  });
+
+  it('surfaces a configuration error on the button', () => {
+    renderIndicator({ active: null, error: 'no provider', config: null });
+    expect(screen.getByRole('button', { name: 'Provider and model' })).toHaveTextContent(
+      'Provider not configured',
+    );
   });
 });

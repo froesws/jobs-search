@@ -16,9 +16,16 @@ import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import type { ThemeMode } from '@/theme/theme';
 import { MODALITY_PANEL_VALUES, SENIORITY_PANEL_VALUES } from '@/lib/filters';
-import type { SearchFilters, SearchTimeframe, Seniority, WorkModality } from '@/lib/types';
+import type {
+  ProviderId,
+  SearchFilters,
+  SearchTimeframe,
+  Seniority,
+  WorkModality,
+} from '@/lib/types';
 import { ProviderIndicator } from '@/components/ProviderIndicator';
 import { ResumeManager } from '@/components/ResumeManager';
+import type { ProviderConfigState } from '@/viewmodels/useProviderConfig';
 
 const TIMEFRAMES: Array<{ value: SearchTimeframe; label: string }> = [
   { value: 'H24', label: 'Last 24 hours' },
@@ -41,6 +48,8 @@ export function TopBar({
   mode,
   onToggleMode,
   onOpenProviderSettings,
+  provider,
+  onSelectModel,
 }: {
   filters: SearchFilters;
   onChange: (next: Partial<SearchFilters>) => void;
@@ -49,6 +58,8 @@ export function TopBar({
   mode: ThemeMode;
   onToggleMode: () => void;
   onOpenProviderSettings: () => void;
+  provider: ProviderConfigState;
+  onSelectModel: (provider: ProviderId, models: string[]) => void;
 }) {
   return (
     <AppBar
@@ -90,7 +101,13 @@ export function TopBar({
           </Typography>
         </Box>
 
-        <ProviderIndicator />
+        <ProviderIndicator
+          active={provider.active}
+          error={provider.error}
+          config={provider.config}
+          onSelectModel={onSelectModel}
+          onOpenSettings={onOpenProviderSettings}
+        />
         <Tooltip title="Provider settings">
           <IconButton
             size="small"
