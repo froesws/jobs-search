@@ -7,6 +7,7 @@ use crate::profile::CandidateProfile;
 
 /// Canonical key for a skill: trimmed, case-folded, whitespace-collapsed, with
 /// a small documented alias map for common market variants.
+#[must_use]
 pub fn normalize_skill(value: &str) -> String {
     let collapsed = value
         .split_whitespace()
@@ -27,6 +28,7 @@ pub fn normalize_skill(value: &str) -> String {
     }
 }
 
+#[must_use]
 pub fn display_name(key: &str) -> String {
     match key {
         "kubernetes" => "Kubernetes".to_string(),
@@ -62,6 +64,7 @@ fn profile_skills(profile: Option<&CandidateProfile>) -> HashSet<String> {
 }
 
 /// Aggregate missing-skill demand over the eligible jobs.
+#[must_use]
 pub fn compute(jobs: &[EligibleJob], profile: Option<&CandidateProfile>) -> Vec<SkillGapMetric> {
     let excluded = profile_skills(profile);
     let mut counts: BTreeMap<String, u32> = BTreeMap::new();

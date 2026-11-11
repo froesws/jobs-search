@@ -53,6 +53,7 @@ pub struct ProfileConflict {
 /// (manual technologies, cities, dealbreakers, target roles, authorization)
 /// are preserved. Conflicting current-title values are recorded, never
 /// overwritten.
+#[must_use = "the merged profile must be persisted by the caller"]
 pub fn merge_extracted(
     existing: Option<&CandidateProfile>,
     extracted: &ExtractedProfile,

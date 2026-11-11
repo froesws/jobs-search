@@ -188,6 +188,7 @@ impl LlmRouter {
     /// Restrict routing to the first configured provider and its first model.
     /// Used when `LLM_ALLOW_FALLBACK=false` so a retryable error is surfaced
     /// instead of silently switching provider or model.
+    #[must_use = "the restricted router must replace the original"]
     pub fn without_fallback(mut self) -> Self {
         self.plans.truncate(1);
         if let Some(plan) = self.plans.first_mut() {

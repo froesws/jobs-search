@@ -27,6 +27,7 @@ pub struct SearchFilters {
 impl SearchFilters {
     /// Backend defaults: profile roles, top core technology, profile seniority,
     /// all modalities, and every enabled source.
+    #[must_use]
     pub fn resolve(mut self, profile: &CandidateProfile) -> Self {
         if self.titles.is_empty() {
             self.titles = profile.target_roles.clone();
