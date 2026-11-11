@@ -40,3 +40,8 @@ jsonschema = "0.61"
 lopdf = "0.42"
 tempfile = "3"
 wiremock = "0.6.5"
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
