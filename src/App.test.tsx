@@ -73,7 +73,7 @@ describe('dashboard shell', () => {
     ]);
     expect(screen.getByRole('button', { name: 'Toggle color theme' })).toBeInTheDocument();
     expect(screen.getByLabelText('Timeframe')).toBeInTheDocument();
-    expect(screen.getByLabelText('Seniority')).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Seniority' })).toBeInTheDocument();
     expect(screen.getByLabelText('Stack or language')).toBeInTheDocument();
     await waitFor(() => expect(getJobs).toHaveBeenCalled());
   });

@@ -13,6 +13,7 @@ import Toolbar from '@mui/material/Toolbar';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import type { ThemeMode } from '@/theme/theme';
+import { SENIORITY_PANEL_VALUES } from '@/lib/filters';
 import type { SearchFilters, SearchTimeframe, Seniority, WorkModality } from '@/lib/types';
 import { ProviderIndicator } from '@/components/ProviderIndicator';
 import { ResumeManager } from '@/components/ResumeManager';
@@ -23,7 +24,6 @@ const TIMEFRAMES: Array<{ value: SearchTimeframe; label: string }> = [
   { value: 'D30', label: 'Last 30 days' },
 ];
 
-const SENIORITIES: Seniority[] = ['Trainee', 'Intern', 'Junior', 'Pleno', 'Senior'];
 const MODALITIES: Array<{ value: 'All' | WorkModality; label: string }> = [
   { value: 'All', label: 'All' },
   { value: 'Remote', label: 'Remote' },
@@ -46,7 +46,6 @@ export function TopBar({
   mode: ThemeMode;
   onToggleMode: () => void;
 }) {
-  const seniority = filters.seniorities[0] ?? 'Any';
   const modality = filters.modalities[0] ?? 'All';
 
   return (
@@ -141,25 +140,30 @@ export function TopBar({
           </Select>
         </FormControl>
 
-        <FormControl size="small" sx={{ minWidth: 130 }}>
-          <InputLabel id="seniority-label">Seniority</InputLabel>
-          <Select
-            labelId="seniority-label"
-            label="Seniority"
-            value={seniority}
-            onChange={(event) => {
-              const value = event.target.value as Seniority | 'Any';
-              onChange({ seniorities: value === 'Any' ? [] : [value] });
-            }}
+        <Box sx={{ display: 'grid', gap: 0.25, minWidth: 0 }}>
+          <Typography variant="caption" color="text.secondary">
+            Seniority
+          </Typography>
+          <ToggleButtonGroup
+            exclusive={false}
+            size="small"
+            value={filters.seniorities}
+            onChange={(_, value: Seniority[]) => onChange({ seniorities: value })}
+            aria-label="Seniority"
+            sx={{ flexWrap: 'wrap', bgcolor: 'background.paper', borderRadius: 2 }}
           >
-            <MenuItem value="Any">Any</MenuItem>
-            {SENIORITIES.map((value) => (
-              <MenuItem key={value} value={value}>
+            {SENIORITY_PANEL_VALUES.map((value) => (
+              <ToggleButton key={value} value={value} sx={{ px: 1.5 }}>
                 {value}
-              </MenuItem>
+              </ToggleButton>
             ))}
-          </Select>
-        </FormControl>
+          </ToggleButtonGroup>
+          {filters.seniorities.length === 0 ? (
+            <Typography variant="caption" color="text.secondary">
+              Profile default
+            </Typography>
+          ) : null}
+        </Box>
 
         <TextField
           size="small"

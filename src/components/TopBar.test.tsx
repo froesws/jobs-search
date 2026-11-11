@@ -37,7 +37,15 @@ describe('TopBar', () => {
 
     expect(screen.getByRole('button', { name: 'Refresh Search' })).toBeInTheDocument();
     expect(screen.getByLabelText('Timeframe')).toBeInTheDocument();
-    expect(screen.getByLabelText('Seniority')).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Seniority' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Trainee' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Junior' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Pleno' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Senior' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Any' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Intern' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Pleno-Senior' })).not.toBeInTheDocument();
+    expect(screen.getByText('Profile default')).toBeInTheDocument();
     expect(screen.getByLabelText('Stack or language')).toBeInTheDocument();
     expect(screen.getByRole('group', { name: 'Work modality' })).toBeInTheDocument();
 
@@ -48,6 +56,42 @@ describe('TopBar', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Refresh Search' }));
     expect(onSearch).toHaveBeenCalledTimes(1);
+  });
+
+  it('allows three seniority levels at once and removes a selected level', () => {
+    const onChange = vi.fn();
+    const { rerender } = render(
+      <FeedbackProvider>
+        <TopBar
+          filters={{ ...DEFAULT_FILTERS, seniorities: ['Trainee', 'Junior'] }}
+          onChange={onChange}
+          onSearch={() => {}}
+          searching={false}
+          mode="dark"
+          onToggleMode={() => {}}
+        />
+      </FeedbackProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Pleno' }));
+    expect(onChange).toHaveBeenLastCalledWith({
+      seniorities: ['Trainee', 'Junior', 'Pleno'],
+    });
+
+    rerender(
+      <FeedbackProvider>
+        <TopBar
+          filters={{ ...DEFAULT_FILTERS, seniorities: ['Trainee', 'Junior', 'Pleno'] }}
+          onChange={onChange}
+          onSearch={() => {}}
+          searching={false}
+          mode="dark"
+          onToggleMode={() => {}}
+        />
+      </FeedbackProvider>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Trainee' }));
+    expect(onChange).toHaveBeenLastCalledWith({ seniorities: ['Junior', 'Pleno'] });
   });
 
   it('disables the search trigger while a run is active', () => {

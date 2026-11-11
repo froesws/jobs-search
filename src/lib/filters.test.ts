@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { normalizeFilters, validateFilters } from '@/lib/filters';
+import {
+  SENIORITY_PANEL_VALUES,
+  normalizeFilters,
+  toggleSeniority,
+  validateFilters,
+} from '@/lib/filters';
 import { DEFAULT_FILTERS } from '@/lib/types';
 
 describe('search filters', () => {
@@ -30,6 +35,14 @@ describe('search filters', () => {
         modalities: ['Unknown'],
       }),
     ).toContain('Remote');
+  });
+
+  it('toggles only the four seniority panel values', () => {
+    expect(SENIORITY_PANEL_VALUES).toEqual(['Trainee', 'Junior', 'Pleno', 'Senior']);
+    expect(toggleSeniority([], 'Trainee')).toEqual(['Trainee']);
+    expect(toggleSeniority(['Trainee'], 'Junior')).toEqual(['Trainee', 'Junior']);
+    expect(toggleSeniority(['Trainee', 'Junior'], 'Trainee')).toEqual(['Junior']);
+    expect(toggleSeniority(['Intern'], 'Intern')).toEqual([]);
   });
 
   it('accepts the default filters and all modalities encoded as empty', () => {

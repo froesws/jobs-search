@@ -1,8 +1,17 @@
 import { DEFAULT_FILTERS } from '@/lib/types';
-import type { SearchFilters, SearchTimeframe, WorkModality } from '@/lib/types';
+import type { SearchFilters, SearchTimeframe, Seniority, WorkModality } from '@/lib/types';
 
 const TIMEFRAMES: SearchTimeframe[] = ['H24', 'D7', 'D30'];
 const MODALITIES: WorkModality[] = ['Remote', 'Hybrid', 'Onsite'];
+
+export const SENIORITY_PANEL_VALUES: Seniority[] = ['Trainee', 'Junior', 'Pleno', 'Senior'];
+
+export function toggleSeniority(current: Seniority[], value: Seniority): Seniority[] {
+  const next = current.includes(value)
+    ? current.filter((item) => item !== value)
+    : [...current, value];
+  return SENIORITY_PANEL_VALUES.filter((item) => next.includes(item));
+}
 
 export function normalizeFilters(filters: SearchFilters): SearchFilters {
   return {
