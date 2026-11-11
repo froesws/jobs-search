@@ -135,6 +135,7 @@ async fn hybrid_ingestion_dedups_and_preserves_lineage_with_one_failure() {
             posted_at: job.posted_at,
             description_clean: job.description_clean,
             extracted_metadata_json: job.extracted_metadata_json,
+            needs_review: job.needs_review,
         };
         let upsert = jobs_search_lib::db::jobs::upsert_job(&db, &new_job).expect("upsert");
         if upsert.duplicate() {
@@ -226,6 +227,7 @@ async fn hybrid_ingestion_dedups_and_preserves_lineage_with_one_failure() {
             posted_at: job.posted_at,
             description_clean: job.description_clean,
             extracted_metadata_json: job.extracted_metadata_json,
+            needs_review: job.needs_review,
         };
         let upsert = jobs_search_lib::db::jobs::upsert_job(&db, &new_job).expect("upsert");
         jobs_search_lib::db::jobs::add_lineage(

@@ -91,6 +91,7 @@ pub fn new_job(
         posted_at: None,
         description_clean: description.to_string(),
         extracted_metadata_json: None,
+        needs_review: identity.used_url_fallback,
     }
 }
 

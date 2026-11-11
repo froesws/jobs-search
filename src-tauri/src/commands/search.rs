@@ -126,6 +126,7 @@ pub async fn trigger(state: &AppState, filters: SearchFilters) -> Result<SearchM
                         posted_at: job.posted_at,
                         description_clean: job.description_clean,
                         extracted_metadata_json: job.extracted_metadata_json,
+                        needs_review: job.needs_review,
                     },
                 )?;
                 if upsert.duplicate() {

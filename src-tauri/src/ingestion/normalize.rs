@@ -69,6 +69,7 @@ pub fn normalize(
         source_name: source_name.to_string(),
         canonical_key: identity.key,
         canonical_hash: identity.hash,
+        needs_review: identity.used_url_fallback,
     })
 }
 
@@ -296,5 +297,15 @@ mod tests {
         assert_eq!(job.description_clean, "Rust role");
         assert!(!job.canonical_hash.is_empty());
         assert!(job.extracted_metadata_json.is_some());
+        assert!(!job.needs_review);
+    }
+
+    #[test]
+    fn missing_identity_fields_flag_the_job_for_review() {
+        let mut job = raw("Rust role");
+        job.location = "Unknown".to_string();
+        let normalized = normalize(job, "s", "source").expect("normalized");
+        assert!(normalized.needs_review);
+        assert!(normalized.canonical_key.starts_with("v1|url|"));
     }
 }

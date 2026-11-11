@@ -11,7 +11,7 @@ const SUMMARY_COLUMNS: &str = "
     j.id, j.title, j.company, j.location, j.work_modality, j.url, j.posted_at,
     e.evaluation_status, COALESCE(a.lifecycle_state, 'DISCOVERED'),
     e.match_score, e.matching_items_count, e.total_requirements_count,
-    substr(j.description_clean, 1, 240)
+    substr(j.description_clean, 1, 240), COALESCE(j.needs_review, 0)
 ";
 
 #[derive(Debug, Clone)]
@@ -26,6 +26,7 @@ pub struct NewJob {
     pub posted_at: Option<String>,
     pub description_clean: String,
     pub extracted_metadata_json: Option<String>,
+    pub needs_review: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -68,6 +69,7 @@ pub struct JobSummary {
     pub matching_items_count: Option<i64>,
     pub total_requirements_count: Option<i64>,
     pub summary: String,
+    pub needs_review: bool,
 }
 
 #[derive(Debug, Clone, serde::Serialize)]
@@ -133,8 +135,9 @@ pub fn upsert_job(db: &Db, job: &NewJob) -> Result<UpsertOutcome, AppError> {
                      url = ?5, posted_at = COALESCE(?6, posted_at),
                      description_clean = ?7,
                      extracted_metadata_json = COALESCE(?8, extracted_metadata_json),
-                     conflicts_json = ?9, updated_at = ?10
-                 WHERE id = ?11",
+                     conflicts_json = ?9, needs_review = MAX(needs_review, ?10),
+                     updated_at = ?11
+                 WHERE id = ?12",
                 params![
                     job.title,
                     job.company,
@@ -145,6 +148,7 @@ pub fn upsert_job(db: &Db, job: &NewJob) -> Result<UpsertOutcome, AppError> {
                     job.description_clean,
                     job.extracted_metadata_json,
                     conflicts,
+                    job.needs_review,
                     now,
                     existing.id,
                 ],
@@ -159,8 +163,8 @@ pub fn upsert_job(db: &Db, job: &NewJob) -> Result<UpsertOutcome, AppError> {
                 "INSERT INTO job_postings
                  (id, canonical_key, canonical_hash, title, company, location,
                   work_modality, url, posted_at, description_clean,
-                  extracted_metadata_json, conflicts_json, created_at, updated_at)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, '[]', ?12, ?13)",
+                  extracted_metadata_json, needs_review, conflicts_json, created_at, updated_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, '[]', ?13, ?14)",
                 params![
                     job_id,
                     job.canonical_key,
@@ -173,6 +177,7 @@ pub fn upsert_job(db: &Db, job: &NewJob) -> Result<UpsertOutcome, AppError> {
                     job.posted_at,
                     job.description_clean,
                     job.extracted_metadata_json,
+                    job.needs_review,
                     now,
                     now,
                 ],
@@ -454,14 +459,14 @@ pub fn get_detail(db: &Db, job_id: &str) -> Result<JobDetail, AppError> {
         };
 
         let summary = summary_from_row(row)?;
-        let description_clean: String = row.get(13)?;
-        let matched_keywords = parse_csv_json(row.get::<_, Option<String>>(14)?);
-        let missing_keywords = parse_csv_json(row.get::<_, Option<String>>(15)?);
-        let hard_filter_rejections = parse_rejections(row.get::<_, Option<String>>(16)?);
-        let score_breakdown = parse_json_value(row.get::<_, Option<String>>(17)?);
-        let provider: Option<String> = row.get(18)?;
-        let model: Option<String> = row.get(19)?;
-        let metadata: Option<String> = row.get(20)?;
+        let description_clean: String = row.get(14)?;
+        let matched_keywords = parse_csv_json(row.get::<_, Option<String>>(15)?);
+        let missing_keywords = parse_csv_json(row.get::<_, Option<String>>(16)?);
+        let hard_filter_rejections = parse_rejections(row.get::<_, Option<String>>(17)?);
+        let score_breakdown = parse_json_value(row.get::<_, Option<String>>(18)?);
+        let provider: Option<String> = row.get(19)?;
+        let model: Option<String> = row.get(20)?;
+        let metadata: Option<String> = row.get(21)?;
         let requirements = parse_requirements(metadata.as_deref());
         let error_category = error_category(score_breakdown.as_ref());
         let source_lineage = lineage_with_connection(connection, job_id)?;
@@ -500,6 +505,7 @@ fn summary_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<JobSummary> {
         matching_items_count: row.get(10)?,
         total_requirements_count: row.get(11)?,
         summary: truncate(&row.get::<_, String>(12)?, 240),
+        needs_review: row.get(13)?,
     })
 }
 
@@ -655,6 +661,7 @@ mod tests {
             posted_at: None,
             description_clean: "Rust role".to_string(),
             extracted_metadata_json: None,
+            needs_review: false,
         }
     }
 
@@ -685,6 +692,16 @@ mod tests {
         add_lineage(&db, &first.job_id, "jobspy", "li-1", "https://a/1").expect("lineage");
         add_lineage(&db, &first.job_id, "jobspy", "li-1", "https://a/1").expect("lineage repeat");
         assert_eq!(lineage(&db, &first.job_id).expect("lineage").len(), 1);
+    }
+
+    #[test]
+    fn identity_fallback_is_persisted_for_operator_review() {
+        let db = Db::open_in_memory().expect("db");
+        let mut job = test_job("Needs Review");
+        job.needs_review = true;
+        let outcome = upsert_job(&db, &job).expect("insert");
+        let detail = get_detail(&db, &outcome.job_id).expect("detail");
+        assert!(detail.summary.needs_review);
     }
 
     #[test]

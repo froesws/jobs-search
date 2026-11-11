@@ -94,6 +94,7 @@ pub struct NormalizedJob {
     pub source_name: String,
     pub canonical_key: String,
     pub canonical_hash: String,
+    pub needs_review: bool,
 }
 
 #[async_trait]

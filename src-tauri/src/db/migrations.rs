@@ -2,7 +2,7 @@ use rusqlite::Connection;
 
 use crate::error::AppError;
 
-const SCHEMA_VERSION: i64 = 2;
+const SCHEMA_VERSION: i64 = 3;
 
 const SCHEMA_V1: &str = r#"
 CREATE TABLE resumes (
@@ -167,6 +167,15 @@ ALTER TABLE job_evaluations
 CREATE INDEX idx_job_evaluations_run ON job_evaluations(run_id);
 "#;
 
+/// V3 flags postings whose canonical identity had to fall back to the URL so
+/// the operator can review the missing company/title/location fields.
+const SCHEMA_V3: &str = r#"
+ALTER TABLE job_postings
+    ADD COLUMN needs_review INTEGER NOT NULL DEFAULT 0 CHECK (needs_review IN (0, 1));
+
+CREATE INDEX idx_job_postings_needs_review ON job_postings(needs_review);
+"#;
+
 pub fn apply(connection: &mut Connection) -> Result<(), AppError> {
     let current: i64 = connection.pragma_query_value(None, "user_version", |row| row.get(0))?;
     if current >= SCHEMA_VERSION {
@@ -179,6 +188,9 @@ pub fn apply(connection: &mut Connection) -> Result<(), AppError> {
     }
     if current < 2 {
         transaction.execute_batch(SCHEMA_V2)?;
+    }
+    if current < 3 {
+        transaction.execute_batch(SCHEMA_V3)?;
     }
     transaction.pragma_update(None, "user_version", SCHEMA_VERSION)?;
     transaction.commit()?;
