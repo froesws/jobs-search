@@ -238,6 +238,7 @@ pub fn get_analytics(db: &Db, request: AnalyticsRequest) -> Result<AnalyticsPayl
         .unwrap_or_else(crate::db::now_rfc3339);
     let stale = jobs.iter().any(|job| job.stale);
     let funnel = funnel::compute_funnel(db, request.scope, run_id.as_deref())?;
+    let llm_metrics = funnel::llm_metrics(db, request.scope, run_id.as_deref())?;
 
     Ok(AnalyticsPayload {
         scope: request.scope,
@@ -248,6 +249,6 @@ pub fn get_analytics(db: &Db, request: AnalyticsRequest) -> Result<AnalyticsPayl
         skill_gap: skill_gap::compute(&jobs, profile.as_ref()),
         funnel,
         score_distribution: funnel::score_distribution(&jobs),
-        llm_metrics: LlmMetricsPayload::default(),
+        llm_metrics,
     })
 }

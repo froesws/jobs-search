@@ -2,7 +2,9 @@
 
 use std::collections::BTreeMap;
 
-use crate::analytics::{AnalyticsScope, FunnelPayload, ScoreBucket};
+use crate::analytics::{
+    AnalyticsScope, FunnelPayload, LlmMetricsPayload, ProviderMetric, ScoreBucket,
+};
 use crate::db::Db;
 use crate::error::AppError;
 
@@ -163,4 +165,106 @@ fn rate(numerator: i64, denominator: i64) -> f64 {
     } else {
         ((numerator as f64 / denominator as f64) * 1000.0).round() / 10.0
     }
+}
+
+pub fn llm_metrics(
+    db: &Db,
+    scope: AnalyticsScope,
+    run_id: Option<&str>,
+) -> Result<LlmMetricsPayload, AppError> {
+    db.with_connection(|connection| {
+        let (sql, params): (&str, Vec<&str>) = match scope {
+            AnalyticsScope::CurrentRun => (
+                "SELECT provider, model, latency_ms, outcome, fallback_from
+                 FROM llm_metrics WHERE run_id = ?1 ORDER BY created_at ASC",
+                vec![run_id.unwrap_or_default()],
+            ),
+            AnalyticsScope::Last7Days => (
+                "SELECT provider, model, latency_ms, outcome, fallback_from
+                 FROM llm_metrics
+                 WHERE datetime(created_at) >= datetime('now', '-7 days')
+                 ORDER BY created_at ASC",
+                Vec::new(),
+            ),
+        };
+        let mut statement = connection.prepare(sql)?;
+        let rows = statement.query_map(rusqlite::params_from_iter(params), |row| {
+            Ok(LlmRow {
+                provider: row.get(0)?,
+                model: row.get(1)?,
+                latency: row.get(2)?,
+                outcome: row.get(3)?,
+                fallback_from: row.get::<_, Option<String>>(4)?,
+            })
+        })?;
+
+        let mut payload = LlmMetricsPayload::default();
+        let mut latencies = Vec::new();
+        let mut providers: BTreeMap<(String, String), ProviderAccumulator> = BTreeMap::new();
+        for row in rows {
+            let row = row?;
+            latencies.push(row.latency);
+            let is_success = row.outcome == "SUCCESS";
+            let is_error = row.outcome == "ERROR";
+            let is_fallback = row.fallback_from.is_some() || row.outcome == "FALLBACK";
+            if is_success {
+                payload.success_count += 1;
+            }
+            if is_error {
+                payload.error_count += 1;
+            }
+            if is_fallback {
+                payload.fallback_count += 1;
+            }
+            let entry = providers.entry((row.provider, row.model)).or_default();
+            entry.calls += 1;
+            entry.success += i64::from(is_success);
+            entry.error += i64::from(is_error);
+            entry.fallback += i64::from(is_fallback);
+            entry.latencies.push(row.latency);
+        }
+        payload.call_count = latencies.len() as i64;
+        payload.p50_latency_ms = percentile(&mut latencies, 50.0);
+        payload.p95_latency_ms = percentile(&mut latencies, 95.0);
+        payload.by_provider = providers
+            .into_iter()
+            .map(|((provider, model), mut value)| ProviderMetric {
+                provider,
+                model,
+                call_count: value.calls,
+                success_count: value.success,
+                error_count: value.error,
+                fallback_count: value.fallback,
+                p50_latency_ms: percentile(&mut value.latencies, 50.0),
+                p95_latency_ms: percentile(&mut value.latencies, 95.0),
+            })
+            .collect();
+        Ok(payload)
+    })
+}
+
+#[derive(Default)]
+struct ProviderAccumulator {
+    calls: i64,
+    success: i64,
+    error: i64,
+    fallback: i64,
+    latencies: Vec<i64>,
+}
+
+struct LlmRow {
+    provider: String,
+    model: String,
+    latency: i64,
+    outcome: String,
+    fallback_from: Option<String>,
+}
+
+fn percentile(values: &mut [i64], percentile: f64) -> i64 {
+    if values.is_empty() {
+        return 0;
+    }
+    values.sort_unstable();
+    let rank = ((percentile / 100.0) * values.len() as f64).ceil() as usize;
+    values[rank.saturating_sub(1).min(values.len() - 1)]
 }
