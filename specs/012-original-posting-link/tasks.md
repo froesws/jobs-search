@@ -174,7 +174,7 @@ without calling `openUrl`.
   "Original URL is missing or invalid" warning renders, no
   `original-posting-url` test id exists, and `openExternalUrl` is not called
   (`src/components/JobDrawer.tsx`, `src/lib/format.ts`).
-- [ ] T014 [US2] Keep `safeExternalUrl` in `src/lib/format.ts` as the single
+- [X] T014 [US2] Keep `safeExternalUrl` in `src/lib/format.ts` as the single
   validator and use it in both `JobDrawer` and `openExternalUrl`. Do not
   duplicate protocol checks; extend `src/lib/format.test.ts` only if a case is
   missing.

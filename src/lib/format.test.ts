@@ -22,6 +22,8 @@ describe('format helpers', () => {
   it('only accepts http(s) external urls', () => {
     expect(safeExternalUrl('https://example.com/job')).toBe('https://example.com/job');
     expect(safeExternalUrl('javascript:alert(1)')).toBeNull();
+    expect(safeExternalUrl('file:///etc/passwd')).toBeNull();
+    expect(safeExternalUrl('data:text/html,x')).toBeNull();
     expect(safeExternalUrl('not a url')).toBeNull();
   });
 });
