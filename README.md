@@ -91,6 +91,27 @@ precedence. Do not commit `.env` or provider credentials.
 Job sources are configured in `sources.yaml` (MCP and API adapters). Keep local
 source credentials in `.env`.
 
+## Job sources
+
+The default search runs all enabled sources concurrently:
+
+- `jobspy` (MCP): LinkedIn, Indeed, Glassdoor, ZipRecruiter, Google, Bayt,
+  Naukri, BDJobs, and HelloWork through `python-jobspy`. A failing board is
+  reported as a partial sidecar result instead of discarding the other boards.
+- `remoteok` (API): RemoteOK's public feed.
+- `linkedin` (MCP): the authenticated
+  `stickerdaniel/linkedin-mcp-server` server, using its own browser session
+  under `~/.linkedin-mcp`.
+- `linkedin_scraper` (MCP): the local
+  `sidecar/linkedin_scraper_mcp` wrapper around `joeyism/linkedin_scraper`. It
+  needs a one-time `linkedin-scraper-login` and is subject to LinkedIn rate
+  limits and account restrictions.
+
+The two authenticated LinkedIn sources are optional. Set `enabled: false` in
+`sources.yaml` to remove either one without affecting JobSpy or RemoteOK.
+JobSpy and the local wrapper are started with `uv run --project`, so `uv` must
+be available in the environment that starts the app.
+
 ## Analytics
 
 The `Analytics` tab is read-only. It aggregates eligible evaluations

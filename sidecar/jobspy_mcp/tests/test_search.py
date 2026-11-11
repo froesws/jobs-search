@@ -4,7 +4,12 @@ import json
 
 import pytest
 
-from jobspy_mcp_server.search import JobSpyError, RateLimiter, search_jobs
+from jobspy_mcp_server.search import (
+    SUPPORTED_SITES,
+    JobSpyError,
+    RateLimiter,
+    search_jobs,
+)
 from jobspy_mcp_server.server import handle
 
 
@@ -104,6 +109,41 @@ def test_retries_are_bounded():
     )
     assert len(calls) == 3
     assert len(payload["jobs"]) == 1
+
+
+def test_partial_site_failure_keeps_other_results():
+    def scrape(**kwargs):
+        if kwargs["site_name"][0] == "linkedin":
+            raise RuntimeError("secret internal detail")
+        return fake_scrape(**kwargs)
+
+    limiter = RateLimiter(min_interval_seconds=0, clock=lambda: 0.0, sleep=lambda _: None)
+    payload = search_jobs(
+        query="Rust",
+        sites=["linkedin", "indeed"],
+        limiter=limiter,
+        scrape=scrape,
+        max_retries=0,
+    )
+
+    assert len(payload["jobs"]) == 1
+    assert payload["jobs"][0]["source_name"] == "jobspy"
+    assert payload["failures"][0]["site"] == "linkedin"
+    assert "secret internal detail" not in payload["failures"][0]["message"]
+
+
+def test_supported_sites_cover_all_jobspy_boards():
+    assert {
+        "linkedin",
+        "indeed",
+        "glassdoor",
+        "zip_recruiter",
+        "google",
+        "bayt",
+        "naukri",
+        "bdjobs",
+        "hellowork",
+    } <= SUPPORTED_SITES
 
 
 def test_exhausted_retries_return_a_sanitized_error():

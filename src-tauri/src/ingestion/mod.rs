@@ -3,6 +3,7 @@
 
 pub mod adapter;
 pub mod api;
+pub mod linkedin_mcp;
 pub mod mcp;
 pub mod normalize;
 

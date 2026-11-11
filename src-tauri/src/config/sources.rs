@@ -156,18 +156,74 @@ impl SourcesConfig {
                     enabled: true,
                     config: serde_yaml::from_str(
                         r#"
-command: python3
-args: ["-m", "jobspy_mcp_server.server"]
-sites: ["linkedin", "indeed"]
-results_wanted: 50
+command: uv
+args: ["run", "--project", "sidecar/jobspy_mcp", "jobspy-mcp-server"]
+cwd: "."
+sites:
+  - linkedin
+  - indeed
+  - glassdoor
+  - zip_recruiter
+  - google
+  - bayt
+  - naukri
+  - bdjobs
+  - hellowork
+results_wanted: 10
 "#,
                     )
                     .expect("static jobspy source config"),
                     rate_limit: RateLimitConfig {
-                        requests_per_minute: 20,
+                        requests_per_minute: 10,
                         max_retries: 2,
                         backoff_ms: 500,
-                        timeout_seconds: 60,
+                        timeout_seconds: 180,
+                    },
+                    credential_ref: None,
+                },
+                SourceConfig {
+                    id: "linkedin".to_string(),
+                    name: "linkedin".to_string(),
+                    source_type: SourceType::Mcp,
+                    enabled: true,
+                    config: serde_yaml::from_str(
+                        r#"
+command: uvx
+args: ["mcp-server-linkedin@latest"]
+adapter: linkedin
+results_wanted: 10
+max_pages: 1
+"#,
+                    )
+                    .expect("static linkedin source config"),
+                    rate_limit: RateLimitConfig {
+                        requests_per_minute: 4,
+                        max_retries: 1,
+                        backoff_ms: 1000,
+                        timeout_seconds: 300,
+                    },
+                    credential_ref: None,
+                },
+                SourceConfig {
+                    id: "linkedin_scraper".to_string(),
+                    name: "linkedin_scraper".to_string(),
+                    source_type: SourceType::Mcp,
+                    enabled: true,
+                    config: serde_yaml::from_str(
+                        r#"
+command: uv
+args: ["run", "--project", "sidecar/linkedin_scraper_mcp", "linkedin-scraper-mcp"]
+cwd: "."
+sites: ["linkedin"]
+results_wanted: 10
+"#,
+                    )
+                    .expect("static linkedin scraper source config"),
+                    rate_limit: RateLimitConfig {
+                        requests_per_minute: 4,
+                        max_retries: 1,
+                        backoff_ms: 1000,
+                        timeout_seconds: 300,
                     },
                     credential_ref: None,
                 },
@@ -333,6 +389,6 @@ sources:
     fn default_sources_are_valid() {
         let config = SourcesConfig::default_sources();
         config.validate().expect("defaults are valid");
-        assert_eq!(config.enabled().len(), 2);
+        assert_eq!(config.enabled().len(), 4);
     }
 }

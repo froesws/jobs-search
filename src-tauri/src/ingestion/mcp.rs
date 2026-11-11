@@ -1,6 +1,7 @@
 //! JobSpy MCP stdio client.
 #![allow(missing_docs)]
 
+use std::path::PathBuf;
 use std::process::Stdio;
 use std::time::Duration;
 
@@ -23,6 +24,7 @@ pub struct McpAdapter {
     name: String,
     command: String,
     args: Vec<String>,
+    cwd: Option<PathBuf>,
     sites: Vec<String>,
     results_wanted: u32,
     timeout: Duration,
@@ -54,6 +56,11 @@ impl McpAdapter {
             name: source.name.clone(),
             command,
             args: source.config_string_list("args"),
+            cwd: source
+                .config_str("cwd")
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(PathBuf::from),
             sites,
             results_wanted: source.config_u32("results_wanted", 50).clamp(1, 200),
             timeout: Duration::from_secs(source.rate_limit.timeout_seconds.clamp(1, 300)),
@@ -74,6 +81,7 @@ impl McpAdapter {
             name: name.into(),
             command: command.into(),
             args,
+            cwd: None,
             sites,
             results_wanted: 50,
             timeout,
@@ -98,16 +106,19 @@ impl SourceAdapter for McpAdapter {
 
     async fn fetch(&self, request: &IngestionRequest) -> Result<Vec<RawJob>, SourceError> {
         self.pacer.wait().await;
-        let mut child = Command::new(&self.command)
+        let mut command = Command::new(&self.command);
+        command
             .args(&self.args)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
-            .kill_on_drop(true)
-            .spawn()
-            .map_err(|_| {
-                SourceError::permanent("MCP_START_FAILED", "could not start the JobSpy sidecar")
-            })?;
+            .kill_on_drop(true);
+        if let Some(cwd) = &self.cwd {
+            command.current_dir(cwd);
+        }
+        let mut child = command.spawn().map_err(|_| {
+            SourceError::permanent("MCP_START_FAILED", "could not start the MCP sidecar")
+        })?;
 
         let mut stdin = child.stdin.take().ok_or_else(|| {
             SourceError::permanent("MCP_PIPE_FAILED", "sidecar stdin is unavailable")
@@ -212,7 +223,15 @@ impl McpAdapter {
             let result = message.get("result").ok_or_else(|| {
                 SourceError::transient("MCP_INVALID_RESPONSE", "sidecar response has no result")
             })?;
-            return self.convert_jobs(result);
+            let jobs = self.convert_jobs(result)?;
+            if let Some(failures) = result.get("failures").and_then(serde_json::Value::as_array) {
+                tracing::warn!(
+                    source = %self.id,
+                    failed_sites = failures.len(),
+                    "some MCP sites failed"
+                );
+            }
+            return Ok(jobs);
         }
 
         Err(SourceError::transient(

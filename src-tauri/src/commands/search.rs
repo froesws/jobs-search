@@ -10,7 +10,9 @@ use crate::config::SourceConfig;
 use crate::db::runs::{RunFinish, SearchMetrics};
 use crate::error::{AppError, ErrorPayload};
 use crate::ingestion::adapter::{IngestionRequest, SourceAdapter, SourceFailure};
-use crate::ingestion::{api::RemoteOkAdapter, ingest, mcp::McpAdapter, normalize};
+use crate::ingestion::{
+    api::RemoteOkAdapter, ingest, linkedin_mcp::LinkedInMcpAdapter, mcp::McpAdapter, normalize,
+};
 use crate::llm;
 use crate::profile::CandidateProfile;
 use crate::state::AppState;
@@ -63,8 +65,11 @@ impl SearchFilters {
             sites: Vec::new(),
             results_wanted: 50,
             hours_old: self.timeframe.hours_old(),
-            is_remote: self.modalities.contains(&WorkModality::Remote),
+            is_remote: self.modalities.len() == 1
+                && self.modalities.first() == Some(&WorkModality::Remote),
             offset: 0,
+            seniorities: self.seniorities.clone(),
+            modalities: self.modalities.clone(),
         }
     }
 }
@@ -237,9 +242,17 @@ async fn ingest_jobs(
 
 fn build_adapter(source: &SourceConfig) -> Result<Arc<dyn SourceAdapter>, SourceFailure> {
     match source.source_type {
-        crate::config::SourceType::Mcp => McpAdapter::from_config(source)
-            .map(|adapter| Arc::new(adapter) as Arc<dyn SourceAdapter>)
-            .map_err(|error| failure(source, "MCP_CONFIG_ERROR", error.message())),
+        crate::config::SourceType::Mcp => {
+            if source.config_str("adapter") == Some("linkedin") {
+                LinkedInMcpAdapter::from_config(source)
+                    .map(|adapter| Arc::new(adapter) as Arc<dyn SourceAdapter>)
+                    .map_err(|error| failure(source, "MCP_CONFIG_ERROR", error.message()))
+            } else {
+                McpAdapter::from_config(source)
+                    .map(|adapter| Arc::new(adapter) as Arc<dyn SourceAdapter>)
+                    .map_err(|error| failure(source, "MCP_CONFIG_ERROR", error.message()))
+            }
+        }
         crate::config::SourceType::Api => {
             let adapter_kind = source.config_str("adapter").unwrap_or_default();
             let is_remoteok = adapter_kind == "remoteok"
@@ -312,13 +325,15 @@ mod tests {
     }
 
     #[test]
-    fn ingestion_request_uses_the_seven_day_remote_default() {
+    fn ingestion_request_uses_the_seven_day_default() {
         let filters = SearchFilters::default().resolve(&profile());
         let request = filters.ingestion_request();
         assert_eq!(request.hours_old, 168);
-        assert!(request.is_remote);
+        assert!(!request.is_remote);
         assert_eq!(request.location, "Brazil");
         assert!(request.query.contains("Rust Engineer"));
+        assert_eq!(request.seniorities, filters.seniorities);
+        assert_eq!(request.modalities, filters.modalities);
     }
 
     #[test]

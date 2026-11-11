@@ -27,7 +27,20 @@ TOOLS = [
                 "location": {"type": "string", "maxLength": 256},
                 "sites": {
                     "type": "array",
-                    "items": {"type": "string", "enum": ["linkedin", "indeed"]},
+                    "items": {
+                        "type": "string",
+                        "enum": [
+                            "linkedin",
+                            "indeed",
+                            "glassdoor",
+                            "zip_recruiter",
+                            "google",
+                            "bayt",
+                            "naukri",
+                            "bdjobs",
+                            "hellowork",
+                        ],
+                    },
                 },
                 "results_wanted": {"type": "integer", "minimum": 1, "maximum": 200},
                 "hours_old": {"type": "integer", "minimum": 1, "maximum": 720},

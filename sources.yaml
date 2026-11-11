@@ -6,15 +6,59 @@ sources:
     source_type: mcp
     enabled: true
     config:
-      command: python3
-      args: ['-m', 'jobspy_mcp_server.server']
-      sites: ['linkedin', 'indeed']
-      results_wanted: 50
+      command: uv
+      args: ['run', '--project', 'sidecar/jobspy_mcp', 'jobspy-mcp-server']
+      cwd: '.'
+      sites:
+        - linkedin
+        - indeed
+        - glassdoor
+        - zip_recruiter
+        - google
+        - bayt
+        - naukri
+        - bdjobs
+        - hellowork
+      results_wanted: 10
     rate_limit:
-      requests_per_minute: 20
+      requests_per_minute: 10
       max_retries: 2
       backoff_ms: 500
-      timeout_seconds: 60
+      timeout_seconds: 180
+
+  # Authenticated LinkedIn sources. They are optional; disable either entry
+  # if you do not want to use a saved LinkedIn browser session.
+  - id: linkedin
+    name: linkedin
+    source_type: mcp
+    enabled: true
+    config:
+      command: uvx
+      args: ['mcp-server-linkedin@latest']
+      adapter: linkedin
+      results_wanted: 10
+      max_pages: 1
+    rate_limit:
+      requests_per_minute: 4
+      max_retries: 1
+      backoff_ms: 1000
+      timeout_seconds: 300
+
+  - id: linkedin_scraper
+    name: linkedin_scraper
+    source_type: mcp
+    enabled: true
+    config:
+      command: uv
+      args: ['run', '--project', 'sidecar/linkedin_scraper_mcp', 'linkedin-scraper-mcp']
+      cwd: '.'
+      sites: ['linkedin']
+      results_wanted: 10
+    rate_limit:
+      requests_per_minute: 4
+      max_retries: 1
+      backoff_ms: 1000
+      timeout_seconds: 300
 
   - id: remoteok
     name: remoteok

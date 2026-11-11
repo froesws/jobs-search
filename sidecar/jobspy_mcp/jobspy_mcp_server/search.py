@@ -12,7 +12,19 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Iterable, Mapping
 
 DEFAULT_SITES = ("linkedin", "indeed")
-SUPPORTED_SITES = frozenset(DEFAULT_SITES)
+SUPPORTED_SITES = frozenset(
+    {
+        "linkedin",
+        "indeed",
+        "glassdoor",
+        "zip_recruiter",
+        "google",
+        "bayt",
+        "naukri",
+        "bdjobs",
+        "hellowork",
+    }
+)
 
 
 class JobSpyError(RuntimeError):
@@ -41,7 +53,9 @@ def _scrape_jobs(**kwargs: Any) -> Any:
     """Import JobSpy lazily so tests and packaging do not need a browser."""
 
     try:
-        from jobspy import scrape_jobs
+        from importlib import import_module
+
+        scrape_jobs = import_module("jobspy").scrape_jobs
     except Exception as error:  # pragma: no cover - depends on optional install
         raise JobSpyError("JobSpy is not installed in the sidecar runtime") from error
 
@@ -147,9 +161,11 @@ def search_jobs(
     results_wanted = max(1, min(int(results_wanted), 200))
     retries = max(0, min(int(max_retries), 5))
     jobs: list[dict[str, Any]] = []
+    failures: list[dict[str, str]] = []
 
     for site in requested:
         result = None
+        site_error: JobSpyError | None = None
         for attempt in range(retries + 1):
             limiter.wait()
             try:
@@ -163,12 +179,18 @@ def search_jobs(
                     offset=max(0, int(offset)),
                 )
                 break
-            except JobSpyError:
-                raise
+            except JobSpyError as error:
+                site_error = error
+                break
             except Exception as error:  # sanitize provider internals
                 if attempt >= retries:
-                    raise JobSpyError(f"JobSpy {site} search failed") from error
+                    site_error = JobSpyError(f"JobSpy {site} search failed")
+                    break
                 limiter.sleep(backoff_seconds * (attempt + 1))
+
+        if site_error is not None:
+            failures.append({"site": site, "message": str(site_error)})
+            continue
 
         for row in _records(result):
             normalized = _normalize_row(site, row)
@@ -184,4 +206,10 @@ def search_jobs(
             seen.add(key)
             unique.append(job)
 
-    return {"jobs": unique}
+    if failures and not unique:
+        raise JobSpyError(failures[0]["message"])
+
+    payload: dict[str, Any] = {"jobs": unique}
+    if failures:
+        payload["failures"] = failures
+    return payload

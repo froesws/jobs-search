@@ -4,7 +4,7 @@
 use async_trait::async_trait;
 use zeroize::Zeroizing;
 
-use crate::types::WorkModality;
+use crate::types::{Seniority, WorkModality};
 
 /// A source-native posting. `description` is memory-only and zeroized after
 /// cleaning; it is never written to SQLite.
@@ -65,6 +65,8 @@ pub struct IngestionRequest {
     pub hours_old: u32,
     pub is_remote: bool,
     pub offset: u32,
+    pub seniorities: Vec<Seniority>,
+    pub modalities: Vec<WorkModality>,
 }
 
 impl Default for IngestionRequest {
@@ -78,6 +80,8 @@ impl Default for IngestionRequest {
             hours_old: 168,
             is_remote: true,
             offset: 0,
+            seniorities: Vec::new(),
+            modalities: Vec::new(),
         }
     }
 }

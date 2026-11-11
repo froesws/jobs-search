@@ -35,7 +35,7 @@ def test_search_jobs_serializes_results(monkeypatch):
         assert keywords == "Rust"
         assert location == "Brazil"
         assert limit == 5
-        assert fetch_details is False
+        assert fetch_details is True
         return {
             "source": server.SOURCE,
             "count": 1,
@@ -54,6 +54,59 @@ def test_search_jobs_serializes_results(monkeypatch):
     payload = _payload(response)
     assert payload["count"] == 1
     assert payload["jobs"][0]["title"] == "Rust Engineer"
+
+
+def test_search_jobs_accepts_jobspy_style_arguments(monkeypatch):
+    async def fake_search(keywords, location, limit, fetch_details):
+        assert keywords == "Rust Engineer"
+        assert limit == 10
+        assert fetch_details is True
+        return {
+            "jobs": [
+                {
+                    "title": "Rust Engineer",
+                    "company": "Acme",
+                    "location": "Brazil",
+                    "url": "https://www.linkedin.com/jobs/view/1",
+                    "description": "Rust",
+                    "source_name": "linkedin",
+                }
+            ]
+        }
+
+    monkeypatch.setattr(server, "_run_search", fake_search)
+    response = server.handle(
+        _call(
+            "search_jobs",
+            {
+                "query": "Rust Engineer",
+                "results_wanted": 10,
+                "sites": ["linkedin"],
+                "hours_old": 168,
+                "is_remote": True,
+            },
+        )
+    )
+    assert _payload(response)["jobs"][0]["title"] == "Rust Engineer"
+
+
+def test_app_job_maps_jobspy_compatible_fields():
+    job = server._app_job(
+        "https://www.linkedin.com/jobs/view/123/",
+        {
+            "job_title": "Rust Engineer",
+            "company": "Acme",
+            "location": "Porto Alegre, Brasil",
+            "job_description": "Rust and Linux. Presencial.",
+        },
+    )
+    assert job is not None
+    assert job["title"] == "Rust Engineer"
+    assert job["company"] == "Acme"
+    assert job["location"] == "Porto Alegre, Brasil"
+    assert job["work_modality"] == "Onsite"
+    assert job["external_id"] == "linkedin-123"
+    assert job["source_name"] == "linkedin"
 
 
 def test_get_job_details_serializes_results(monkeypatch):

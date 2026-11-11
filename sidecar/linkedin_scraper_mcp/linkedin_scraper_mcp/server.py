@@ -28,15 +28,22 @@ TOOLS = [
     {
         "name": "search_jobs",
         "description": (
-            "Search LinkedIn jobs with an authenticated browser session and "
-            "return job URLs, optionally with full job details."
+            "Search LinkedIn jobs with an authenticated browser session. "
+            "Returns the Jobs Search RawJob-compatible fields when details are "
+            "enabled; set fetch_details=false for URL-only results."
         ),
         "inputSchema": {
             "type": "object",
-            "additionalProperties": False,
-            "required": ["keywords"],
+            "additionalProperties": True,
+            "required": [],
             "properties": {
                 "keywords": {"type": "string", "minLength": 1, "maxLength": 512},
+                "query": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 512,
+                    "description": "Alias used by the Jobs Search MCP adapter.",
+                },
                 "location": {"type": "string", "maxLength": 256},
                 "limit": {
                     "type": "integer",
@@ -44,7 +51,18 @@ TOOLS = [
                     "maximum": MAX_LIMIT,
                     "default": DEFAULT_LIMIT,
                 },
-                "fetch_details": {"type": "boolean", "default": False},
+                "results_wanted": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": MAX_LIMIT,
+                    "description": "Alias used by the Jobs Search MCP adapter.",
+                },
+                "hours_old": {"type": "integer", "minimum": 1},
+                "is_remote": {"type": "boolean"},
+                "job_type": {"type": ["string", "null"]},
+                "offset": {"type": "integer", "minimum": 0},
+                "sites": {"type": "array", "items": {"type": "string"}},
+                "fetch_details": {"type": "boolean", "default": True},
             },
         },
     },
@@ -129,6 +147,47 @@ def _error_message(error: Exception) -> str:
     return type(error).__name__
 
 
+def _linkedin_job_id(url: str) -> str:
+    marker = "/jobs/view/"
+    if marker in url:
+        value = url.split(marker, 1)[1].split("/", 1)[0].split("?", 1)[0]
+        if value:
+            return f"linkedin-{value}"
+    return ""
+
+
+def _infer_modality(location: str, description: str) -> str | None:
+    text = f"{location} {description}".lower()
+    if "hybrid" in text or "híbrido" in text or "hibrido" in text:
+        return "Hybrid"
+    if "remote" in text or "remoto" in text or "remota" in text:
+        return "Remote"
+    if "on-site" in text or "onsite" in text or "presencial" in text:
+        return "Onsite"
+    return None
+
+
+def _app_job(url: str, detail: dict[str, Any]) -> dict[str, Any] | None:
+    title = str(detail.get("job_title") or "").strip()
+    if not title:
+        return None
+    location = str(detail.get("location") or "Unknown").strip() or "Unknown"
+    company = str(detail.get("company") or "Unknown").strip() or "Unknown"
+    description = str(detail.get("job_description") or "").strip()
+    return {
+        "title": title,
+        "company": company,
+        "location": location,
+        "work_modality": _infer_modality(location, description),
+        "url": url,
+        "posted_at": None,
+        "description": description,
+        "source_name": "linkedin",
+        "external_id": _linkedin_job_id(url),
+        "tags": [],
+    }
+
+
 async def _run_search(
     keywords: str,
     location: str | None,
@@ -148,17 +207,19 @@ async def _run_search(
             location=location,
             limit=limit,
         )
-        jobs: list[dict[str, Any]] = [
-            {"url": url, "source": SOURCE} for url in urls
-        ]
-        if fetch_details:
+        jobs: list[dict[str, Any]] = []
+        if not fetch_details:
+            jobs = [{"url": url, "source": SOURCE} for url in urls]
+        else:
             details = JobScraper(browser.page)
-            for job in jobs:
+            for url in urls:
                 try:
-                    scraped = await details.scrape(job["url"])
-                    job.update(scraped.to_dict())
-                except Exception as error:
-                    job["detail_error"] = _error_message(error)
+                    scraped = await details.scrape(url)
+                    job = _app_job(url, scraped.to_dict())
+                    if job is not None:
+                        jobs.append(job)
+                except Exception:
+                    continue
         return {"source": SOURCE, "count": len(jobs), "jobs": jobs}
 
 
@@ -265,13 +326,19 @@ def handle(
 
     try:
         if name == "search_jobs":
-            keywords = str(arguments.get("keywords") or "").strip()
+            keywords = str(
+                arguments.get("keywords") or arguments.get("query") or ""
+            ).strip()
             if not keywords:
-                return _error(request_id, -32602, "keywords is required")
+                return _error(request_id, -32602, "keywords or query is required")
             location_value = arguments.get("location")
             location = str(location_value).strip() if location_value else None
-            limit = int(arguments.get("limit") or DEFAULT_LIMIT)
-            fetch_details = bool(arguments.get("fetch_details", False))
+            limit = int(
+                arguments.get("limit")
+                or arguments.get("results_wanted")
+                or DEFAULT_LIMIT
+            )
+            fetch_details = bool(arguments.get("fetch_details", True))
             payload = asyncio.run(search(keywords, location, limit, fetch_details))
             return _tool_result(request_id, payload)
 

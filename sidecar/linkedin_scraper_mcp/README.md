@@ -10,9 +10,12 @@ bundle.
 
 ## Tools
 
-- `search_jobs` — search LinkedIn with `keywords`, `location`, `limit`, and
-  `fetch_details`. Returns job URLs; `fetch_details=true` also reads the first
-  10 job pages.
+- `search_jobs` — search LinkedIn with `keywords`/`query`, `location`,
+  `limit`/`results_wanted`, and `fetch_details` (default `true`). With details
+  enabled, it returns the Jobs Search `RawJob`-compatible fields (`title`,
+  `company`, `location`, `work_modality`, `url`, `description`,
+  `source_name`, `external_id`, `tags`). The app's generic MCP adapter can
+  consume this source directly.
 - `get_job_details` — read a LinkedIn job URL and return title, company,
   location, posted date, applicant count, and description.
 - `get_session_status` — report whether the saved session exists and has
