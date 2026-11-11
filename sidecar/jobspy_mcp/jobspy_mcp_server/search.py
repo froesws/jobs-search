@@ -128,6 +128,8 @@ def search_jobs(
     hours_old: int = 168,
     is_remote: bool = True,
     offset: int = 0,
+    max_retries: int = 2,
+    backoff_seconds: float = 0.5,
     scrape: Callable[..., Any] | None = None,
     limiter: RateLimiter | None = None,
 ) -> dict[str, Any]:
@@ -143,24 +145,30 @@ def search_jobs(
     scrape_fn = scrape or _scrape_jobs
     limiter = limiter or RateLimiter()
     results_wanted = max(1, min(int(results_wanted), 200))
+    retries = max(0, min(int(max_retries), 5))
     jobs: list[dict[str, Any]] = []
 
     for site in requested:
-        limiter.wait()
-        try:
-            result = scrape_fn(
-                site_name=[site],
-                search_term=query,
-                location=location,
-                results_wanted=results_wanted,
-                hours_old=max(1, int(hours_old)),
-                is_remote=bool(is_remote),
-                offset=max(0, int(offset)),
-            )
-        except JobSpyError:
-            raise
-        except Exception as error:  # sanitize provider internals
-            raise JobSpyError(f"JobSpy {site} search failed") from error
+        result = None
+        for attempt in range(retries + 1):
+            limiter.wait()
+            try:
+                result = scrape_fn(
+                    site_name=[site],
+                    search_term=query,
+                    location=location,
+                    results_wanted=results_wanted,
+                    hours_old=max(1, int(hours_old)),
+                    is_remote=bool(is_remote),
+                    offset=max(0, int(offset)),
+                )
+                break
+            except JobSpyError:
+                raise
+            except Exception as error:  # sanitize provider internals
+                if attempt >= retries:
+                    raise JobSpyError(f"JobSpy {site} search failed") from error
+                limiter.sleep(backoff_seconds * (attempt + 1))
 
         for row in _records(result):
             normalized = _normalize_row(site, row)

@@ -76,7 +76,53 @@ def test_source_failure_is_sanitized():
 
     limiter = RateLimiter(min_interval_seconds=0, clock=lambda: 0.0, sleep=lambda _: None)
     with pytest.raises(JobSpyError) as error:
-        search_jobs(query="Rust", limiter=limiter, scrape=failing_scrape)
+        search_jobs(
+            query="Rust",
+            limiter=limiter,
+            scrape=failing_scrape,
+            max_retries=1,
+        )
+    assert "secret internal detail" not in str(error.value)
+
+
+def test_retries_are_bounded():
+    calls = []
+
+    def flaky_scrape(**kwargs):
+        calls.append(kwargs["site_name"][0])
+        if len(calls) < 3:
+            raise RuntimeError("temporary")
+        return fake_scrape(**kwargs)
+
+    limiter = RateLimiter(min_interval_seconds=0, clock=lambda: 0.0, sleep=lambda _: None)
+    payload = search_jobs(
+        query="Rust",
+        sites=["linkedin"],
+        limiter=limiter,
+        scrape=flaky_scrape,
+        max_retries=2,
+    )
+    assert len(calls) == 3
+    assert len(payload["jobs"]) == 1
+
+
+def test_exhausted_retries_return_a_sanitized_error():
+    calls = []
+
+    def failing_scrape(**_kwargs):
+        calls.append("call")
+        raise RuntimeError("secret internal detail")
+
+    limiter = RateLimiter(min_interval_seconds=0, clock=lambda: 0.0, sleep=lambda _: None)
+    with pytest.raises(JobSpyError) as error:
+        search_jobs(
+            query="Rust",
+            sites=["linkedin"],
+            limiter=limiter,
+            scrape=failing_scrape,
+            max_retries=1,
+        )
+    assert len(calls) == 2
     assert "secret internal detail" not in str(error.value)
 
 
