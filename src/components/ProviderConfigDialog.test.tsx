@@ -1,10 +1,16 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AppError } from '@/lib/errors';
-import type { ProviderConfigView } from '@/lib/types';
+import { refreshProviderModels, testProvider } from '@/lib/ipc';
+import type { ModelCatalogView, ProviderConfigView } from '@/lib/types';
 import { ProviderConfigDialog } from '@/components/ProviderConfigDialog';
 import type { ProviderConfigState } from '@/viewmodels/useProviderConfig';
+
+vi.mock('@/lib/ipc', () => ({
+  refreshProviderModels: vi.fn(),
+  testProvider: vi.fn(),
+}));
 
 function configView(overrides: Partial<ProviderConfigView> = {}): ProviderConfigView {
   return {
@@ -56,7 +62,28 @@ function state(overrides: Partial<ProviderConfigState> = {}): ProviderConfigStat
   };
 }
 
+function catalog(overrides: Partial<ModelCatalogView> = {}): ModelCatalogView {
+  return {
+    provider: 'gemini',
+    models: [{ id: 'gemini-3.5-flash-lite', price: null }],
+    source: 'cache',
+    fetchedAt: null,
+    degraded: false,
+    message: null,
+    ...overrides,
+  };
+}
+
 describe('ProviderConfigDialog', () => {
+  beforeEach(() => {
+    vi.mocked(refreshProviderModels).mockResolvedValue(catalog());
+    vi.mocked(testProvider).mockResolvedValue({
+      ok: true,
+      latencyMs: 12,
+      message: 'connection ok',
+    });
+  });
+
   it('shows the configured state without revealing a key', () => {
     render(<ProviderConfigDialog open onClose={() => {}} state={state()} />);
 
@@ -135,6 +162,45 @@ describe('ProviderConfigDialog', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Remove credential' }));
     await waitFor(() => expect(removeCredential).toHaveBeenCalledWith('gemini', false));
+  });
+
+  it('refreshes the model catalog and reports a degraded result', async () => {
+    vi.mocked(refreshProviderModels).mockResolvedValue(
+      catalog({ degraded: true, message: 'refresh failed' }),
+    );
+    render(<ProviderConfigDialog open onClose={() => {}} state={state()} />);
+
+    fireEvent.click(screen.getByText('Gemini'));
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh models' }));
+
+    expect(await screen.findByText('refresh failed')).toBeInTheDocument();
+  });
+
+  it('requests paid models when "show all" is enabled', async () => {
+    render(<ProviderConfigDialog open onClose={() => {}} state={state()} />);
+
+    fireEvent.click(screen.getByText('Gemini'));
+    fireEvent.click(screen.getByRole('button', { name: 'Test connection' }));
+    await waitFor(() => expect(testProvider).toHaveBeenCalled());
+
+    expect(refreshProviderModels).toHaveBeenCalledWith('gemini', false, false);
+  });
+
+  it('saves a custom model identifier', async () => {
+    const save = vi.fn().mockResolvedValue(configView());
+    render(<ProviderConfigDialog open onClose={() => {}} state={state({ save })} />);
+
+    fireEvent.click(screen.getByText('Gemini'));
+    fireEvent.change(screen.getAllByLabelText('Custom model')[0]!, {
+      target: { value: 'gemini-custom' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(save).toHaveBeenCalled());
+    const input = vi.mocked(save).mock.calls[0]![0];
+    expect(input.providers).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: 'gemini', model: 'gemini-custom' })]),
+    );
   });
 
   it('resets a field without removing the credential', async () => {
