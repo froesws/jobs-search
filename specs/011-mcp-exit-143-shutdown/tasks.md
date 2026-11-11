@@ -172,7 +172,7 @@ both MCP adapters reports it unset even when the parent process has it set.
   `src-tauri/src/ingestion/mcp.rs` and
   `src-tauri/src/ingestion/linkedin_mcp.rs`, before `spawn`; keep the rest of the
   environment inherited.
-- [ ] T010 [US2] Run both contract test files and start one real source; confirm
+- [x] T010 [US2] Run both contract test files and start one real source; confirm
   the `VIRTUAL_ENV` mismatch warning no longer appears in the app's captured
   sidecar stderr (paths: `src-tauri/src/ingestion/mcp.rs`,
   `src-tauri/src/ingestion/linkedin_mcp.rs`).
@@ -358,3 +358,4 @@ the docs, and cleanup cannot hit unrelated servers.
   signal 15 (shell code `143`) on `SIGTERM`. After the handlers they exit `0`
   with `shutting down on SIGTERM` on stderr.
 - **T006**: signal contract suites passed (jobspy 14, linkedin-scraper 11).
+- **T010**: child-environment tests passed (generic 8, LinkedIn 3).
