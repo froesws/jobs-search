@@ -2,6 +2,7 @@ import Accordion from '@mui/material/Accordion';
 import AccordionDetails from '@mui/material/AccordionDetails';
 import AccordionSummary from '@mui/material/AccordionSummary';
 import Alert from '@mui/material/Alert';
+import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
 import Dialog from '@mui/material/Dialog';
@@ -91,6 +92,7 @@ export function ProviderConfigDialog({
   const [draft, setDraft] = useState<Draft>(() => draftFrom(state.config));
   const [catalogs, setCatalogs] = useState<Record<string, ModelCatalogView>>({});
   const [showAll, setShowAll] = useState<Record<string, boolean>>({});
+  const [dragging, setDragging] = useState<number | null>(null);
 
   const providers = useMemo(() => state.config?.providers ?? [], [state.config]);
 
@@ -148,6 +150,21 @@ export function ProviderConfigDialog({
       cancelled = true;
     };
   }, [open, providers]);
+
+  const labelFor = (providerId: ProviderId) =>
+    state.config?.providers.find((provider) => provider.id === providerId)?.label ?? providerId;
+
+  const moveProvider = (from: number, to: number) => {
+    if (from === to) return;
+    setDraft((current) => {
+      if (to < 0 || to >= current.order.length) return current;
+      const order = [...current.order];
+      const [entry] = order.splice(from, 1);
+      if (!entry) return current;
+      order.splice(to, 0, entry);
+      return { ...current, order };
+    });
+  };
 
   const updateProvider = (id: string, patch: Partial<ProviderDraft>) => {
     setDraft((current) => ({
@@ -319,22 +336,53 @@ export function ProviderConfigDialog({
             <Typography variant="body2" color="text.secondary">
               Provider order: the first configured provider is used first.
             </Typography>
-            <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
+            <Stack spacing={0.75} data-testid="provider-order">
               {draft.order.map((providerId, index) => (
-                <Stack key={providerId} direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
-                  <Chip label={`${index + 1}. ${providerId}`} size="small" />
+                <Box
+                  key={providerId}
+                  data-testid={`order-${providerId}`}
+                  draggable
+                  onDragStart={(event) => {
+                    if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
+                    setDragging(index);
+                  }}
+                  onDragOver={(event) => {
+                    event.preventDefault();
+                    if (dragging === null || dragging === index) return;
+                    moveProvider(dragging, index);
+                    setDragging(index);
+                  }}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    setDragging(null);
+                  }}
+                  onDragEnd={() => setDragging(null)}
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1,
+                    px: 1,
+                    py: 0.5,
+                    border: '1px solid',
+                    borderColor: dragging === index ? 'primary.main' : 'divider',
+                    borderRadius: 1,
+                    bgcolor: 'background.paper',
+                    cursor: 'grab',
+                    opacity: dragging === index ? 0.6 : 1,
+                    '&:active': { cursor: 'grabbing' },
+                  }}
+                >
+                  <Typography aria-hidden sx={{ color: 'text.secondary', letterSpacing: 2 }}>
+                    ⠿
+                  </Typography>
+                  <Typography sx={{ flex: 1 }}>
+                    {index + 1}. {labelFor(providerId)}
+                  </Typography>
                   <Button
                     size="small"
                     aria-label={`Move ${providerId} up`}
                     disabled={index === 0}
-                    onClick={() =>
-                      setDraft((current) => {
-                        const order = [...current.order];
-                        const [entry] = order.splice(index, 1);
-                        if (entry) order.splice(index - 1, 0, entry);
-                        return { ...current, order };
-                      })
-                    }
+                    onClick={() => moveProvider(index, index - 1)}
                   >
                     ↑
                   </Button>
@@ -342,18 +390,11 @@ export function ProviderConfigDialog({
                     size="small"
                     aria-label={`Move ${providerId} down`}
                     disabled={index === draft.order.length - 1}
-                    onClick={() =>
-                      setDraft((current) => {
-                        const order = [...current.order];
-                        const [entry] = order.splice(index, 1);
-                        if (entry) order.splice(index + 1, 0, entry);
-                        return { ...current, order };
-                      })
-                    }
+                    onClick={() => moveProvider(index, index + 1)}
                   >
                     ↓
                   </Button>
-                </Stack>
+                </Box>
               ))}
             </Stack>
           </Stack>

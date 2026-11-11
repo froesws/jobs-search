@@ -259,6 +259,18 @@ describe('ProviderConfigDialog', () => {
     expect(input.order.indexOf('ollama')).toBeLessThan(input.order.indexOf('deepseek'));
   });
 
+  it('reorders providers by dragging a row onto another', () => {
+    render(<ProviderConfigDialog open onClose={() => {}} state={state()} />);
+
+    fireEvent.dragStart(screen.getByTestId('order-ollama'));
+    fireEvent.dragOver(screen.getByTestId('order-gemini'));
+    fireEvent.drop(screen.getByTestId('order-gemini'));
+
+    const rows = screen.getAllByTestId(/^order-/);
+    expect(rows[0]).toHaveAttribute('data-testid', 'order-ollama');
+    expect(rows[1]).toHaveAttribute('data-testid', 'order-gemini');
+  });
+
   it('saves per-provider attempts within bounds', async () => {
     const save = vi.fn().mockResolvedValue(configView());
     render(<ProviderConfigDialog open onClose={() => {}} state={state({ save })} />);

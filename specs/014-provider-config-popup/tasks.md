@@ -179,6 +179,25 @@ asynchronously, so the first render after it arrived read
 
 ---
 
+## Phase 9: Provider order drag and drop
+
+**Requested**: replace the arrow-only provider order with a drag-and-drop stack.
+
+- [X] T052 [US3] Replace the arrow-only order chips with a draggable stack (native HTML5 DnD, no new dependency) and keep keyboard move buttons for accessibility, in `src/components/ProviderConfigDialog.tsx`.
+- [X] T053 [P] [US3] Add a drag-reorder regression test alongside the existing keyboard reorder test, in `src/components/ProviderConfigDialog.test.tsx`.
+
+---
+
+## Phase 10: Global error boundary
+
+**Requested**: a simple error boundary in `App.tsx` so a component crash shows a
+message instead of the grey screen seen when `ProviderConfigDialog` threw.
+
+- [X] T054 Add `src/components/ErrorBoundary.tsx` (MUI `Alert` with a retry action) and wrap `DashboardView` with it in `src/App.tsx`.
+- [X] T055 [P] Add `src/components/ErrorBoundary.test.tsx` covering the normal render, the fallback render, and recovery.
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies

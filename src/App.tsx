@@ -2,6 +2,7 @@ import CssBaseline from '@mui/material/CssBaseline';
 import { ThemeProvider } from '@mui/material/styles';
 import { useEffect, useMemo, useState } from 'react';
 
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { FeedbackProvider } from '@/components/FeedbackProvider';
 import { appTheme } from '@/theme/theme';
 import type { ThemeMode } from '@/theme/theme';
@@ -36,10 +37,12 @@ export default function App() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <FeedbackProvider>
-        <DashboardView
-          mode={mode}
-          onToggleMode={() => setMode((current) => (current === 'dark' ? 'light' : 'dark'))}
-        />
+        <ErrorBoundary>
+          <DashboardView
+            mode={mode}
+            onToggleMode={() => setMode((current) => (current === 'dark' ? 'light' : 'dark'))}
+          />
+        </ErrorBoundary>
       </FeedbackProvider>
     </ThemeProvider>
   );
