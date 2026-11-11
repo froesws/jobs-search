@@ -9,6 +9,20 @@ vi.mock('./lib/ipc', () => ({
   getProfile: vi.fn(),
   getJob: vi.fn(),
   triggerSearch: vi.fn(),
+  listResumes: vi.fn().mockResolvedValue([]),
+  uploadResume: vi.fn(),
+  deleteResume: vi.fn(),
+  saveProfile: vi.fn(),
+  applyJob: vi.fn(),
+  ignoreJob: vi.fn(),
+  restoreJob: vi.fn(),
+  approveJob: vi.fn(),
+  getAudit: vi.fn(),
+  getActiveProvider: vi.fn().mockResolvedValue({
+    provider: 'deepseek',
+    model: 'deepseek-chat',
+    fallback_enabled: false,
+  }),
 }));
 
 const emptyPage = {
