@@ -320,6 +320,33 @@ pub fn cmd_save_provider_config(
     build_view(&state).map_err(Into::into)
 }
 
+fn validate_credential_input(provider: &str, api_key: &str) -> Result<(), AppError> {
+    validate_provider_id(provider)?;
+    if provider == "ollama" {
+        return Err(AppError::validation("Ollama does not use an API key"));
+    }
+    if api_key.trim().is_empty() {
+        return Err(AppError::validation("the API key cannot be empty"));
+    }
+    Ok(())
+}
+
+fn setting_key(provider: &str, field: &str) -> Result<String, AppError> {
+    match field {
+        "order" => Ok("provider.order".to_string()),
+        "fallbackEnabled" => Ok("provider.fallback_enabled".to_string()),
+        "model" | "models" | "baseUrl" | "attempts" | "enabled" => {
+            validate_provider_id(provider)?;
+            let suffix = match field {
+                "baseUrl" => "base_url",
+                other => other,
+            };
+            Ok(format!("provider.{provider}.{suffix}"))
+        }
+        _ => Err(AppError::validation("unknown setting field")),
+    }
+}
+
 #[tauri::command]
 pub fn cmd_save_provider_credential(
     state: State<'_, AppState>,
@@ -327,13 +354,7 @@ pub fn cmd_save_provider_credential(
     api_key: String,
     allow_env_fallback: Option<bool>,
 ) -> Result<ProviderConfigView, ErrorPayload> {
-    validate_provider_id(&provider)?;
-    if provider == "ollama" {
-        return Err(AppError::validation("Ollama does not use an API key").into());
-    }
-    if api_key.trim().is_empty() {
-        return Err(AppError::validation("the API key cannot be empty").into());
-    }
+    validate_credential_input(&provider, &api_key)?;
 
     match credentials::set_in_store(&provider, &api_key) {
         Ok(()) => {}
@@ -386,19 +407,7 @@ pub fn cmd_reset_provider_setting(
     provider: String,
     field: String,
 ) -> Result<ProviderConfigView, ErrorPayload> {
-    let key = match field.as_str() {
-        "order" => "provider.order".to_string(),
-        "fallbackEnabled" => "provider.fallback_enabled".to_string(),
-        "model" | "models" | "baseUrl" | "attempts" | "enabled" => {
-            validate_provider_id(&provider)?;
-            let suffix = match field.as_str() {
-                "baseUrl" => "base_url",
-                other => other,
-            };
-            format!("provider.{provider}.{suffix}")
-        }
-        _ => return Err(AppError::validation("unknown setting field").into()),
-    };
+    let key = setting_key(&provider, &field)?;
     settings::delete(&state.db, &key)?;
     build_view(&state).map_err(Into::into)
 }
@@ -489,6 +498,36 @@ mod tests {
         let active = active_provider(&config, &settings, Some(&session)).expect("active");
         assert_eq!(active.model, "gemini-custom");
         assert_eq!(active.session_only, Some(true));
+    }
+
+    #[test]
+    fn credential_input_is_validated() {
+        assert!(validate_credential_input("gemini", "key").is_ok());
+        assert!(validate_credential_input("gemini", "   ").is_err());
+        assert!(validate_credential_input("ollama", "key").is_err());
+        assert!(validate_credential_input("unknown", "key").is_err());
+    }
+
+    #[test]
+    fn setting_keys_map_to_storage_rows() {
+        assert_eq!(
+            setting_key("gemini", "order").expect("order"),
+            "provider.order"
+        );
+        assert_eq!(
+            setting_key("gemini", "fallbackEnabled").expect("fallback"),
+            "provider.fallback_enabled"
+        );
+        assert_eq!(
+            setting_key("ollama", "baseUrl").expect("base"),
+            "provider.ollama.base_url"
+        );
+        assert_eq!(
+            setting_key("openrouter", "models").expect("models"),
+            "provider.openrouter.models"
+        );
+        assert!(setting_key("gemini", "unknown").is_err());
+        assert!(setting_key("unknown", "model").is_err());
     }
 
     #[test]
