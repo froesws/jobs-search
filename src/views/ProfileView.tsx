@@ -20,6 +20,22 @@ import { useProfileViewModel } from '@/viewmodels/useProfileViewModel';
 const SENIORITIES = ['Trainee', 'Intern', 'Junior', 'Pleno', 'Senior'];
 const MODALITIES: WorkModality[] = ['Remote', 'Hybrid', 'Onsite'];
 
+const textWrapSx = {
+  minWidth: 0,
+  overflowWrap: 'anywhere',
+  wordBreak: 'break-word',
+} as const;
+
+const autocompleteSx = {
+  minWidth: 0,
+  '& .MuiAutocomplete-tag': { maxWidth: '100%', height: 'auto' },
+  '& .MuiChip-label': {
+    whiteSpace: 'normal',
+    overflowWrap: 'anywhere',
+    wordBreak: 'break-word',
+  },
+} as const;
+
 export function ProfileView() {
   const { status, profile, error, saving, refresh, save } = useProfileViewModel();
   const feedback = useFeedback();
@@ -55,7 +71,7 @@ export function ProfileView() {
   return (
     <Box sx={{ display: 'grid', gap: 2 }}>
       <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 2, flexWrap: 'wrap' }}>
-        <Box sx={{ flex: 1 }}>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
           <Typography variant="h1">My Profile</Typography>
           <Typography color="text.secondary" variant="body2">
             Review extracted data and edit the constraints that cannot be inferred from a resume.
@@ -71,7 +87,13 @@ export function ProfileView() {
       </Box>
 
       {conflicts.length > 0 ? (
-        <Alert severity="warning" variant="outlined">
+        <Alert
+          severity="warning"
+          variant="outlined"
+          data-testid="profile-conflicts"
+          style={{ minWidth: 0, overflowWrap: 'anywhere', wordBreak: 'break-word' }}
+          sx={{ ...textWrapSx }}
+        >
           {conflicts.length} conflicting value(s) need review:{' '}
           {conflicts
             .map((conflict) => `${conflict.field} (${conflict.values.join(' vs ')})`)
@@ -82,13 +104,15 @@ export function ProfileView() {
       <Box
         sx={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(330px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 330px), 1fr))',
           gap: 2,
+          minWidth: 0,
         }}
       >
         <EditorCard title="Target roles">
           <Autocomplete
             multiple
+            sx={autocompleteSx}
             freeSolo
             options={[]}
             value={draft.target_roles}
@@ -100,6 +124,7 @@ export function ProfileView() {
         <EditorCard title="Seniority range">
           <Autocomplete
             multiple
+            sx={autocompleteSx}
             options={SENIORITIES}
             value={draft.seniority_range}
             onChange={(_, value) => update({ seniority_range: value })}
@@ -127,6 +152,7 @@ export function ProfileView() {
         <EditorCard title="Accepted cities">
           <Autocomplete
             multiple
+            sx={autocompleteSx}
             freeSolo
             options={['Porto Alegre', 'Curitiba']}
             value={draft.accepted_cities}
@@ -140,6 +166,7 @@ export function ProfileView() {
         <EditorCard title="Acceptable technologies">
           <Autocomplete
             multiple
+            sx={autocompleteSx}
             freeSolo
             options={[]}
             value={draft.acceptable_technologies}
@@ -156,6 +183,7 @@ export function ProfileView() {
         <EditorCard title="Dealbreakers">
           <Autocomplete
             multiple
+            sx={autocompleteSx}
             freeSolo
             options={[]}
             value={draft.dealbreakers}
@@ -181,8 +209,11 @@ export function ProfileView() {
           <TextField
             label="Work authorization / visa notes"
             size="small"
+            multiline
+            minRows={2}
             value={draft.work_authorization ?? ''}
             onChange={(event) => update({ work_authorization: event.target.value || null })}
+            sx={{ ...textWrapSx }}
           />
           <Typography variant="caption" color="text.secondary">
             Salary and work authorization are preferences, not hard filters in V1.
@@ -212,7 +243,17 @@ function readExtras(profile: CandidateProfile, key: string): string[] {
 
 function EditorCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <Paper sx={{ p: 2.5, display: 'grid', gap: 1.5, alignContent: 'start' }}>
+    <Paper
+      data-testid="profile-card"
+      style={{ minWidth: 0, overflowWrap: 'anywhere', wordBreak: 'break-word' }}
+      sx={{
+        p: 2.5,
+        display: 'grid',
+        gap: 1.5,
+        alignContent: 'start',
+        ...textWrapSx,
+      }}
+    >
       <Typography variant="h3">{title}</Typography>
       {children}
     </Paper>
@@ -229,16 +270,44 @@ function ReadOnlyCard({
   color?: 'default' | 'primary';
 }) {
   return (
-    <Paper sx={{ p: 2.5, display: 'grid', gap: 1.5, alignContent: 'start' }}>
+    <Paper
+      data-testid="profile-card"
+      style={{ minWidth: 0, overflowWrap: 'anywhere', wordBreak: 'break-word' }}
+      sx={{
+        p: 2.5,
+        display: 'grid',
+        gap: 1.5,
+        alignContent: 'start',
+        ...textWrapSx,
+      }}
+    >
       <Typography variant="h3">{title}</Typography>
       {values.length === 0 ? (
         <Typography variant="body2" color="text.secondary">
           Not extracted yet.
         </Typography>
       ) : (
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, minWidth: 0 }}>
           {values.map((value) => (
-            <Chip key={value} size="small" label={value} color={color} variant="outlined" />
+            <Chip
+              key={value}
+              size="small"
+              label={value}
+              color={color}
+              variant="outlined"
+              data-testid="profile-chip"
+              style={{ maxWidth: '100%', height: 'auto' }}
+              sx={{
+                maxWidth: '100%',
+                height: 'auto',
+                '& .MuiChip-label': {
+                  whiteSpace: 'normal',
+                  overflowWrap: 'anywhere',
+                  wordBreak: 'break-word',
+                  py: 0.25,
+                },
+              }}
+            />
           ))}
         </Box>
       )}

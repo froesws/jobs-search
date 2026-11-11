@@ -54,3 +54,56 @@ describe('ProfileView', () => {
     expect(await screen.findByText(/Profile saved/)).toBeInTheDocument();
   });
 });
+
+const longValue =
+  'Principal_Rust_Engineer_With_An_Extremely_Long_Unbroken_Title_That_Must_Wrap_Inside_The_Card';
+
+const longProfile: CandidateProfile = {
+  ...profile,
+  target_roles: [longValue],
+  accepted_cities: [longValue],
+  acceptable_technologies: [longValue],
+  dealbreakers: [longValue],
+  work_authorization: `${longValue} ${longValue}`,
+  core_competencies: [longValue],
+  secondary_competencies: [longValue],
+  domain_experience: [longValue],
+  extras: {
+    resumes_available: true,
+    certifications: [longValue],
+    conflicts: [{ field: 'custom', values: [longValue], sources: ['resume-1'] }],
+  },
+};
+
+describe('ProfileView long values', () => {
+  it('wraps long values without forcing cards to overflow', async () => {
+    vi.mocked(getProfile).mockResolvedValue(longProfile);
+
+    render(
+      <FeedbackProvider>
+        <ProfileView />
+      </FeedbackProvider>,
+    );
+
+    expect(await screen.findByText('My Profile')).toBeInTheDocument();
+    expect(screen.getAllByText(longValue).length).toBeGreaterThan(3);
+
+    const cards = screen.getAllByTestId('profile-card');
+    expect(cards.length).toBeGreaterThan(0);
+    for (const card of cards) {
+      expect(card).toHaveStyle({ minWidth: '0px', overflowWrap: 'anywhere' });
+    }
+
+    const chips = screen.getAllByTestId('profile-chip');
+    expect(chips.length).toBeGreaterThan(0);
+    for (const chip of chips) {
+      expect(chip).toHaveStyle({ maxWidth: '100%', height: 'auto' });
+    }
+
+    const notes = screen.getByLabelText('Work authorization / visa notes');
+    expect(notes.tagName).toBe('TEXTAREA');
+    expect(screen.getByTestId('profile-conflicts')).toHaveStyle({
+      overflowWrap: 'anywhere',
+    });
+  });
+});
