@@ -33,6 +33,7 @@ pub fn display_name(key: &str) -> String {
         "javascript" => "JavaScript".to_string(),
         "typescript" => "TypeScript".to_string(),
         "go" => "Go".to_string(),
+        "grpc" => "gRPC".to_string(),
         "node.js" => "Node.js".to_string(),
         "postgresql" => "PostgreSQL".to_string(),
         "react" => "React".to_string(),
@@ -106,10 +107,11 @@ pub fn compute(jobs: &[EligibleJob], profile: Option<&CandidateProfile>) -> Vec<
         .collect::<Vec<_>>();
 
     metrics.sort_by(|left, right| {
-        right
-            .demand_count
-            .cmp(&left.demand_count)
-            .then_with(|| left.display_name.cmp(&right.display_name))
+        right.demand_count.cmp(&left.demand_count).then_with(|| {
+            left.display_name
+                .to_lowercase()
+                .cmp(&right.display_name.to_lowercase())
+        })
     });
     for (index, metric) in metrics.iter_mut().enumerate() {
         metric.rank = (index + 1) as u32;
