@@ -218,7 +218,7 @@ the URL; pressing Enter on the focused link opens the browser.
 - [X] T018 [P] Confirm the change stays within the project stack: MUI/Emotion
   only, function components and hooks, no new data-fetching library, Tauri calls
   only through `src/lib/ipc.ts`.
-- [ ] T019 Run and report exactly which checks ran:
+- [X] T019 Run and report exactly which checks ran:
   `npm run typecheck`, `npm test`, `npm run lint`, `npm run format:check`,
   `cargo test --manifest-path src-tauri/Cargo.toml`,
   `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings`.
