@@ -225,7 +225,7 @@ is `PENDING`; setting `MATCH_THRESHOLD=70` restores the old boundary.
   `src-tauri/src/config/env.rs` (`parse_i64` default),
   `src-tauri/src/match/mod.rs` (`EvaluationSettings::default`), and
   `.env.example`; keep the 0-100 clamp.
-- [ ] T016 [US4] Set `MATCH_THRESHOLD=50` in the local gitignored `.env` (do not
+- [x] T016 [US4] Set `MATCH_THRESHOLD=50` in the local gitignored `.env` (do not
   commit it) and confirm the running app reports the new default.
 - [ ] T017 [P] [US4] Update every document that states 70 as the default:
   `README.md`, `specs/001-career-job-sourcing/spec.md`, and
@@ -348,3 +348,4 @@ is `PENDING`; setting `MATCH_THRESHOLD=70` restores the old boundary.
 - **T004**: `npm test -- src/components/JobDrawer.test.tsx` passed (6).
 - **T009**: `cargo test --test match_filters` passed (12).
 - **T012**: `npm test -- src/components/TopBar.test.tsx` passed (5).
+- **T016 local only**: `.env` is gitignored; `.env.example` is committed with 50.
