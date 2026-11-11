@@ -15,6 +15,7 @@ pub struct AppConfig {
     pub app_data_dir: PathBuf,
     pub database_path: PathBuf,
     pub sources_path: PathBuf,
+    pub env_file: Option<PathBuf>,
     pub fixture_profile_path: Option<PathBuf>,
     pub llm_provider: Option<String>,
     pub provider_order: Vec<String>,
@@ -44,6 +45,7 @@ impl std::fmt::Debug for AppConfig {
             .field("app_data_dir", &self.app_data_dir)
             .field("database_path", &self.database_path)
             .field("sources_path", &self.sources_path)
+            .field("env_file", &self.env_file)
             .field("fixture_profile_path", &self.fixture_profile_path)
             .field("llm_provider", &self.llm_provider)
             .field("provider_order", &self.provider_order)
@@ -98,6 +100,8 @@ impl AppConfig {
             .filter(|value| !value.is_empty())
             .map(|value| resolve(working_dir, &value))
             .unwrap_or_else(|| discover_sources(working_dir));
+
+        let env_file = crate::credentials::discover_env_file(working_dir);
 
         let fixture_profile_path = read("JOBS_SEARCH_FIXTURE_PROFILE")
             .filter(|value| !value.is_empty())
@@ -165,6 +169,7 @@ impl AppConfig {
             app_data_dir,
             database_path,
             sources_path,
+            env_file,
             fixture_profile_path,
             llm_provider,
             provider_order,
