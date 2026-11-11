@@ -1,10 +1,18 @@
+use async_trait::async_trait;
+use jobs_search_lib::commands::profile::{
+    ProfileExtractor, delete_resume_with, load_profile_for_search,
+    save_profile as save_profile_command, upload_resume_with,
+};
+use jobs_search_lib::config::AppConfig;
 use jobs_search_lib::db::Db;
 use jobs_search_lib::db::profile::{
     delete_resume, insert_resume, list_resumes, load_active_profile, resume_count, save_profile,
 };
+use jobs_search_lib::error::AppError;
 use jobs_search_lib::pdf::{extract_text_from_mem, extract_text_from_path};
 use jobs_search_lib::profile::merge::merge_extracted;
 use jobs_search_lib::profile::schema::{ExtractedProfile, WorkHistoryEntry};
+use jobs_search_lib::state::AppState;
 use lopdf::{Document, Object, Stream, dictionary};
 
 fn text_pdf(text: &str) -> Vec<u8> {
@@ -219,7 +227,7 @@ fn profile_and_resumes_survive_reopen() {
     let profile =
         merge_extracted(None, &extracted("Rust Engineer", &["Rust"]), "resume-1").expect("profile");
     let saved = save_profile(&db, profile).expect("save");
-    insert_resume(&db, "resume.pdf", "sha-1", "/tmp/resume.pdf").expect("resume");
+    insert_resume(&db, "resume.pdf", "sha-1", "/tmp/resume.pdf", None).expect("resume");
     drop(db);
 
     let reopened = Db::open(&path).expect("reopen");
@@ -240,7 +248,8 @@ fn profile_version_is_monotonic_and_delete_removes_resume() {
     let second = save_profile(&db, first.clone()).expect("second");
     assert_eq!(second.version, first.version + 1);
 
-    let resume = insert_resume(&db, "resume.pdf", "sha-1", "/tmp/resume.pdf").expect("resume");
+    let resume =
+        insert_resume(&db, "resume.pdf", "sha-1", "/tmp/resume.pdf", None).expect("resume");
     let deleted = delete_resume(&db, &resume.resume.id).expect("delete");
     assert!(deleted.is_some());
     assert_eq!(resume_count(&db).expect("count"), 0);
@@ -258,4 +267,170 @@ fn invalid_profile_does_not_overwrite_the_last_valid_one() {
     assert!(save_profile(&db, invalid).is_err());
     let loaded = load_active_profile(&db).expect("load").expect("profile");
     assert_eq!(loaded, saved);
+}
+
+struct FakeExtractor {
+    fail: bool,
+}
+
+#[async_trait]
+impl ProfileExtractor for FakeExtractor {
+    async fn extract(&self, _resume_text: &str) -> Result<ExtractedProfile, AppError> {
+        if self.fail {
+            return Err(AppError::Provider("provider failed".into()));
+        }
+        Ok(extracted("Rust Engineer", &["Rust", "Linux"]))
+    }
+}
+
+fn app_state(directory: &std::path::Path) -> AppState {
+    let config =
+        AppConfig::from_lookup(|_| None, directory.join("app-data"), directory).expect("config");
+    AppState::new(config).expect("state")
+}
+
+fn write_resume(directory: &std::path::Path) -> String {
+    let path = directory.join("resume.pdf");
+    std::fs::write(&path, text_pdf("Rust and Linux kernel work")).expect("pdf");
+    path.display().to_string()
+}
+
+#[tokio::test]
+async fn upload_resume_persists_profile_and_file() {
+    let directory = tempfile::tempdir().expect("tempdir");
+    let state = app_state(directory.path());
+    let path = write_resume(directory.path());
+
+    let outcome = upload_resume_with(&state, &path, &FakeExtractor { fail: false })
+        .await
+        .expect("upload");
+
+    assert!(!outcome.duplicate);
+    assert!(
+        outcome
+            .profile
+            .core_competencies
+            .contains(&"Rust".to_string())
+    );
+    assert!(outcome.profile.has_resumes());
+    assert_eq!(resume_count(&state.db).expect("count"), 1);
+    assert!(load_profile_for_search(&state).is_ok());
+    assert!(
+        std::path::Path::new(&list_resumes(&state.db).expect("resumes")[0].local_path).exists()
+    );
+}
+
+#[tokio::test]
+async fn duplicate_resume_is_not_stored_twice() {
+    let directory = tempfile::tempdir().expect("tempdir");
+    let state = app_state(directory.path());
+    let path = write_resume(directory.path());
+
+    let first = upload_resume_with(&state, &path, &FakeExtractor { fail: false })
+        .await
+        .expect("first");
+    let second = upload_resume_with(&state, &path, &FakeExtractor { fail: false })
+        .await
+        .expect("second");
+
+    assert!(!first.duplicate);
+    assert!(second.duplicate);
+    assert_eq!(resume_count(&state.db).expect("count"), 1);
+    assert_eq!(first.profile.version, second.profile.version);
+}
+
+#[tokio::test]
+async fn failed_extraction_does_not_create_a_partial_profile() {
+    let directory = tempfile::tempdir().expect("tempdir");
+    let state = app_state(directory.path());
+    let path = write_resume(directory.path());
+
+    let error = upload_resume_with(&state, &path, &FakeExtractor { fail: true })
+        .await
+        .expect_err("failure");
+    assert!(error.message().contains("provider failed"));
+    assert_eq!(resume_count(&state.db).expect("count"), 0);
+    assert!(load_active_profile(&state.db).expect("load").is_none());
+}
+
+#[tokio::test]
+async fn deleting_the_last_resume_blocks_new_searches() {
+    let directory = tempfile::tempdir().expect("tempdir");
+    let state = app_state(directory.path());
+    let path = write_resume(directory.path());
+    upload_resume_with(&state, &path, &FakeExtractor { fail: false })
+        .await
+        .expect("upload");
+    let resume = list_resumes(&state.db).expect("resumes").remove(0);
+
+    let profile = delete_resume_with(&state, &resume.id).expect("delete");
+    assert!(!profile.has_resumes());
+    assert_eq!(resume_count(&state.db).expect("count"), 0);
+    assert!(!std::path::Path::new(&resume.local_path).exists());
+    let error = load_profile_for_search(&state).expect_err("blocked");
+    assert_eq!(error.code(), "RESUME_REQUIRED");
+}
+
+#[tokio::test]
+async fn saving_the_profile_advances_version_and_clears_no_resume_state() {
+    let directory = tempfile::tempdir().expect("tempdir");
+    let state = app_state(directory.path());
+    let path = write_resume(directory.path());
+    let uploaded = upload_resume_with(&state, &path, &FakeExtractor { fail: false })
+        .await
+        .expect("upload");
+
+    let mut edited = uploaded.profile.clone();
+    edited.extras.resumes_available = false;
+    edited.acceptable_technologies = vec!["React".into(), "react".into()];
+    let saved = save_profile_command(&state, edited).expect("save");
+
+    assert_eq!(saved.version, uploaded.profile.version + 1);
+    assert!(saved.has_resumes());
+    assert_eq!(saved.acceptable_technologies, ["React"]);
+}
+
+struct TextExtractor;
+
+#[async_trait]
+impl ProfileExtractor for TextExtractor {
+    async fn extract(&self, resume_text: &str) -> Result<ExtractedProfile, AppError> {
+        let core = if resume_text.contains("C#") {
+            vec!["C#"]
+        } else {
+            vec!["Rust"]
+        };
+        Ok(extracted("Engineer", &core))
+    }
+}
+
+#[tokio::test]
+async fn deleting_one_resume_removes_only_its_contributions() {
+    let directory = tempfile::tempdir().expect("tempdir");
+    let state = app_state(directory.path());
+    let first_path = directory.path().join("rust.pdf");
+    let second_path = directory.path().join("csharp.pdf");
+    std::fs::write(&first_path, text_pdf("Rust systems work")).expect("first");
+    std::fs::write(&second_path, text_pdf("C# migration tools")).expect("second");
+
+    upload_resume_with(&state, &first_path.display().to_string(), &TextExtractor)
+        .await
+        .expect("first upload");
+    let merged = upload_resume_with(&state, &second_path.display().to_string(), &TextExtractor)
+        .await
+        .expect("second upload");
+    assert!(
+        merged
+            .profile
+            .core_competencies
+            .contains(&"Rust".to_string())
+    );
+    assert!(merged.profile.core_competencies.contains(&"C#".to_string()));
+
+    let first_resume = list_resumes(&state.db).expect("resumes").remove(0);
+    let recalculated = delete_resume_with(&state, &first_resume.id).expect("delete");
+
+    assert_eq!(recalculated.core_competencies, ["C#"]);
+    assert_eq!(recalculated.source_documents.len(), 1);
+    assert_eq!(resume_count(&state.db).expect("count"), 1);
 }
