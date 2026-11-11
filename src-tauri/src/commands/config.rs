@@ -609,27 +609,26 @@ pub async fn cmd_refresh_provider_models(
     .map_err(Into::into)
 }
 
-#[tauri::command]
-pub async fn cmd_test_provider(
-    state: State<'_, AppState>,
-    provider: String,
+async fn test_provider_impl(
+    state: &AppState,
+    provider: &str,
     draft_api_key: Option<String>,
     draft_base_url: Option<String>,
     model: Option<String>,
-) -> Result<ProviderTestResult, ErrorPayload> {
-    validate_provider_id(&provider)?;
+) -> Result<ProviderTestResult, AppError> {
+    validate_provider_id(provider)?;
     let config = state.config()?;
     let session = state.session_selection()?;
     let settings = ProviderSettings::resolve(&state.db, &config, session.as_ref())?;
     let setting = settings
         .providers
-        .get(&provider)
+        .get(provider)
         .ok_or_else(|| AppError::Config("provider settings are missing".to_string()))?;
 
     let base_url = draft_base_url
         .filter(|value| !value.trim().is_empty())
-        .unwrap_or_else(|| provider_base_url(&config, &provider, setting));
-    let (stored, _) = crate::config::provider_settings::resolve_credential(&config, &provider);
+        .unwrap_or_else(|| provider_base_url(&config, provider, setting));
+    let (stored, _) = crate::config::provider_settings::resolve_credential(&config, provider);
     let secret = draft_api_key
         .filter(|value| !value.trim().is_empty())
         .or(stored);
@@ -641,14 +640,8 @@ pub async fn cmd_test_provider(
         std::time::Duration::from_secs(15)
     };
     let started = std::time::Instant::now();
-    match crate::llm::models::probe(
-        &state.http,
-        &provider,
-        &base_url,
-        secret.as_deref(),
-        timeout,
-    )
-    .await
+    match crate::llm::models::probe(&state.http, provider, &base_url, secret.as_deref(), timeout)
+        .await
     {
         Ok(()) => Ok(ProviderTestResult {
             ok: true,
@@ -661,6 +654,19 @@ pub async fn cmd_test_provider(
             message: error.message,
         }),
     }
+}
+
+#[tauri::command]
+pub async fn cmd_test_provider(
+    state: State<'_, AppState>,
+    provider: String,
+    draft_api_key: Option<String>,
+    draft_base_url: Option<String>,
+    model: Option<String>,
+) -> Result<ProviderTestResult, ErrorPayload> {
+    test_provider_impl(&state, &provider, draft_api_key, draft_base_url, model)
+        .await
+        .map_err(Into::into)
 }
 
 #[cfg(test)]
@@ -749,6 +755,110 @@ mod tests {
         let active = active_provider(&config, &settings, Some(&session)).expect("active");
         assert_eq!(active.model, "gemini-custom");
         assert_eq!(active.session_only, Some(true));
+    }
+
+    fn state_for(values: &[(&str, &str)]) -> (crate::state::AppState, tempfile::TempDir) {
+        let directory = tempfile::tempdir().expect("tempdir");
+        let database = directory
+            .path()
+            .join("jobs-search.sqlite3")
+            .display()
+            .to_string();
+        let mut map = values
+            .iter()
+            .map(|(key, value)| ((*key).to_string(), (*value).to_string()))
+            .collect::<std::collections::HashMap<_, _>>();
+        map.insert("JOBS_SEARCH_DB_PATH".to_string(), database);
+        let config = AppConfig::from_lookup(
+            move |key| map.get(key).cloned(),
+            directory.path().to_path_buf(),
+            directory.path(),
+        )
+        .expect("config");
+        let state = crate::state::AppState::new(config).expect("state");
+        (state, directory)
+    }
+
+    #[tokio::test]
+    async fn refresh_falls_back_to_the_builtin_catalog_with_a_sanitized_message() {
+        let (state, _dir) = state_for(&[
+            ("GEMINI_API_KEY", "super-secret"),
+            ("GEMINI_BASE_URL", "http://127.0.0.1:1"),
+        ]);
+
+        let view = refresh_models(&state, "gemini", false, true)
+            .await
+            .expect("catalog");
+        assert!(view.degraded);
+        assert_eq!(view.source, "builtin");
+        assert!(!view.models.is_empty());
+        let message = view.message.unwrap_or_default();
+        assert!(!message.contains("super-secret"));
+        assert!(!message.contains("127.0.0.1"));
+    }
+
+    #[tokio::test]
+    async fn refresh_caches_the_catalog_and_reads_it_back() {
+        use wiremock::matchers::{method, path, query_param};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/models"))
+            .and(query_param("key", "secret"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "models": [{
+                    "name": "models/gemini-x",
+                    "supportedGenerationMethods": ["generateContent"]
+                }]
+            })))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let (state, _dir) = state_for(&[
+            ("GEMINI_API_KEY", "secret"),
+            ("GEMINI_BASE_URL", &server.uri()),
+        ]);
+
+        let view = refresh_models(&state, "gemini", false, true)
+            .await
+            .expect("catalog");
+        assert!(!view.degraded);
+        assert_eq!(view.models[0].id, "gemini-x");
+
+        let cached = refresh_models(&state, "gemini", false, false)
+            .await
+            .expect("cache");
+        assert_eq!(cached.source, "cache");
+        assert_eq!(cached.models[0].id, "gemini-x");
+        server.verify().await;
+    }
+
+    #[tokio::test]
+    async fn test_provider_never_leaks_the_draft_key() {
+        use wiremock::matchers::method;
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .respond_with(ResponseTemplate::new(401))
+            .mount(&server)
+            .await;
+
+        let (state, _dir) = state_for(&[]);
+        let result = test_provider_impl(
+            &state,
+            "deepseek",
+            Some("draft-secret".to_string()),
+            Some(server.uri()),
+            None,
+        )
+        .await
+        .expect("result");
+
+        assert!(!result.ok);
+        assert!(!result.message.contains("draft-secret"));
     }
 
     #[test]
