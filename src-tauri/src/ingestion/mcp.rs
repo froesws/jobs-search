@@ -130,9 +130,59 @@ impl SourceAdapter for McpAdapter {
         let mut reader = BufReader::new(stdout);
 
         let result = self.exchange(request, &mut stdin, &mut reader).await;
+        let status = stopped_status(&mut child, &result, "MCP_PIPE_FAILED").await;
         let _ = child.kill().await;
         let _ = child.wait().await;
-        result
+        result.map_err(|error| with_exit_status(error, status))
+    }
+}
+
+/// Waits briefly for a sidecar that closed stdout so its exit status can be
+/// reported. Only used for pipe failures; a successful exchange is killed.
+pub(crate) async fn stopped_status(
+    child: &mut tokio::process::Child,
+    result: &Result<Vec<RawJob>, SourceError>,
+    code: &str,
+) -> Option<std::process::ExitStatus> {
+    if !result.as_ref().is_err_and(|error| error.code == code) {
+        return None;
+    }
+    match tokio::time::timeout(Duration::from_secs(2), child.wait()).await {
+        Ok(Ok(status)) => Some(status),
+        _ => None,
+    }
+}
+
+pub(crate) fn with_exit_status(
+    mut error: SourceError,
+    status: Option<std::process::ExitStatus>,
+) -> SourceError {
+    if let Some(status) = status {
+        error.message = format!("{} ({})", error.message, describe_status(status));
+    }
+    error
+}
+
+fn describe_status(status: std::process::ExitStatus) -> String {
+    if let Some(code) = status.code() {
+        return format!("status={code}");
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::ExitStatusExt;
+        if let Some(signal) = status.signal() {
+            return format!("signal={signal} ({})", signal_name(signal));
+        }
+    }
+    "status=unknown".to_string()
+}
+
+fn signal_name(signal: i32) -> &'static str {
+    match signal {
+        2 => "SIGINT",
+        9 => "SIGKILL",
+        15 => "SIGTERM",
+        _ => "unknown",
     }
 }
 

@@ -203,7 +203,7 @@ crash without exposing stderr.
 
 ### Implementation for User Story 3
 
-- [ ] T013 [US3] Capture `child.wait()` status in
+- [x] T013 [US3] Capture `child.wait()` status in
   `src-tauri/src/ingestion/mcp.rs` and
   `src-tauri/src/ingestion/linkedin_mcp.rs`; when a read fails because stdout
   closed, append a sanitized `status=<code>`/`signal=<n>` to the existing

@@ -232,9 +232,12 @@ impl SourceAdapter for LinkedInMcpAdapter {
         })?;
 
         let result = self.exchange(request, stdin, stdout).await;
+        let status =
+            crate::ingestion::mcp::stopped_status(&mut child, &result, "LINKEDIN_PIPE_FAILED")
+                .await;
         let _ = child.kill().await;
         let _ = child.wait().await;
-        result
+        result.map_err(|error| crate::ingestion::mcp::with_exit_status(error, status))
     }
 }
 
