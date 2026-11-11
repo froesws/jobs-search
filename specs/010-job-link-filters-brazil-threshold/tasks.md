@@ -230,7 +230,7 @@ is `PENDING`; setting `MATCH_THRESHOLD=70` restores the old boundary.
 - [x] T017 [P] [US4] Update every document that states 70 as the default:
   `README.md`, `specs/001-career-job-sourcing/spec.md`, and
   `specs/002-job-sourcing-dashboard/spec.md`.
-- [ ] T018 [US4] Run `cargo test --manifest-path src-tauri/Cargo.toml` and
+- [x] T018 [US4] Run `cargo test --manifest-path src-tauri/Cargo.toml` and
   confirm the 50/49 boundary and the explicit-override test both pass (path:
   `src-tauri/Cargo.toml`).
 
@@ -349,3 +349,4 @@ is `PENDING`; setting `MATCH_THRESHOLD=70` restores the old boundary.
 - **T009**: `cargo test --test match_filters` passed (12).
 - **T012**: `npm test -- src/components/TopBar.test.tsx` passed (5).
 - **T016 local only**: `.env` is gitignored; `.env.example` is committed with 50.
+- **T018**: threshold tests passed, including the 50/49 boundary and override.
