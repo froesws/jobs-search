@@ -1,0 +1,109 @@
+use std::time::Duration;
+
+use jobs_search_lib::ingestion::adapter::{IngestionRequest, SourceAdapter};
+use jobs_search_lib::ingestion::mcp::McpAdapter;
+
+mod common;
+
+fn request() -> IngestionRequest {
+    IngestionRequest {
+        query: "Rust Engineer".to_string(),
+        stack_keyword: "Rust".to_string(),
+        ..IngestionRequest::default()
+    }
+}
+
+#[tokio::test]
+async fn stdio_client_initializes_and_reads_tool_result() {
+    let directory = tempfile::tempdir().expect("tempdir");
+    let script = common::write_fake_mcp_server(directory.path());
+    let adapter = McpAdapter::new(
+        "jobspy",
+        "jobspy",
+        "python3",
+        vec![script.display().to_string()],
+        vec!["linkedin".to_string(), "indeed".to_string()],
+        Duration::from_secs(5),
+    );
+
+    let jobs = adapter.fetch(&request()).await.expect("jobs");
+    assert_eq!(jobs.len(), 1);
+    assert_eq!(jobs[0].title, "Rust Engineer");
+    assert_eq!(jobs[0].company, "Acme");
+    assert_eq!(jobs[0].location, "Remote - Brazil");
+    assert_eq!(jobs[0].external_id, "li-1");
+    assert!(jobs[0].description.contains("Rust systems"));
+}
+
+#[tokio::test]
+async fn stdio_timeout_is_isolated_as_a_source_error() {
+    let directory = tempfile::tempdir().expect("tempdir");
+    let script = directory.path().join("slow.py");
+    std::fs::write(
+        &script,
+        "import sys, time\nfor line in sys.stdin:\n    time.sleep(2)\n",
+    )
+    .expect("script");
+    let adapter = McpAdapter::new(
+        "jobspy",
+        "jobspy",
+        "python3",
+        vec![script.display().to_string()],
+        Vec::new(),
+        Duration::from_millis(120),
+    );
+
+    let error = adapter.fetch(&request()).await.expect_err("timeout");
+    assert_eq!(error.code, "MCP_TIMEOUT");
+    assert!(error.retryable);
+}
+
+#[tokio::test]
+async fn stdio_tool_error_is_sanitized() {
+    let directory = tempfile::tempdir().expect("tempdir");
+    let script = directory.path().join("error.py");
+    std::fs::write(
+        &script,
+        r#"
+import json
+import sys
+for raw in sys.stdin:
+    request = json.loads(raw)
+    if "id" not in request:
+        continue
+    if request["method"] == "initialize":
+        response = {"jsonrpc": "2.0", "id": request["id"], "result": {}}
+    else:
+        response = {"jsonrpc": "2.0", "id": request["id"], "error": {"code": -32000, "message": "rate limited"}}
+    print(json.dumps(response), flush=True)
+"#,
+    )
+    .expect("script");
+    let adapter = McpAdapter::new(
+        "jobspy",
+        "jobspy",
+        "python3",
+        vec![script.display().to_string()],
+        Vec::new(),
+        Duration::from_secs(5),
+    );
+
+    let error = adapter.fetch(&request()).await.expect_err("tool error");
+    assert_eq!(error.code, "MCP_TOOL_ERROR");
+    assert_eq!(error.message, "rate limited");
+}
+
+#[tokio::test]
+async fn missing_command_is_a_permanent_source_error() {
+    let adapter = McpAdapter::new(
+        "jobspy",
+        "jobspy",
+        "/definitely/not/a/command",
+        Vec::new(),
+        Vec::new(),
+        Duration::from_secs(1),
+    );
+    let error = adapter.fetch(&request()).await.expect_err("start failure");
+    assert_eq!(error.code, "MCP_START_FAILED");
+    assert!(!error.retryable);
+}
