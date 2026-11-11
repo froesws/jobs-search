@@ -97,6 +97,30 @@ chain when it is enabled in the provider configuration popup.
 Job sources are configured in `sources.yaml` (MCP and API adapters). Keep local
 source credentials in `.env`.
 
+## Provider settings
+
+The gear button next to the provider indicator opens the provider settings
+dialog. It manages the provider chain, per-provider attempt budgets, model
+selection, and credentials without editing `.env` or restarting the app.
+
+- **Credentials** live in the OS credential store (Secret Service on Linux). If
+  the store is unreachable, the dialog asks before writing the key to `.env` as
+  plaintext with `0600` permissions. The app never edits `.env` without that
+  confirmation.
+- **Settings** (order, fallback, models, attempts, Ollama endpoint) are stored in
+  the local SQLite `app_settings` table and take precedence over `.env`.
+- **Models** come from the last successful catalog refresh, then the built-in
+  list, then a free-text custom identifier. OpenRouter lists free models by
+  default; "Show all models" adds paid models with their price for the session.
+- **Attempts** are per provider. OpenRouter's attempt count is the length of its
+  ordered model list, so each attempt uses a different model.
+- **Ollama** is opt-in. When enabled, the dialog queries the local server and
+  pre-selects the first model it reports.
+
+The provider indicator is a button: it lists the configured models grouped by
+provider and applies the chosen model for the current session only. Saving in
+the dialog discards that temporary selection.
+
 ## Job sources
 
 The default search runs all enabled sources concurrently:
