@@ -68,6 +68,11 @@ pub fn run() {
             commands::jobs::cmd_approve_job,
             commands::jobs::cmd_get_audit,
             commands::config::cmd_get_active_provider,
+            commands::config::cmd_get_provider_config,
+            commands::config::cmd_save_provider_config,
+            commands::config::cmd_save_provider_credential,
+            commands::config::cmd_remove_provider_credential,
+            commands::config::cmd_reset_provider_setting,
             commands::analytics::cmd_get_analytics,
             commands::analytics::cmd_export_analytics_csv,
         ])
