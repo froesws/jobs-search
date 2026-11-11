@@ -128,7 +128,7 @@ default browser opens it.
 
 > **NOTE: Write these tests FIRST; they must fail before T010/T011.**
 
-- [ ] T008 [P] [US1] Create `src/lib/ipc.test.ts`: mock
+- [X] T008 [P] [US1] Create `src/lib/ipc.test.ts`: mock
   `@tauri-apps/plugin-opener`, assert `openExternalUrl('https://example.com/jobs/1')`
   calls `openUrl` exactly once with the normalized URL, and assert a plugin
   rejection is rethrown as an `AppError` (`src/lib/errors.ts`).
