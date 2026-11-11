@@ -57,6 +57,8 @@ pub fn run() {
             commands::jobs::cmd_approve_job,
             commands::jobs::cmd_get_audit,
             commands::config::cmd_get_active_provider,
+            commands::analytics::cmd_get_analytics,
+            commands::analytics::cmd_export_analytics_csv,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Jobs Search");

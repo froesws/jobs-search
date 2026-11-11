@@ -96,6 +96,21 @@ pub struct ExportResult {
     pub bytes: u64,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+pub struct ExportRequest {
+    pub scope: AnalyticsScope,
+    #[serde(default)]
+    pub run_id: Option<String>,
+    pub destination: String,
+}
+
+/// Placeholder until the CSV writer lands.
+pub fn export_csv(_db: &Db, _request: ExportRequest) -> Result<ExportResult, AppError> {
+    Err(AppError::Config(
+        "analytics CSV export is not available yet".to_string(),
+    ))
+}
+
 /// Placeholder until the aggregation queries land.
 pub fn get_analytics(_db: &Db, request: AnalyticsRequest) -> Result<AnalyticsPayload, AppError> {
     Ok(AnalyticsPayload {
