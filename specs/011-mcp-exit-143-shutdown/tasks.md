@@ -162,7 +162,7 @@ both MCP adapters reports it unset even when the parent process has it set.
   `src-tauri/tests/mcp_client_contract.rs` with a fake sidecar that puts
   `os.environ.get("VIRTUAL_ENV")` in the job title; assert the adapter-spawned
   child sees `None` while the test process sets `VIRTUAL_ENV=.venv`.
-- [ ] T008 [P] [US2] Add the equivalent test for
+- [x] T008 [P] [US2] Add the equivalent test for
   `src-tauri/tests/linkedin_mcp_contract.rs` so the specialized adapter is
   covered too.
 

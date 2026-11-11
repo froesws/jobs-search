@@ -192,3 +192,81 @@ for raw in sys.stdin:
         ["Rust Engineer trainee", "Rust Engineer júnior"]
     );
 }
+
+#[tokio::test]
+async fn linkedin_children_do_not_inherit_virtual_env() {
+    let directory = tempfile::tempdir().expect("tempdir");
+    let script = directory.path().join("env_linkedin_mcp.py");
+    let log = directory.path().join("env.txt");
+    std::fs::write(
+        &script,
+        format!(
+            r#"
+import json
+import os
+import pathlib
+import sys
+
+pathlib.Path({log:?}).write_text(os.environ.get("VIRTUAL_ENV") or "unset")
+
+def send(value):
+    print(json.dumps(value), flush=True)
+
+for raw in sys.stdin:
+    request = json.loads(raw)
+    if "id" not in request:
+        continue
+    request_id = request["id"]
+    if request["method"] == "initialize":
+        send({{"jsonrpc": "2.0", "id": request_id, "result": {{
+            "protocolVersion": "2024-11-05",
+            "capabilities": {{}},
+            "serverInfo": {{"name": "fake-linkedin", "version": "0"}},
+        }}}})
+    elif request["method"] == "tools/call":
+        name = (request.get("params") or {{}}).get("name")
+        if name == "search_jobs":
+            payload = {{"job_ids": []}}
+            send({{"jsonrpc": "2.0", "id": request_id, "result": {{
+                "content": [{{"type": "text", "text": json.dumps(payload)}}],
+                "isError": False,
+            }}}})
+        else:
+            send({{"jsonrpc": "2.0", "id": request_id, "error": {{
+                "code": -32601, "message": "unknown tool"}}}})
+"#
+        ),
+    )
+    .expect("script");
+
+    static ENV_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+    struct EnvGuard;
+    impl EnvGuard {
+        fn set(value: &str) -> Self {
+            // Tests that mutate the process environment must serialize.
+            unsafe { std::env::set_var("VIRTUAL_ENV", value) };
+            Self
+        }
+    }
+    impl Drop for EnvGuard {
+        fn drop(&mut self) {
+            unsafe { std::env::remove_var("VIRTUAL_ENV") };
+        }
+    }
+
+    let _lock = ENV_LOCK.lock().await;
+    let _guard = EnvGuard::set(".venv");
+
+    let adapter = LinkedInMcpAdapter::new(
+        "linkedin",
+        "linkedin",
+        "python3",
+        vec![script.display().to_string()],
+        10,
+        1,
+        Duration::from_secs(5),
+    );
+
+    adapter.fetch(&request()).await.expect("jobs");
+    assert_eq!(std::fs::read_to_string(&log).expect("env log"), "unset");
+}
