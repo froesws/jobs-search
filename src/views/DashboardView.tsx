@@ -1,0 +1,118 @@
+import Box from '@mui/material/Box';
+import { useState } from 'react';
+
+import { safeMessage } from '../lib/errors';
+import { triggerSearch } from '../lib/ipc';
+import type { JobSummary, SearchMetrics } from '../lib/types';
+import { JobDrawer } from '../components/JobDrawer';
+import { FeedbackProvider } from '../components/FeedbackProvider';
+import { TabBar } from '../components/TabBar';
+import { TopBar } from '../components/TopBar';
+import { useFeedback } from '../components/FeedbackProvider';
+import { useDashboardState } from '../viewmodels/useDashboardState';
+import { useJobDetailViewModel } from '../viewmodels/useJobDetailViewModel';
+import { ApplicationsView } from './ApplicationsView';
+import { NewJobsView } from './NewJobsView';
+import { ProfileView } from './ProfileView';
+import { AnalyticsView } from './AnalyticsView';
+import type { ThemeMode } from '../theme/theme';
+
+export function DashboardView({
+  mode,
+  onToggleMode,
+}: {
+  mode: ThemeMode;
+  onToggleMode: () => void;
+}) {
+  const dashboard = useDashboardState();
+  const detail = useJobDetailViewModel();
+  const feedback = useFeedback();
+  const [refreshToken, setRefreshToken] = useState(0);
+  const [searching, setSearching] = useState(false);
+  const [metrics, setMetrics] = useState<SearchMetrics | null>(null);
+
+  const handleSearch = async () => {
+    setSearching(true);
+    try {
+      const result = await triggerSearch(dashboard.filters);
+      setMetrics(result);
+      setRefreshToken((value) => value + 1);
+      feedback.notify(
+        result.status === 'FAILED'
+          ? 'Search failed. Check the source failures and provider configuration.'
+          : `Search completed: ${result.approved_count} approved, ${result.pending_count} pending.`,
+        result.status === 'FAILED'
+          ? 'error'
+          : result.source_failures.length
+            ? 'warning'
+            : 'success',
+        result.status === 'FAILED',
+      );
+    } catch (error) {
+      feedback.notify(safeMessage(error), 'error', true);
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const handleOpenJob = (job: JobSummary) => {
+    dashboard.openJob(job.job_id);
+    detail.open(job.job_id);
+  };
+
+  return (
+    <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <TopBar
+        filters={dashboard.filters}
+        onChange={dashboard.setFilters}
+        onSearch={() => void handleSearch()}
+        searching={searching}
+        mode={mode}
+        onToggleMode={onToggleMode}
+      />
+      <TabBar value={dashboard.tab} onChange={dashboard.setTab} />
+
+      <Box
+        component="main"
+        sx={{
+          width: '100%',
+          maxWidth: 1520,
+          mx: 'auto',
+          px: 3,
+          py: 3,
+          flex: 1,
+        }}
+      >
+        {dashboard.tab === 'NEW_JOBS' ? (
+          <NewJobsView
+            refreshToken={refreshToken}
+            metrics={metrics}
+            onSearch={() => void handleSearch()}
+            onOpenJob={handleOpenJob}
+          />
+        ) : null}
+        {dashboard.tab === 'APPLICATIONS' ? (
+          <ApplicationsView refreshToken={refreshToken} onOpenJob={handleOpenJob} />
+        ) : null}
+        {dashboard.tab === 'PROFILE' ? <ProfileView /> : null}
+        {dashboard.tab === 'ANALYTICS' ? <AnalyticsView /> : null}
+      </Box>
+
+      <JobDrawer
+        open={detail.isDrawerOpen}
+        job={detail.job}
+        status={detail.status}
+        error={detail.error}
+        onClose={() => {
+          detail.close();
+          dashboard.closeJob();
+        }}
+        onRetry={detail.retry}
+      />
+    </Box>
+  );
+}
+
+export function DashboardProviders({ children }: { children: React.ReactNode }) {
+  return <FeedbackProvider>{children}</FeedbackProvider>;
+}
