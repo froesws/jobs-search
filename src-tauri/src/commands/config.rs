@@ -65,7 +65,7 @@ fn provider_key_env(provider: &str) -> &'static str {
 
 #[tauri::command]
 pub fn cmd_get_active_provider(state: State<'_, AppState>) -> Result<ActiveProvider, ErrorPayload> {
-    active_provider(&state.config).map_err(Into::into)
+    active_provider(&state.config()?).map_err(Into::into)
 }
 
 #[cfg(test)]

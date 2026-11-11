@@ -83,7 +83,7 @@ pub fn load_profile(state: &AppState) -> Result<CandidateProfile, AppError> {
     if let Some(profile) = db::profile::load_active_profile(&state.db)? {
         return Ok(profile);
     }
-    fixture::load(state.config.fixture_profile_path.as_deref())
+    fixture::load(state.config()?.fixture_profile_path.as_deref())
 }
 
 /// Load the profile for matching and block searches when the last resume was
@@ -151,7 +151,7 @@ pub async fn upload_resume_with(
         .await
         .map_err(|_| AppError::Database("resume extraction task failed".to_string()))??;
 
-    let app_data = state.config.app_data_dir.clone();
+    let app_data = state.config()?.app_data_dir.clone();
     let hash_for_path = content_hash.clone();
     let local_path =
         tokio::task::spawn_blocking(move || write_resume_file(&app_data, &hash_for_path, &bytes))
@@ -434,7 +434,8 @@ pub async fn cmd_upload_resume(
     state: State<'_, AppState>,
     file_path: String,
 ) -> Result<UploadResumeResult, ErrorPayload> {
-    let router = crate::llm::router_from_config(&state.config, state.http.clone());
+    let config = state.config()?;
+    let router = crate::llm::router_from_config(&config, state.http.clone());
     let extractor = LlmProfileExtractor::new(router);
     upload_resume_with(&state, &file_path, &extractor)
         .await

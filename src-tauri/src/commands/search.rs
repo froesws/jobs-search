@@ -154,8 +154,9 @@ pub async fn trigger(state: &AppState, filters: SearchFilters) -> Result<SearchM
         .try_lock()
         .map_err(|_| AppError::SearchInProgress)?;
 
+    let config = state.config()?;
     let profile = crate::commands::profile::load_profile_for_search(state)?;
-    let sources = crate::config::SourcesConfig::load_or_default(&state.config.sources_path)?;
+    let sources = crate::config::SourcesConfig::load_or_default(&config.sources_path)?;
     let enabled = sources.enabled();
 
     for source in &enabled {
@@ -174,11 +175,11 @@ pub async fn trigger(state: &AppState, filters: SearchFilters) -> Result<SearchM
     let run = crate::db::runs::start_run(&state.db, &search_config_json)?;
 
     let ingestion = ingest_jobs(state, &enabled, &filters).await?;
-    let router = llm::router_from_config(&state.config, state.http.clone());
+    let router = llm::router_from_config(&config, state.http.clone());
     let settings = crate::matching::EvaluationSettings {
-        threshold: state.config.match_threshold,
-        max_jobs: state.config.max_evaluations,
-        concurrency: state.config.max_concurrency,
+        threshold: config.match_threshold,
+        max_jobs: config.max_evaluations,
+        concurrency: config.max_concurrency,
         criteria,
     };
     let summary =
@@ -248,8 +249,8 @@ async fn ingest_jobs(
 ) -> Result<IngestionResult, AppError> {
     let mut adapters: Vec<Arc<dyn SourceAdapter>> = Vec::new();
     let mut failures: Vec<SourceFailure> = Vec::new();
-    let sources_base = state
-        .config
+    let config = state.config()?;
+    let sources_base = config
         .sources_path
         .parent()
         .filter(|directory| !directory.as_os_str().is_empty())
