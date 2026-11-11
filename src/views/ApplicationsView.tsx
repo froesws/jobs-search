@@ -7,7 +7,7 @@ import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import Typography from '@mui/material/Typography';
 
-import { ratioLabel, statusLabel } from '../lib/format';
+import { formatDate, ratioLabel, statusLabel } from '../lib/format';
 import type { JobSummary } from '../lib/types';
 import { useApplicationsViewModel } from '../viewmodels/useApplicationsViewModel';
 import { EmptyState } from '../components/EmptyState';
@@ -60,6 +60,7 @@ export function ApplicationsView({
                 <TableCell>Role</TableCell>
                 <TableCell>Company</TableCell>
                 <TableCell>Status</TableCell>
+                <TableCell>Applied</TableCell>
                 <TableCell>Requirements</TableCell>
                 <TableCell align="right">Score</TableCell>
               </TableRow>
@@ -88,6 +89,7 @@ export function ApplicationsView({
                       variant="outlined"
                     />
                   </TableCell>
+                  <TableCell>{formatDate(job.applied_at)}</TableCell>
                   <TableCell>
                     <Typography variant="caption">{ratioLabel(job)}</Typography>
                     <RequirementRatio job={job} compact />

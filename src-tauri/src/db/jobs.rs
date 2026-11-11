@@ -11,7 +11,7 @@ const SUMMARY_COLUMNS: &str = "
     j.id, j.title, j.company, j.location, j.work_modality, j.url, j.posted_at,
     e.evaluation_status, COALESCE(a.lifecycle_state, 'DISCOVERED'),
     e.match_score, e.matching_items_count, e.total_requirements_count,
-    substr(j.description_clean, 1, 240), COALESCE(j.needs_review, 0)
+    substr(j.description_clean, 1, 240), COALESCE(j.needs_review, 0), a.applied_at
 ";
 
 #[derive(Debug, Clone)]
@@ -70,6 +70,7 @@ pub struct JobSummary {
     pub total_requirements_count: Option<i64>,
     pub summary: String,
     pub needs_review: bool,
+    pub applied_at: Option<String>,
 }
 
 #[derive(Debug, Clone, serde::Serialize)]
@@ -459,14 +460,14 @@ pub fn get_detail(db: &Db, job_id: &str) -> Result<JobDetail, AppError> {
         };
 
         let summary = summary_from_row(row)?;
-        let description_clean: String = row.get(14)?;
-        let matched_keywords = parse_csv_json(row.get::<_, Option<String>>(15)?);
-        let missing_keywords = parse_csv_json(row.get::<_, Option<String>>(16)?);
-        let hard_filter_rejections = parse_rejections(row.get::<_, Option<String>>(17)?);
-        let score_breakdown = parse_json_value(row.get::<_, Option<String>>(18)?);
-        let provider: Option<String> = row.get(19)?;
-        let model: Option<String> = row.get(20)?;
-        let metadata: Option<String> = row.get(21)?;
+        let description_clean: String = row.get(15)?;
+        let matched_keywords = parse_csv_json(row.get::<_, Option<String>>(16)?);
+        let missing_keywords = parse_csv_json(row.get::<_, Option<String>>(17)?);
+        let hard_filter_rejections = parse_rejections(row.get::<_, Option<String>>(18)?);
+        let score_breakdown = parse_json_value(row.get::<_, Option<String>>(19)?);
+        let provider: Option<String> = row.get(20)?;
+        let model: Option<String> = row.get(21)?;
+        let metadata: Option<String> = row.get(22)?;
         let requirements = parse_requirements(metadata.as_deref());
         let error_category = error_category(score_breakdown.as_ref());
         let source_lineage = lineage_with_connection(connection, job_id)?;
@@ -506,6 +507,7 @@ fn summary_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<JobSummary> {
         total_requirements_count: row.get(11)?,
         summary: truncate(&row.get::<_, String>(12)?, 240),
         needs_review: row.get(13)?,
+        applied_at: row.get(14)?,
     })
 }
 
