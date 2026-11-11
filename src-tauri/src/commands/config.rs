@@ -412,6 +412,244 @@ pub fn cmd_reset_provider_setting(
     build_view(&state).map_err(Into::into)
 }
 
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelOptionView {
+    pub id: String,
+    pub price: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelCatalogView {
+    pub provider: String,
+    pub models: Vec<ModelOptionView>,
+    pub source: String,
+    pub fetched_at: Option<String>,
+    pub degraded: bool,
+    pub message: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderTestResult {
+    pub ok: bool,
+    pub latency_ms: i64,
+    pub message: String,
+}
+
+fn provider_base_url(
+    config: &AppConfig,
+    provider: &str,
+    setting: &crate::config::ProviderSetting,
+) -> String {
+    match provider {
+        "gemini" => config.gemini_base_url.clone(),
+        "openrouter" => config.openrouter_base_url.clone(),
+        "deepseek" => config.deepseek_base_url.clone(),
+        "ollama" => setting
+            .base_url
+            .clone()
+            .unwrap_or_else(|| config.ollama_base_url.clone()),
+        _ => String::new(),
+    }
+}
+
+fn catalog_from_cache(
+    state: &AppState,
+    provider: &str,
+) -> Result<Option<ModelCatalogView>, AppError> {
+    let Some(raw) = settings::get(&state.db, &format!("provider.{provider}.models_cache"))? else {
+        return Ok(None);
+    };
+    let Ok(models) = serde_json::from_str::<Vec<String>>(&raw) else {
+        return Ok(None);
+    };
+    if models.is_empty() {
+        return Ok(None);
+    }
+    let fetched_at = settings::get(&state.db, &format!("provider.{provider}.models_cached_at"))?;
+    Ok(Some(ModelCatalogView {
+        provider: provider.to_string(),
+        models: models
+            .into_iter()
+            .map(|id| ModelOptionView { id, price: None })
+            .collect(),
+        source: "cache".to_string(),
+        fetched_at,
+        degraded: false,
+        message: None,
+    }))
+}
+
+fn builtin_catalog(provider: &str, message: Option<String>) -> ModelCatalogView {
+    ModelCatalogView {
+        provider: provider.to_string(),
+        models: crate::llm::models::builtin_models(provider)
+            .into_iter()
+            .map(|id| ModelOptionView { id, price: None })
+            .collect(),
+        source: "builtin".to_string(),
+        fetched_at: None,
+        degraded: message.is_some(),
+        message,
+    }
+}
+
+async fn refresh_models(
+    state: &AppState,
+    provider: &str,
+    include_paid: bool,
+) -> Result<ModelCatalogView, AppError> {
+    validate_provider_id(provider)?;
+    let config = state.config()?;
+    let session = state.session_selection()?;
+    let settings = ProviderSettings::resolve(&state.db, &config, session.as_ref())?;
+    let setting = settings
+        .providers
+        .get(provider)
+        .ok_or_else(|| AppError::Config("provider settings are missing".to_string()))?;
+    let base_url = provider_base_url(&config, provider, setting);
+    let (secret, _) = crate::config::provider_settings::resolve_credential(&config, provider);
+    let timeout = if provider == "ollama" {
+        std::time::Duration::from_secs(5)
+    } else {
+        std::time::Duration::from_secs(15)
+    };
+
+    match crate::llm::models::fetch_models(
+        &state.http,
+        provider,
+        &base_url,
+        secret.as_deref(),
+        include_paid,
+        timeout,
+    )
+    .await
+    {
+        Ok(models) if !models.is_empty() => {
+            let ids: Vec<String> = models.iter().map(|model| model.id.clone()).collect();
+            let value = serde_json::to_string(&ids)?;
+            settings::put(
+                &state.db,
+                &format!("provider.{provider}.models_cache"),
+                &value,
+            )?;
+            settings::put(
+                &state.db,
+                &format!("provider.{provider}.models_cached_at"),
+                &crate::db::now_rfc3339(),
+            )?;
+            Ok(ModelCatalogView {
+                provider: provider.to_string(),
+                models: models
+                    .into_iter()
+                    .map(|model| ModelOptionView {
+                        id: model.id,
+                        price: model.price,
+                    })
+                    .collect(),
+                source: "cache".to_string(),
+                fetched_at: Some(crate::db::now_rfc3339()),
+                degraded: false,
+                message: None,
+            })
+        }
+        Ok(_) => {
+            let message = if provider == "ollama" {
+                "no Ollama models found — run ollama pull <model>".to_string()
+            } else {
+                "the provider returned no chat models".to_string()
+            };
+            if let Some(cached) = catalog_from_cache(state, provider)? {
+                Ok(ModelCatalogView {
+                    degraded: true,
+                    message: Some(message),
+                    ..cached
+                })
+            } else {
+                Ok(builtin_catalog(provider, Some(message)))
+            }
+        }
+        Err(error) => {
+            if let Some(cached) = catalog_from_cache(state, provider)? {
+                Ok(ModelCatalogView {
+                    degraded: true,
+                    message: Some(error.message),
+                    ..cached
+                })
+            } else {
+                Ok(builtin_catalog(provider, Some(error.message)))
+            }
+        }
+    }
+}
+
+#[tauri::command]
+pub async fn cmd_refresh_provider_models(
+    state: State<'_, AppState>,
+    provider: String,
+    include_paid: Option<bool>,
+) -> Result<ModelCatalogView, ErrorPayload> {
+    refresh_models(&state, &provider, include_paid.unwrap_or(false))
+        .await
+        .map_err(Into::into)
+}
+
+#[tauri::command]
+pub async fn cmd_test_provider(
+    state: State<'_, AppState>,
+    provider: String,
+    draft_api_key: Option<String>,
+    draft_base_url: Option<String>,
+    model: Option<String>,
+) -> Result<ProviderTestResult, ErrorPayload> {
+    validate_provider_id(&provider)?;
+    let config = state.config()?;
+    let session = state.session_selection()?;
+    let settings = ProviderSettings::resolve(&state.db, &config, session.as_ref())?;
+    let setting = settings
+        .providers
+        .get(&provider)
+        .ok_or_else(|| AppError::Config("provider settings are missing".to_string()))?;
+
+    let base_url = draft_base_url
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| provider_base_url(&config, &provider, setting));
+    let (stored, _) = crate::config::provider_settings::resolve_credential(&config, &provider);
+    let secret = draft_api_key
+        .filter(|value| !value.trim().is_empty())
+        .or(stored);
+    let _ = model;
+
+    let timeout = if provider == "ollama" {
+        std::time::Duration::from_secs(5)
+    } else {
+        std::time::Duration::from_secs(15)
+    };
+    let started = std::time::Instant::now();
+    match crate::llm::models::probe(
+        &state.http,
+        &provider,
+        &base_url,
+        secret.as_deref(),
+        timeout,
+    )
+    .await
+    {
+        Ok(()) => Ok(ProviderTestResult {
+            ok: true,
+            latency_ms: started.elapsed().as_millis() as i64,
+            message: "connection ok".to_string(),
+        }),
+        Err(error) => Ok(ProviderTestResult {
+            ok: false,
+            latency_ms: started.elapsed().as_millis() as i64,
+            message: error.message,
+        }),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
