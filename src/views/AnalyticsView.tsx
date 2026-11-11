@@ -12,18 +12,18 @@ import Typography from '@mui/material/Typography';
 import { save } from '@tauri-apps/plugin-dialog';
 import { useState } from 'react';
 
-import { safeMessage } from '../lib/errors';
-import type { AnalyticsScope } from '../lib/types';
-import { useFeedback } from '../components/FeedbackProvider';
-import { useAnalyticsViewModel } from '../viewmodels/useAnalyticsViewModel';
-import { EmptyState } from '../components/EmptyState';
-import { ErrorState } from '../components/ErrorState';
-import { FunnelCards } from '../components/FunnelCards';
-import { LlmMetricsTable } from '../components/LlmMetricsTable';
-import { LoadingState } from '../components/LoadingState';
-import { Metric } from '../components/Metric';
-import { ScoreDistribution } from '../components/ScoreDistribution';
-import { SkillGapList } from '../components/SkillGapList';
+import { safeMessage } from '@/lib/errors';
+import type { AnalyticsScope } from '@/lib/types';
+import { useFeedback } from '@/components/FeedbackProvider';
+import { useAnalyticsViewModel } from '@/viewmodels/useAnalyticsViewModel';
+import { EmptyState } from '@/components/EmptyState';
+import { ErrorState } from '@/components/ErrorState';
+import { FunnelCards } from '@/components/FunnelCards';
+import { LlmMetricsTable } from '@/components/LlmMetricsTable';
+import { LoadingState } from '@/components/LoadingState';
+import { Metric } from '@/components/Metric';
+import { ScoreDistribution } from '@/components/ScoreDistribution';
+import { SkillGapList } from '@/components/SkillGapList';
 
 export function AnalyticsView() {
   const analytics = useAnalyticsViewModel();

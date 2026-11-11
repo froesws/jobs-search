@@ -1,12 +1,12 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { getAudit } from '../lib/ipc';
-import { auditFixture } from '../test/fixtures';
-import { AuditDialog } from './AuditDialog';
+import { getAudit } from '@/lib/ipc';
+import { auditFixture } from '@/test/fixtures';
+import { AuditDialog } from '@/components/AuditDialog';
 
-vi.mock('../lib/ipc', async () => {
-  const { createIpcMock } = await import('../test/ipc-mock');
+vi.mock('@/lib/ipc', async () => {
+  const { createIpcMock } = await import('@/test/ipc-mock');
   return createIpcMock();
 });
 

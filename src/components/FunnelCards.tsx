@@ -3,7 +3,7 @@ import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 
-import type { FunnelPayload } from '../lib/types';
+import type { FunnelPayload } from '@/lib/types';
 
 export function FunnelCards({ funnel }: { funnel: FunnelPayload }) {
   return (

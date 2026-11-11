@@ -1,11 +1,11 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { getActiveProvider } from '../lib/ipc';
-import { ProviderIndicator } from './ProviderIndicator';
+import { getActiveProvider } from '@/lib/ipc';
+import { ProviderIndicator } from '@/components/ProviderIndicator';
 
-vi.mock('../lib/ipc', async () => {
-  const { createIpcMock } = await import('../test/ipc-mock');
+vi.mock('@/lib/ipc', async () => {
+  const { createIpcMock } = await import('@/test/ipc-mock');
   return createIpcMock();
 });
 

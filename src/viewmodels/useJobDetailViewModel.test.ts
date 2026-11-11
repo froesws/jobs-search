@@ -1,12 +1,12 @@
 import { renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { getJob } from '../lib/ipc';
-import type { JobDetail } from '../lib/types';
-import { useJobDetailViewModel } from './useJobDetailViewModel';
+import { getJob } from '@/lib/ipc';
+import type { JobDetail } from '@/lib/types';
+import { useJobDetailViewModel } from '@/viewmodels/useJobDetailViewModel';
 
-vi.mock('../lib/ipc', async () => {
-  const { createIpcMock } = await import('../test/ipc-mock');
+vi.mock('@/lib/ipc', async () => {
+  const { createIpcMock } = await import('@/test/ipc-mock');
   return createIpcMock();
 });
 

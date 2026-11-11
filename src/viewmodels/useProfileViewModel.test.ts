@@ -1,12 +1,12 @@
 import { renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { getProfile, saveProfile } from '../lib/ipc';
-import type { CandidateProfile } from '../lib/types';
-import { useProfileViewModel } from './useProfileViewModel';
+import { getProfile, saveProfile } from '@/lib/ipc';
+import type { CandidateProfile } from '@/lib/types';
+import { useProfileViewModel } from '@/viewmodels/useProfileViewModel';
 
-vi.mock('../lib/ipc', async () => {
-  const { createIpcMock } = await import('../test/ipc-mock');
+vi.mock('@/lib/ipc', async () => {
+  const { createIpcMock } = await import('@/test/ipc-mock');
   return createIpcMock();
 });
 

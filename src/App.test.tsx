@@ -1,12 +1,12 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import App from './App';
-import { getActiveProvider, getJobs, getProfile, listResumes } from './lib/ipc';
-import { providerFixture } from './test/fixtures';
+import App from '@/App';
+import { getActiveProvider, getJobs, getProfile, listResumes } from '@/lib/ipc';
+import { providerFixture } from '@/test/fixtures';
 
-vi.mock('./lib/ipc', async () => {
-  const { createIpcMock } = await import('./test/ipc-mock');
+vi.mock('@/lib/ipc', async () => {
+  const { createIpcMock } = await import('@/test/ipc-mock');
   return createIpcMock();
 });
 

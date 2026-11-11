@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { safeMessage } from '../lib/errors';
-import { deleteResume, listResumes, uploadResume } from '../lib/ipc';
-import type { CandidateProfile, ResumeSummary } from '../lib/types';
+import { safeMessage } from '@/lib/errors';
+import { deleteResume, listResumes, uploadResume } from '@/lib/ipc';
+import type { CandidateProfile, ResumeSummary } from '@/lib/types';
 
 type Status = 'loading' | 'ready' | 'empty' | 'error';
 

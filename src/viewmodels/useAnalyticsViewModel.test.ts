@@ -1,12 +1,12 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { getAnalytics } from '../lib/ipc';
-import type { AnalyticsPayload } from '../lib/types';
-import { useAnalyticsViewModel } from './useAnalyticsViewModel';
+import { getAnalytics } from '@/lib/ipc';
+import type { AnalyticsPayload } from '@/lib/types';
+import { useAnalyticsViewModel } from '@/viewmodels/useAnalyticsViewModel';
 
-vi.mock('../lib/ipc', async () => {
-  const { createIpcMock } = await import('../test/ipc-mock');
+vi.mock('@/lib/ipc', async () => {
+  const { createIpcMock } = await import('@/test/ipc-mock');
   return createIpcMock();
 });
 

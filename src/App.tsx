@@ -2,10 +2,10 @@ import CssBaseline from '@mui/material/CssBaseline';
 import { ThemeProvider } from '@mui/material/styles';
 import { useEffect, useMemo, useState } from 'react';
 
-import { FeedbackProvider } from './components/FeedbackProvider';
-import { appTheme } from './theme/theme';
-import type { ThemeMode } from './theme/theme';
-import { DashboardView } from './views/DashboardView';
+import { FeedbackProvider } from '@/components/FeedbackProvider';
+import { appTheme } from '@/theme/theme';
+import type { ThemeMode } from '@/theme/theme';
+import { DashboardView } from '@/views/DashboardView';
 
 const THEME_KEY = 'jobs-search.theme';
 

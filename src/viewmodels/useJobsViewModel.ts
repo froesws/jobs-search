@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { safeMessage } from '../lib/errors';
-import { getJobs } from '../lib/ipc';
-import type { JobSummary, JobTab } from '../lib/types';
+import { safeMessage } from '@/lib/errors';
+import { getJobs } from '@/lib/ipc';
+import type { JobSummary, JobTab } from '@/lib/types';
 
-import { tokens } from '../theme/tokens';
+import { tokens } from '@/theme/tokens';
 
 const PAGE_SIZE = tokens.pageSize;
 

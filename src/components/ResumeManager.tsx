@@ -7,9 +7,9 @@ import Typography from '@mui/material/Typography';
 import { open } from '@tauri-apps/plugin-dialog';
 import { useState } from 'react';
 
-import { safeMessage } from '../lib/errors';
-import { useFeedback } from './FeedbackProvider';
-import { useResumeViewModel } from '../viewmodels/useResumeViewModel';
+import { safeMessage } from '@/lib/errors';
+import { useFeedback } from '@/components/FeedbackProvider';
+import { useResumeViewModel } from '@/viewmodels/useResumeViewModel';
 
 export function ResumeManager() {
   const resumes = useResumeViewModel();

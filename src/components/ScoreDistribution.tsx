@@ -3,7 +3,7 @@ import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import { BarChart } from '@mui/x-charts/BarChart';
 
-import type { ScoreBucket } from '../lib/types';
+import type { ScoreBucket } from '@/lib/types';
 
 export function ScoreDistribution({ buckets }: { buckets: ScoreBucket[] }) {
   return (

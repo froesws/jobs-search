@@ -7,14 +7,14 @@ import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import Typography from '@mui/material/Typography';
 
-import { formatDate, ratioLabel, statusLabel } from '../lib/format';
-import type { JobSummary } from '../lib/types';
-import { useApplicationsViewModel } from '../viewmodels/useApplicationsViewModel';
-import { EmptyState } from '../components/EmptyState';
-import { ErrorState } from '../components/ErrorState';
-import { LoadingState } from '../components/LoadingState';
-import { RequirementRatio } from '../components/RequirementRatio';
-import { ScoreBadge } from '../components/ScoreBadge';
+import { formatDate, ratioLabel, statusLabel } from '@/lib/format';
+import type { JobSummary } from '@/lib/types';
+import { useApplicationsViewModel } from '@/viewmodels/useApplicationsViewModel';
+import { EmptyState } from '@/components/EmptyState';
+import { ErrorState } from '@/components/ErrorState';
+import { LoadingState } from '@/components/LoadingState';
+import { RequirementRatio } from '@/components/RequirementRatio';
+import { ScoreBadge } from '@/components/ScoreBadge';
 
 export function ApplicationsView({
   refreshToken,

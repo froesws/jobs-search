@@ -2,8 +2,8 @@ import Box from '@mui/material/Box';
 import LinearProgress from '@mui/material/LinearProgress';
 import Typography from '@mui/material/Typography';
 
-import { ratioLabel } from '../lib/format';
-import type { JobSummary } from '../lib/types';
+import { ratioLabel } from '@/lib/format';
+import type { JobSummary } from '@/lib/types';
 
 export function RequirementRatio({
   job,

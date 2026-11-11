@@ -1,7 +1,7 @@
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
 
-import type { DashboardTab } from '../viewmodels/useDashboardState';
+import type { DashboardTab } from '@/viewmodels/useDashboardState';
 
 const TABS: Array<{ value: DashboardTab; label: string }> = [
   { value: 'NEW_JOBS', label: 'New Jobs' },

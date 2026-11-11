@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { modalityLabel, postingAge, ratioLabel, safeExternalUrl, scoreLabel } from './format';
+import { modalityLabel, postingAge, ratioLabel, safeExternalUrl, scoreLabel } from '@/lib/format';
 
 describe('format helpers', () => {
   it('renders zero requirements as an explicit state', () => {

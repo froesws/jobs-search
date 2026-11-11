@@ -1,8 +1,8 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
-import type { SkillGapMetric } from '../lib/types';
-import { SkillGapList } from './SkillGapList';
+import type { SkillGapMetric } from '@/lib/types';
+import { SkillGapList } from '@/components/SkillGapList';
 
 const metrics: SkillGapMetric[] = [
   {

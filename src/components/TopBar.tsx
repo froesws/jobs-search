@@ -12,10 +12,10 @@ import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Toolbar from '@mui/material/Toolbar';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
-import type { ThemeMode } from '../theme/theme';
-import type { SearchFilters, SearchTimeframe, Seniority, WorkModality } from '../lib/types';
-import { ProviderIndicator } from './ProviderIndicator';
-import { ResumeManager } from './ResumeManager';
+import type { ThemeMode } from '@/theme/theme';
+import type { SearchFilters, SearchTimeframe, Seniority, WorkModality } from '@/lib/types';
+import { ProviderIndicator } from '@/components/ProviderIndicator';
+import { ResumeManager } from '@/components/ResumeManager';
 
 const TIMEFRAMES: Array<{ value: SearchTimeframe; label: string }> = [
   { value: 'H24', label: 'Last 24 hours' },

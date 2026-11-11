@@ -9,12 +9,12 @@ import Divider from '@mui/material/Divider';
 import Typography from '@mui/material/Typography';
 import { useEffect, useState } from 'react';
 
-import { safeMessage } from '../lib/errors';
-import { getAudit } from '../lib/ipc';
-import type { ExecutionAudit } from '../lib/types';
-import { ErrorState } from './ErrorState';
-import { Metric } from './Metric';
-import { LoadingState } from './LoadingState';
+import { safeMessage } from '@/lib/errors';
+import { getAudit } from '@/lib/ipc';
+import type { ExecutionAudit } from '@/lib/types';
+import { ErrorState } from '@/components/ErrorState';
+import { Metric } from '@/components/Metric';
+import { LoadingState } from '@/components/LoadingState';
 
 export function AuditDialog({
   runId,

@@ -1,22 +1,21 @@
 import Box from '@mui/material/Box';
 import { useState } from 'react';
 
-import { safeMessage } from '../lib/errors';
-import { normalizeFilters, validateFilters } from '../lib/filters';
-import { applyJob, approveJob, ignoreJob, restoreJob, triggerSearch } from '../lib/ipc';
-import type { JobSummary, SearchMetrics } from '../lib/types';
-import { JobDrawer } from '../components/JobDrawer';
-import { FeedbackProvider } from '../components/FeedbackProvider';
-import { TabBar } from '../components/TabBar';
-import { TopBar } from '../components/TopBar';
-import { useFeedback } from '../components/FeedbackProvider';
-import { useDashboardState } from '../viewmodels/useDashboardState';
-import { useJobDetailViewModel } from '../viewmodels/useJobDetailViewModel';
-import { ApplicationsView } from './ApplicationsView';
-import { NewJobsView } from './NewJobsView';
-import { ProfileView } from './ProfileView';
-import { AnalyticsView } from './AnalyticsView';
-import type { ThemeMode } from '../theme/theme';
+import { safeMessage } from '@/lib/errors';
+import { normalizeFilters, validateFilters } from '@/lib/filters';
+import { applyJob, approveJob, ignoreJob, restoreJob, triggerSearch } from '@/lib/ipc';
+import type { JobSummary, SearchMetrics } from '@/lib/types';
+import { JobDrawer } from '@/components/JobDrawer';
+import { useFeedback } from '@/components/FeedbackProvider';
+import { TabBar } from '@/components/TabBar';
+import { TopBar } from '@/components/TopBar';
+import { useDashboardState } from '@/viewmodels/useDashboardState';
+import { useJobDetailViewModel } from '@/viewmodels/useJobDetailViewModel';
+import { ApplicationsView } from '@/views/ApplicationsView';
+import { NewJobsView } from '@/views/NewJobsView';
+import { ProfileView } from '@/views/ProfileView';
+import { AnalyticsView } from '@/views/AnalyticsView';
+import type { ThemeMode } from '@/theme/theme';
 
 export function DashboardView({
   mode,
@@ -153,8 +152,4 @@ export function DashboardView({
       />
     </Box>
   );
-}
-
-export function DashboardProviders({ children }: { children: React.ReactNode }) {
-  return <FeedbackProvider>{children}</FeedbackProvider>;
 }

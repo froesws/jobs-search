@@ -2,17 +2,17 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { open } from '@tauri-apps/plugin-dialog';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { deleteResume, listResumes, uploadResume } from '../lib/ipc';
-import type { CandidateProfile } from '../lib/types';
-import { FeedbackProvider } from '../components/FeedbackProvider';
-import { ResumeManager } from '../components/ResumeManager';
+import { deleteResume, listResumes, uploadResume } from '@/lib/ipc';
+import type { CandidateProfile } from '@/lib/types';
+import { FeedbackProvider } from '@/components/FeedbackProvider';
+import { ResumeManager } from '@/components/ResumeManager';
 
 vi.mock('@tauri-apps/plugin-dialog', () => ({
   open: vi.fn(),
 }));
 
-vi.mock('../lib/ipc', async () => {
-  const { createIpcMock } = await import('../test/ipc-mock');
+vi.mock('@/lib/ipc', async () => {
+  const { createIpcMock } = await import('@/test/ipc-mock');
   return createIpcMock();
 });
 

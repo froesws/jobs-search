@@ -1,5 +1,5 @@
-import { DEFAULT_FILTERS } from './types';
-import type { SearchFilters, SearchTimeframe, WorkModality } from './types';
+import { DEFAULT_FILTERS } from '@/lib/types';
+import type { SearchFilters, SearchTimeframe, WorkModality } from '@/lib/types';
 
 const TIMEFRAMES: SearchTimeframe[] = ['H24', 'D7', 'D30'];
 const MODALITIES: WorkModality[] = ['Remote', 'Hybrid', 'Onsite'];

@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { safeMessage } from '../lib/errors';
-import { exportAnalyticsCsv, getAnalytics } from '../lib/ipc';
-import type { AnalyticsPayload, AnalyticsScope, ExportResult } from '../lib/types';
+import { safeMessage } from '@/lib/errors';
+import { exportAnalyticsCsv, getAnalytics } from '@/lib/ipc';
+import type { AnalyticsPayload, AnalyticsScope, ExportResult } from '@/lib/types';
 
 type Status = 'loading' | 'ready' | 'empty' | 'no-gap' | 'error';
 

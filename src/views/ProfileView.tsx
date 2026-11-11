@@ -10,12 +10,12 @@ import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Typography from '@mui/material/Typography';
 import { useEffect, useState } from 'react';
 
-import { safeMessage } from '../lib/errors';
-import type { CandidateProfile, WorkModality } from '../lib/types';
-import { useFeedback } from '../components/FeedbackProvider';
-import { ErrorState } from '../components/ErrorState';
-import { LoadingState } from '../components/LoadingState';
-import { useProfileViewModel } from '../viewmodels/useProfileViewModel';
+import { safeMessage } from '@/lib/errors';
+import type { CandidateProfile, WorkModality } from '@/lib/types';
+import { useFeedback } from '@/components/FeedbackProvider';
+import { ErrorState } from '@/components/ErrorState';
+import { LoadingState } from '@/components/LoadingState';
+import { useProfileViewModel } from '@/viewmodels/useProfileViewModel';
 
 const SENIORITIES = ['Trainee', 'Intern', 'Junior', 'Pleno', 'Senior'];
 const MODALITIES: WorkModality[] = ['Remote', 'Hybrid', 'Onsite'];

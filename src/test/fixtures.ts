@@ -7,7 +7,7 @@ import type {
   JobSummary,
   PaginatedJobs,
   SearchMetrics,
-} from '../lib/types';
+} from '@/lib/types';
 
 export const emptyPage: PaginatedJobs = {
   items: [],

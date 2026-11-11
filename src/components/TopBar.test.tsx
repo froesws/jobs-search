@@ -1,15 +1,15 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-import { getActiveProvider, listResumes } from '../lib/ipc';
-import { DEFAULT_FILTERS } from '../lib/types';
-import { providerFixture } from '../test/fixtures';
+import { getActiveProvider, listResumes } from '@/lib/ipc';
+import { DEFAULT_FILTERS } from '@/lib/types';
+import { providerFixture } from '@/test/fixtures';
 import { beforeEach } from 'vitest';
-import { FeedbackProvider } from './FeedbackProvider';
-import { TopBar } from './TopBar';
+import { FeedbackProvider } from '@/components/FeedbackProvider';
+import { TopBar } from '@/components/TopBar';
 
-vi.mock('../lib/ipc', async () => {
-  const { createIpcMock } = await import('../test/ipc-mock');
+vi.mock('@/lib/ipc', async () => {
+  const { createIpcMock } = await import('@/test/ipc-mock');
   return createIpcMock();
 });
 

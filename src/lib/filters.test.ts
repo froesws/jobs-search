@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { normalizeFilters, validateFilters } from './filters';
-import { DEFAULT_FILTERS } from './types';
+import { normalizeFilters, validateFilters } from '@/lib/filters';
+import { DEFAULT_FILTERS } from '@/lib/types';
 
 describe('search filters', () => {
   it('normalizes whitespace and removes duplicate selections', () => {

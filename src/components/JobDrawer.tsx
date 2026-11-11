@@ -6,12 +6,12 @@ import Divider from '@mui/material/Divider';
 import Drawer from '@mui/material/Drawer';
 import Typography from '@mui/material/Typography';
 
-import { formatDate, modalityLabel, postingAge, safeExternalUrl, statusLabel } from '../lib/format';
-import type { JobDetail } from '../lib/types';
-import { tokens } from '../theme/tokens';
-import { ErrorState } from './ErrorState';
-import { RequirementRatio } from './RequirementRatio';
-import { ScoreBadge } from './ScoreBadge';
+import { formatDate, modalityLabel, postingAge, safeExternalUrl, statusLabel } from '@/lib/format';
+import type { JobDetail } from '@/lib/types';
+import { tokens } from '@/theme/tokens';
+import { ErrorState } from '@/components/ErrorState';
+import { RequirementRatio } from '@/components/RequirementRatio';
+import { ScoreBadge } from '@/components/ScoreBadge';
 
 const DIMENSIONS = [
   ['CORE_TECHNICAL', 'Core technical'],

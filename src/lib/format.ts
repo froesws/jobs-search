@@ -1,4 +1,4 @@
-import type { JobSummary, WorkModality } from './types';
+import type { JobSummary, WorkModality } from '@/lib/types';
 
 export function scoreLabel(score: number | null | undefined): string {
   return score === null || score === undefined ? '—' : String(Math.round(score));

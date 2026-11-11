@@ -1,8 +1,8 @@
 import { useCallback, useState } from 'react';
 
-import { safeMessage } from '../lib/errors';
-import { getJob } from '../lib/ipc';
-import type { JobDetail } from '../lib/types';
+import { safeMessage } from '@/lib/errors';
+import { getJob } from '@/lib/ipc';
+import type { JobDetail } from '@/lib/types';
 
 type Status = 'idle' | 'loading' | 'ready' | 'error';
 

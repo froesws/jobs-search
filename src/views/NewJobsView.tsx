@@ -7,13 +7,13 @@ import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 
-import type { JobSummary, SearchMetrics } from '../lib/types';
-import { useJobsViewModel } from '../viewmodels/useJobsViewModel';
-import { AuditDialog } from '../components/AuditDialog';
-import { EmptyState } from '../components/EmptyState';
-import { ErrorState } from '../components/ErrorState';
-import { JobCard } from '../components/JobCard';
-import { LoadingState } from '../components/LoadingState';
+import type { JobSummary, SearchMetrics } from '@/lib/types';
+import { useJobsViewModel } from '@/viewmodels/useJobsViewModel';
+import { AuditDialog } from '@/components/AuditDialog';
+import { EmptyState } from '@/components/EmptyState';
+import { ErrorState } from '@/components/ErrorState';
+import { JobCard } from '@/components/JobCard';
+import { LoadingState } from '@/components/LoadingState';
 
 export function NewJobsView({
   refreshToken,

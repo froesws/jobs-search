@@ -1,8 +1,8 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { JobDetail } from '../lib/types';
-import { JobDrawer } from './JobDrawer';
+import type { JobDetail } from '@/lib/types';
+import { JobDrawer } from '@/components/JobDrawer';
 
 const job: JobDetail = {
   job_id: 'j1',

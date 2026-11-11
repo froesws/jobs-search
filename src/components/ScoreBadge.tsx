@@ -2,8 +2,8 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import { useTheme } from '@mui/material/styles';
 
-import { scoreLabel } from '../lib/format';
-import { scoreTone } from '../theme/tokens';
+import { scoreLabel } from '@/lib/format';
+import { scoreTone } from '@/theme/tokens';
 
 export function ScoreBadge({
   score,

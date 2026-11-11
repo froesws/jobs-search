@@ -7,7 +7,7 @@ import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import Typography from '@mui/material/Typography';
 
-import type { LlmMetricsPayload } from '../lib/types';
+import type { LlmMetricsPayload } from '@/lib/types';
 
 export function LlmMetricsTable({ metrics }: { metrics: LlmMetricsPayload }) {
   return (

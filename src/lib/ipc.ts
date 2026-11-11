@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 
-import { toAppError } from './errors';
+import { toAppError } from '@/lib/errors';
 import type {
   ActiveProvider,
   AnalyticsPayload,
@@ -17,7 +17,7 @@ import type {
   ResumeSummary,
   SearchFilters,
   SearchMetrics,
-} from './types';
+} from '@/lib/types';
 
 async function call<T>(command: string, args?: Record<string, unknown>): Promise<T> {
   try {

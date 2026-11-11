@@ -1,13 +1,13 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { FeedbackProvider } from '../components/FeedbackProvider';
-import { getProfile, saveProfile } from '../lib/ipc';
-import type { CandidateProfile } from '../lib/types';
-import { ProfileView } from './ProfileView';
+import { FeedbackProvider } from '@/components/FeedbackProvider';
+import { getProfile, saveProfile } from '@/lib/ipc';
+import type { CandidateProfile } from '@/lib/types';
+import { ProfileView } from '@/views/ProfileView';
 
-vi.mock('../lib/ipc', async () => {
-  const { createIpcMock } = await import('../test/ipc-mock');
+vi.mock('@/lib/ipc', async () => {
+  const { createIpcMock } = await import('@/test/ipc-mock');
   return createIpcMock();
 });
 

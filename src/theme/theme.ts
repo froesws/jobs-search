@@ -1,6 +1,6 @@
 import { alpha, createTheme } from '@mui/material/styles';
 
-import { tokens } from './tokens';
+import { tokens } from '@/theme/tokens';
 
 export type ThemeMode = 'dark' | 'light';
 

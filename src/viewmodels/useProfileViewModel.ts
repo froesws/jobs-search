@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { safeMessage } from '../lib/errors';
-import { getProfile, saveProfile } from '../lib/ipc';
-import type { CandidateProfile } from '../lib/types';
+import { safeMessage } from '@/lib/errors';
+import { getProfile, saveProfile } from '@/lib/ipc';
+import type { CandidateProfile } from '@/lib/types';
 
 type Status = 'idle' | 'loading' | 'ready' | 'empty' | 'error';
 

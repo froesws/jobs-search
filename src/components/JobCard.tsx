@@ -4,10 +4,10 @@ import CardActionArea from '@mui/material/CardActionArea';
 import Chip from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
 
-import { modalityLabel, postingAge, statusLabel } from '../lib/format';
-import type { JobSummary } from '../lib/types';
-import { RequirementRatio } from './RequirementRatio';
-import { ScoreBadge } from './ScoreBadge';
+import { modalityLabel, postingAge, statusLabel } from '@/lib/format';
+import type { JobSummary } from '@/lib/types';
+import { RequirementRatio } from '@/components/RequirementRatio';
+import { ScoreBadge } from '@/components/ScoreBadge';
 
 export function JobCard({ job, onOpen }: { job: JobSummary; onOpen: (jobId: string) => void }) {
   const isBelowThreshold = job.evaluation_status === 'PENDING';

@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 
-import { DEFAULT_FILTERS } from '../lib/types';
-import type { SearchFilters } from '../lib/types';
+import { DEFAULT_FILTERS } from '@/lib/types';
+import type { SearchFilters } from '@/lib/types';
 
 export type DashboardTab = 'NEW_JOBS' | 'APPLICATIONS' | 'PROFILE' | 'ANALYTICS';
 

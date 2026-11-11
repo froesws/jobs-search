@@ -2,7 +2,7 @@ import Box from '@mui/material/Box';
 import LinearProgress from '@mui/material/LinearProgress';
 import Typography from '@mui/material/Typography';
 
-import type { SkillGapMetric } from '../lib/types';
+import type { SkillGapMetric } from '@/lib/types';
 
 export function SkillGapBar({ metric }: { metric: SkillGapMetric }) {
   return (

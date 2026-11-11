@@ -2,17 +2,17 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { save } from '@tauri-apps/plugin-dialog';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { FeedbackProvider } from '../components/FeedbackProvider';
-import { exportAnalyticsCsv, getAnalytics } from '../lib/ipc';
-import { analyticsPayloadFixture } from '../test/fixtures';
-import { AnalyticsView } from './AnalyticsView';
+import { FeedbackProvider } from '@/components/FeedbackProvider';
+import { exportAnalyticsCsv, getAnalytics } from '@/lib/ipc';
+import { analyticsPayloadFixture } from '@/test/fixtures';
+import { AnalyticsView } from '@/views/AnalyticsView';
 
 vi.mock('@tauri-apps/plugin-dialog', () => ({
   save: vi.fn(),
 }));
 
-vi.mock('../lib/ipc', async () => {
-  const { createIpcMock } = await import('../test/ipc-mock');
+vi.mock('@/lib/ipc', async () => {
+  const { createIpcMock } = await import('@/test/ipc-mock');
   return createIpcMock();
 });
 

@@ -2,9 +2,9 @@ import Chip from '@mui/material/Chip';
 import Tooltip from '@mui/material/Tooltip';
 import { useEffect, useState } from 'react';
 
-import { safeMessage } from '../lib/errors';
-import { getActiveProvider } from '../lib/ipc';
-import type { ActiveProvider } from '../lib/types';
+import { safeMessage } from '@/lib/errors';
+import { getActiveProvider } from '@/lib/ipc';
+import type { ActiveProvider } from '@/lib/types';
 
 export function ProviderIndicator() {
   const [provider, setProvider] = useState<ActiveProvider | null>(null);
