@@ -69,7 +69,7 @@ pub async fn evaluate_run(
         let profile = profile.clone();
         let router = router.clone();
         let run_id = run_id.clone();
-        async move { evaluate_one(&db, &run_id, &profile, &router, &job, threshold).await }
+        async move { evaluate_one(&db, &run_id, &profile, &router, job, threshold).await }
     }))
     .buffer_unordered(concurrency)
     .collect::<Vec<_>>()
@@ -104,10 +104,12 @@ async fn evaluate_one(
     run_id: &str,
     profile: &CandidateProfile,
     router: &LlmRouter,
-    job: &StoredJob,
+    job: StoredJob,
     threshold: i64,
 ) -> Result<JobOutcome, AppError> {
-    let hard_filters = filters::check(profile, job);
+    let hard_filters = filters::check(profile, &job);
+    let job_id = job.id.clone();
+    let profile_version = profile.version as i64;
     if !hard_filters.passed {
         let codes = hard_filters
             .rejections
@@ -117,9 +119,9 @@ async fn evaluate_one(
         crate::db::evaluations::upsert_evaluation(
             db,
             &EvaluationRecord {
-                job_id: job.id.clone(),
+                job_id: job_id.clone(),
                 run_id: run_id.to_string(),
-                profile_version: profile.version as i64,
+                profile_version,
                 status: EvaluationStatus::Rejected,
                 score: None,
                 matching_items: None,
@@ -143,11 +145,11 @@ async fn evaluate_one(
     let input = EvaluationInput {
         profile: profile.clone(),
         job: EvaluationJob {
-            title: job.title.clone(),
-            company: job.company.clone(),
-            location: job.location.clone(),
+            title: job.title,
+            company: job.company,
+            location: job.location,
             work_modality: job.work_modality,
-            description_clean: job.description_clean.clone(),
+            description_clean: job.description_clean,
         },
     };
 
@@ -166,14 +168,14 @@ async fn evaluate_one(
                 "requirements": outcome.evidence.requirements,
                 "summary": outcome.evidence.summary,
             });
-            crate::db::jobs::update_extracted_metadata(db, &job.id, &metadata.to_string())?;
+            crate::db::jobs::update_extracted_metadata(db, &job_id, &metadata.to_string())?;
 
             crate::db::evaluations::upsert_evaluation(
                 db,
                 &EvaluationRecord {
-                    job_id: job.id.clone(),
+                    job_id: job_id.clone(),
                     run_id: run_id.to_string(),
-                    profile_version: profile.version as i64,
+                    profile_version,
                     status,
                     score: Some(scored.score),
                     matching_items: Some(scored.matched),
@@ -199,9 +201,9 @@ async fn evaluate_one(
             crate::db::evaluations::upsert_evaluation(
                 db,
                 &EvaluationRecord {
-                    job_id: job.id.clone(),
+                    job_id: job_id.clone(),
                     run_id: run_id.to_string(),
-                    profile_version: profile.version as i64,
+                    profile_version,
                     status: EvaluationStatus::Error,
                     score: None,
                     matching_items: None,
