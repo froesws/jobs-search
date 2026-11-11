@@ -7,6 +7,12 @@ use crate::ingestion::normalize::{contains_word, detect_seniority, infer_modalit
 use crate::profile::CandidateProfile;
 use crate::types::{HardFilterRejection, Seniority, WorkModality};
 
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct SearchCriteria {
+    pub seniorities: Vec<Seniority>,
+    pub modalities: Vec<WorkModality>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HardFilterResult {
     pub passed: bool,
@@ -31,6 +37,16 @@ impl HardFilterResult {
 
 /// Deterministic hard filters applied before any LLM call.
 pub fn check(profile: &CandidateProfile, job: &StoredJob) -> HardFilterResult {
+    check_with_criteria(profile, job, &SearchCriteria::default())
+}
+
+/// Hard filters using the resolved search criteria. Empty criteria preserve
+/// the profile/default behavior used by `check`.
+pub fn check_with_criteria(
+    profile: &CandidateProfile,
+    job: &StoredJob,
+    _criteria: &SearchCriteria,
+) -> HardFilterResult {
     let mut rejections = Vec::new();
     let text = format!("{} {} {}", job.title, job.location, job.description_clean);
     let normalized_text = normalize_text(&text);
@@ -336,6 +352,21 @@ mod tests {
                 )
             )
             .passed
+        );
+    }
+
+    #[test]
+    fn empty_criteria_matches_default_check() {
+        let profile = profile();
+        let job = job(
+            "Rust Engineer",
+            "Remote - Brazil",
+            WorkModality::Remote,
+            "Rust",
+        );
+        assert_eq!(
+            check(&profile, &job),
+            check_with_criteria(&profile, &job, &SearchCriteria::default())
         );
     }
 
