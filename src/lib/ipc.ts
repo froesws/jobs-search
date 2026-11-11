@@ -16,8 +16,10 @@ import type {
   JobEvaluationView,
   JobTab,
   PaginatedJobs,
+  ModelCatalogView,
   ProviderConfigInput,
   ProviderConfigView,
+  ProviderTestResult,
   ProviderId,
   ProviderSettingField,
   ResumeSummary,
@@ -124,6 +126,22 @@ export function removeProviderCredential(
   removeEnvEntry = false,
 ): Promise<ProviderConfigView> {
   return call('cmd_remove_provider_credential', { provider, removeEnvEntry });
+}
+
+export function refreshProviderModels(
+  provider: ProviderId,
+  includePaid = false,
+): Promise<ModelCatalogView> {
+  return call('cmd_refresh_provider_models', { provider, includePaid });
+}
+
+export function testProvider(
+  provider: ProviderId,
+  draftApiKey?: string,
+  draftBaseUrl?: string,
+  model?: string,
+): Promise<ProviderTestResult> {
+  return call('cmd_test_provider', { provider, draftApiKey, draftBaseUrl, model });
 }
 
 export function resetProviderSetting(
