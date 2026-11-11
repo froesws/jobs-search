@@ -41,6 +41,9 @@ pub enum AppError {
     /// No resume has been uploaded.
     #[error("upload a resume before starting a new search")]
     ResumeRequired,
+    /// The OS credential store is not reachable.
+    #[error("the OS credential store is unavailable; confirm writing the key to .env instead")]
+    CredentialStoreUnavailable,
 }
 
 impl AppError {
@@ -59,6 +62,7 @@ impl AppError {
             Self::SearchInProgress => "SEARCH_IN_PROGRESS",
             Self::ProfileRequired => "PROFILE_REQUIRED",
             Self::ResumeRequired => "RESUME_REQUIRED",
+            Self::CredentialStoreUnavailable => "CREDENTIAL_STORE_UNAVAILABLE",
         }
     }
 
