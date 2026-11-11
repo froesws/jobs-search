@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use tauri::State;
 
 use crate::config::{AppConfig, ProviderSettings, SessionSelection};
+use crate::credentials;
 use crate::db::settings;
 use crate::error::{AppError, ErrorPayload};
 use crate::state::AppState;
@@ -125,8 +126,7 @@ fn build_view(state: &AppState) -> Result<ProviderConfigView, AppError> {
             .providers
             .get(provider)
             .ok_or_else(|| AppError::Config("provider settings are missing".to_string()))?;
-        let (secret, source) =
-            crate::config::provider_settings::resolve_credential(&config, provider);
+        let (secret, source) = credentials::resolve(provider, config.env_file.as_deref());
         providers.push(ProviderSettingView {
             id: provider.to_string(),
             label: label(provider).to_string(),
@@ -317,6 +317,39 @@ pub fn cmd_save_provider_config(
     validate_input(&config)?;
     persist_input(&state, &config)?;
     state.set_session_selection(None)?;
+    build_view(&state).map_err(Into::into)
+}
+
+#[tauri::command]
+pub fn cmd_save_provider_credential(
+    state: State<'_, AppState>,
+    provider: String,
+    api_key: String,
+    allow_env_fallback: Option<bool>,
+) -> Result<ProviderConfigView, ErrorPayload> {
+    validate_provider_id(&provider)?;
+    if provider == "ollama" {
+        return Err(AppError::validation("Ollama does not use an API key").into());
+    }
+    if api_key.trim().is_empty() {
+        return Err(AppError::validation("the API key cannot be empty").into());
+    }
+
+    match credentials::set_in_store(&provider, &api_key) {
+        Ok(()) => {}
+        Err(AppError::CredentialStoreUnavailable) if allow_env_fallback == Some(true) => {
+            let config = state.config()?;
+            let env_file = config
+                .env_file
+                .clone()
+                .ok_or_else(|| AppError::validation("no .env file was found to store the key"))?;
+            let key = credentials::env_key(&provider)
+                .ok_or_else(|| AppError::validation("unknown provider"))?;
+            credentials::write_env_value(&env_file, key, &api_key)?;
+        }
+        Err(error) => return Err(error.into()),
+    }
+
     build_view(&state).map_err(Into::into)
 }
 
