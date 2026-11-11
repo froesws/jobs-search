@@ -194,6 +194,17 @@ New Jobs tab has Approved and Below threshold views; the drawer shows job detail
 requirements, hard-filter rejections, scoring evidence, and lifecycle actions.
 Analytics is read-only and never calls a provider or mutates job data.
 
+### Provider settings
+
+`cmd_get_provider_config` returns the effective provider settings; credentials
+are never included. `cmd_save_provider_config` persists non-secret settings in
+`app_settings` and clears any session-only selection. Credentials go through
+`cmd_save_provider_credential` (OS credential store, with a consented `.env`
+fallback) and `cmd_remove_provider_credential`. `cmd_set_session_selection`
+applies a non-persisted model override that `cmd_get_active_provider` reports
+with `session_only: true`. `cmd_refresh_provider_models` fetches and caches a
+provider catalog; `cmd_test_provider` probes a provider with a draft key.
+
 ### Hard-filter semantics
 
 - Empty seniority or modality selections fall back to the profile's accepted
