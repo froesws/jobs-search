@@ -224,14 +224,25 @@ pub fn resolve_run_id(
 }
 
 /// Placeholder until the aggregation queries land.
-pub fn get_analytics(_db: &Db, request: AnalyticsRequest) -> Result<AnalyticsPayload, AppError> {
+pub fn get_analytics(db: &Db, request: AnalyticsRequest) -> Result<AnalyticsPayload, AppError> {
+    let run_id = resolve_run_id(db, request.run_id.as_deref(), request.scope)?;
+    let jobs = eligible_jobs(db, request.scope, run_id.as_deref())?;
+    let profile = crate::db::profile::load_active_profile(db)?;
+    let denominator = jobs.len() as u32;
+    let last_updated = jobs
+        .iter()
+        .filter_map(|job| job.evaluated_at.clone())
+        .max()
+        .unwrap_or_else(crate::db::now_rfc3339);
+    let stale = jobs.iter().any(|job| job.stale);
+
     Ok(AnalyticsPayload {
         scope: request.scope,
-        run_id: request.run_id,
-        denominator: 0,
-        last_updated: crate::db::now_rfc3339(),
-        stale: false,
-        skill_gap: Vec::new(),
+        run_id,
+        denominator,
+        last_updated,
+        stale,
+        skill_gap: skill_gap::compute(&jobs, profile.as_ref()),
         funnel: FunnelPayload::default(),
         score_distribution: Vec::new(),
         llm_metrics: LlmMetricsPayload::default(),
