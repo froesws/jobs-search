@@ -309,15 +309,22 @@ pub fn cmd_get_provider_config(
     build_view(&state).map_err(Into::into)
 }
 
+fn save_config(
+    state: &AppState,
+    config: &ProviderConfigInput,
+) -> Result<ProviderConfigView, AppError> {
+    validate_input(config)?;
+    persist_input(state, config)?;
+    state.set_session_selection(None)?;
+    build_view(state)
+}
+
 #[tauri::command]
 pub fn cmd_save_provider_config(
     state: State<'_, AppState>,
     config: ProviderConfigInput,
 ) -> Result<ProviderConfigView, ErrorPayload> {
-    validate_input(&config)?;
-    persist_input(&state, &config)?;
-    state.set_session_selection(None)?;
-    build_view(&state).map_err(Into::into)
+    save_config(&state, &config).map_err(Into::into)
 }
 
 fn validate_credential_input(provider: &str, api_key: &str) -> Result<(), AppError> {
@@ -374,18 +381,15 @@ pub fn cmd_save_provider_credential(
     build_view(&state).map_err(Into::into)
 }
 
-#[tauri::command]
-pub fn cmd_remove_provider_credential(
-    state: State<'_, AppState>,
-    provider: String,
-    remove_env_entry: Option<bool>,
-) -> Result<ProviderConfigView, ErrorPayload> {
-    validate_provider_id(&provider)?;
-    credentials::delete_from_store(&provider)?;
+fn remove_credential(
+    state: &AppState,
+    provider: &str,
+    remove_env_entry: bool,
+) -> Result<ProviderConfigView, AppError> {
+    validate_provider_id(provider)?;
+    credentials::delete_from_store(provider)?;
 
-    if remove_env_entry == Some(true)
-        && let Some(key) = credentials::env_key(&provider)
-    {
+    if remove_env_entry && let Some(key) = credentials::env_key(provider) {
         let config = state.config()?;
         if let Some(env_file) = config.env_file.as_deref() {
             credentials::remove_env_value(env_file, key)?;
@@ -398,7 +402,16 @@ pub fn cmd_remove_provider_credential(
         state.set_session_selection(None)?;
     }
 
-    build_view(&state).map_err(Into::into)
+    build_view(state)
+}
+
+#[tauri::command]
+pub fn cmd_remove_provider_credential(
+    state: State<'_, AppState>,
+    provider: String,
+    remove_env_entry: Option<bool>,
+) -> Result<ProviderConfigView, ErrorPayload> {
+    remove_credential(&state, &provider, remove_env_entry == Some(true)).map_err(Into::into)
 }
 
 #[tauri::command]
@@ -886,6 +899,62 @@ mod tests {
 
         assert!(!result.ok);
         assert!(!result.message.contains("draft-secret"));
+    }
+
+    #[test]
+    fn saving_configuration_clears_the_session_override() {
+        let (state, _dir) = state_for(&[("GEMINI_API_KEY", "secret")]);
+        state
+            .set_session_selection(Some(SessionSelection {
+                provider: "gemini".to_string(),
+                models: vec!["custom".to_string()],
+            }))
+            .expect("set");
+
+        let input = ProviderConfigInput {
+            order: vec![
+                "gemini".to_string(),
+                "openrouter".to_string(),
+                "deepseek".to_string(),
+                "ollama".to_string(),
+            ],
+            fallback_enabled: true,
+            providers: Vec::new(),
+        };
+        save_config(&state, &input).expect("save");
+
+        assert!(state.session_selection().expect("selection").is_none());
+        let view = build_view(&state).expect("view");
+        assert!(view.session_override.is_none());
+        assert!(view.fallback_enabled);
+    }
+
+    #[test]
+    fn removing_a_credential_clears_its_session_override() {
+        let (state, _dir) = state_for(&[("GEMINI_API_KEY", "secret")]);
+        state
+            .set_session_selection(Some(SessionSelection {
+                provider: "gemini".to_string(),
+                models: vec!["custom".to_string()],
+            }))
+            .expect("set");
+
+        remove_credential(&state, "gemini", false).expect("remove");
+        assert!(state.session_selection().expect("selection").is_none());
+    }
+
+    #[test]
+    fn removing_another_providers_credential_keeps_the_override() {
+        let (state, _dir) = state_for(&[("GEMINI_API_KEY", "secret")]);
+        state
+            .set_session_selection(Some(SessionSelection {
+                provider: "gemini".to_string(),
+                models: vec!["custom".to_string()],
+            }))
+            .expect("set");
+
+        remove_credential(&state, "deepseek", false).expect("remove");
+        assert!(state.session_selection().expect("selection").is_some());
     }
 
     #[test]
