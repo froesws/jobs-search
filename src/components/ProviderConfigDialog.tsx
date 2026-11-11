@@ -283,6 +283,63 @@ export function ProviderConfigDialog({
             </Alert>
           ) : null}
 
+          <Stack spacing={1.5} sx={{ mb: 2 }}>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={draft.fallbackEnabled}
+                  onChange={(event) =>
+                    setDraft((current) => ({
+                      ...current,
+                      fallbackEnabled: event.target.checked,
+                    }))
+                  }
+                />
+              }
+              label="Use fallback across providers"
+            />
+            <Typography variant="body2" color="text.secondary">
+              Provider order: the first configured provider is used first.
+            </Typography>
+            <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
+              {draft.order.map((providerId, index) => (
+                <Stack key={providerId} direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+                  <Chip label={`${index + 1}. ${providerId}`} size="small" />
+                  <Button
+                    size="small"
+                    aria-label={`Move ${providerId} up`}
+                    disabled={index === 0}
+                    onClick={() =>
+                      setDraft((current) => {
+                        const order = [...current.order];
+                        const [entry] = order.splice(index, 1);
+                        if (entry) order.splice(index - 1, 0, entry);
+                        return { ...current, order };
+                      })
+                    }
+                  >
+                    ↑
+                  </Button>
+                  <Button
+                    size="small"
+                    aria-label={`Move ${providerId} down`}
+                    disabled={index === draft.order.length - 1}
+                    onClick={() =>
+                      setDraft((current) => {
+                        const order = [...current.order];
+                        const [entry] = order.splice(index, 1);
+                        if (entry) order.splice(index + 1, 0, entry);
+                        return { ...current, order };
+                      })
+                    }
+                  >
+                    ↓
+                  </Button>
+                </Stack>
+              ))}
+            </Stack>
+          </Stack>
+
           <Stack spacing={1.5}>
             {providers.map((provider) => {
               const value = draft.providers[provider.id]!;
@@ -359,6 +416,25 @@ export function ProviderConfigDialog({
                           value={value.baseUrl}
                           onChange={(event) =>
                             updateProvider(provider.id, { baseUrl: event.target.value })
+                          }
+                        />
+                      ) : null}
+
+                      {provider.id === 'ollama' ? (
+                        <FormControlLabel
+                          control={
+                            <Switch
+                              checked={value.enabled}
+                              disabled={catalog.length === 0}
+                              onChange={(event) =>
+                                updateProvider(provider.id, { enabled: event.target.checked })
+                              }
+                            />
+                          }
+                          label={
+                            catalog.length === 0
+                              ? 'Enable Ollama (no models found — run ollama pull <model>)'
+                              : 'Include Ollama in the provider chain'
                           }
                         />
                       ) : null}
@@ -454,6 +530,25 @@ export function ProviderConfigDialog({
                           />
                         </Stack>
                       )}
+
+                      <TextField
+                        size="small"
+                        type="number"
+                        label="Attempts"
+                        value={provider.id === 'openrouter' ? value.models.length : value.attempts}
+                        disabled={provider.id === 'openrouter'}
+                        onChange={(event) =>
+                          updateProvider(provider.id, {
+                            attempts: Number(event.target.value),
+                          })
+                        }
+                        helperText={
+                          provider.id === 'openrouter'
+                            ? 'Each attempt uses the next model in the list'
+                            : 'Attempts before this provider is considered failed'
+                        }
+                        sx={{ maxWidth: 320 }}
+                      />
 
                       <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
                         <Button
