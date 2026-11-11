@@ -27,7 +27,7 @@ pub struct EvaluationSettings {
 impl Default for EvaluationSettings {
     fn default() -> Self {
         Self {
-            threshold: 70,
+            threshold: 50,
             max_jobs: 100,
             concurrency: 2,
             criteria: filters::SearchCriteria::default(),

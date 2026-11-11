@@ -149,7 +149,7 @@ impl AppConfig {
 
         let llm_timeout_seconds = parse_u64(read("LLM_TIMEOUT_SECONDS"), 45, 1, 300)?;
         let allow_fallback = parse_bool(read("LLM_ALLOW_FALLBACK"), false)?;
-        let match_threshold = parse_i64(read("MATCH_THRESHOLD"), 70, 0, 100)?;
+        let match_threshold = parse_i64(read("MATCH_THRESHOLD"), 50, 0, 100)?;
         let max_evaluations = parse_usize(read("JOBS_SEARCH_MAX_EVALUATIONS"), 100, 1, 1_000)?;
         let max_concurrency = parse_usize(read("JOBS_SEARCH_LLM_CONCURRENCY"), 2, 1, 4)?;
 

@@ -221,7 +221,7 @@ is `PENDING`; setting `MATCH_THRESHOLD=70` restores the old boundary.
 
 ### Implementation for User Story 4
 
-- [ ] T015 [US4] Change the default from 70 to 50 in
+- [x] T015 [US4] Change the default from 70 to 50 in
   `src-tauri/src/config/env.rs` (`parse_i64` default),
   `src-tauri/src/match/mod.rs` (`EvaluationSettings::default`), and
   `.env.example`; keep the 0-100 clamp.
