@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jobs-search.local/contracts/log-event.schema.json",
+  "title": "Log Event",
+  "description": "One JSON Lines record written by the local telemetry writer. URLs, filesystem paths, raw payloads, model prompts/responses, job content, candidate data, and credentials are forbidden.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "timestamp",
+    "level",
+    "event_type",
+    "component",
+    "outcome"
+  ],
+  "properties": {
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "level": {
+      "type": "string",
+      "enum": ["INFO", "WARN", "ERROR", "DEBUG"]
+    },
+    "event_type": {
+      "type": "string",
+      "enum": [
+        "APP_START",
+        "APP_SHUTDOWN",
+        "SEARCH_RUN_START",
+        "SEARCH_RUN_END",
+        "SOURCE_FAILURE",
+        "DEDUP_COMPLETE",
+        "LLM_CALL",
+        "LLM_FALLBACK",
+        "EVALUATION_COMPLETE",
+        "APPLICATION_ACTION"
+      ]
+    },
+    "run_id": {
+      "type": ["string", "null"],
+      "maxLength": 128
+    },
+    "component": {
+      "type": "string",
+      "enum": [
+        "app",
+        "ingestion",
+        "llm",
+        "match",
+        "db",
+        "ui",
+        "telemetry"
+      ]
+    },
+    "source": {
+      "type": ["string", "null"],
+      "maxLength": 128
+    },
+    "provider": {
+      "type": ["string", "null"],
+      "maxLength": 128
+    },
+    "model": {
+      "type": ["string", "null"],
+      "maxLength": 128
+    },
+    "fallback_from": {
+      "type": ["string", "null"],
+      "maxLength": 128
+    },
+    "outcome": {
+      "type": "string",
+      "enum": ["SUCCESS", "FAILURE", "PARTIAL", "SKIPPED"]
+    },
+    "elapsed_ms": {
+      "type": ["integer", "null"],
+      "minimum": 0
+    },
+    "error_category": {
+      "type": ["string", "null"],
+      "enum": [
+        "TIMEOUT",
+        "RATE_LIMIT",
+        "AUTH",
+        "NETWORK",
+        "PARSE",
+        "IO",
+        "CONFIG",
+        "UNKNOWN",
+        null
+      ]
+    },
+    "job_ref": {
+      "type": ["string", "null"],
+      "maxLength": 128
+    },
+    "lifecycle_transition": {
+      "type": ["string", "null"],
+      "enum": ["DISCOVERED", "APPLIED", "IGNORED", null]
+    },
+    "dedup_count": {
+      "type": ["integer", "null"],
+      "minimum": 0
+    },
+    "message": {
+      "type": "string",
+      "maxLength": 512
+    }
+  }
+}

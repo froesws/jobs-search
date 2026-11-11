@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jobs-search.local/contracts/log-health.schema.json",
+  "title": "Log Health",
+  "description": "Payload returned by cmd_get_log_health. It contains no log content, credentials, URLs, paths, payloads, prompts, or candidate data.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "available",
+    "queue_depth",
+    "queue_capacity",
+    "dropped_count"
+  ],
+  "properties": {
+    "available": {
+      "type": "boolean"
+    },
+    "queue_depth": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "queue_capacity": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "dropped_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "last_error": {
+      "type": ["string", "null"],
+      "maxLength": 512
+    },
+    "last_success_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "current_file": {
+      "type": ["string", "null"],
+      "maxLength": 255
+    }
+  }
+}

@@ -8,9 +8,7 @@ fn schema(path: &str) -> serde_json::Value {
 
 #[test]
 fn log_event_matches_schema_and_rejects_unknown_fields() {
-    let schema = schema(include_str!(
-        "../../specs/004-telemetry-execution-logging/contracts/log-event.schema.json"
-    ));
+    let schema = schema(include_str!("fixtures/contracts/log-event.schema.json"));
     let validator = validator_for(&schema).unwrap();
 
     let event = LogEvent::new(
@@ -49,9 +47,7 @@ fn log_event_matches_schema_and_rejects_unknown_fields() {
 
 #[test]
 fn log_health_matches_schema() {
-    let schema = schema(include_str!(
-        "../../specs/004-telemetry-execution-logging/contracts/log-health.schema.json"
-    ));
+    let schema = schema(include_str!("fixtures/contracts/log-health.schema.json"));
     let validator = validator_for(&schema).unwrap();
 
     let health = LogHealth {

@@ -6,7 +6,7 @@ use serde_json::Value;
 
 pub fn contract_path(name: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../specs/001-career-job-sourcing/contracts")
+        .join("tests/fixtures/contracts")
         .join(name)
 }
 
