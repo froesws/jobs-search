@@ -362,6 +362,7 @@ mod tests {
                 work_authorization: None,
                 salary_threshold: None,
                 source_documents: vec![],
+                extras: Default::default(),
             },
             job: EvaluationJob {
                 title: "Rust".into(),

@@ -5,6 +5,7 @@ pub mod schema;
 use serde::{Deserialize, Serialize};
 
 use crate::error::AppError;
+use crate::profile::merge::ProfileExtras;
 use crate::types::Seniority;
 
 /// The single active candidate profile used for matching.
@@ -39,6 +40,8 @@ pub struct CandidateProfile {
     pub salary_threshold: Option<i64>,
     #[serde(default)]
     pub source_documents: Vec<String>,
+    #[serde(default)]
+    pub extras: ProfileExtras,
 }
 
 impl CandidateProfile {
@@ -110,6 +113,10 @@ impl CandidateProfile {
                 .chain(self.acceptable_technologies.iter())
                 .cloned(),
         )
+    }
+
+    pub fn has_resumes(&self) -> bool {
+        self.extras.resumes_available
     }
 
     pub fn all_competencies(&self) -> Vec<String> {
