@@ -77,6 +77,31 @@ pub fn api_key_headers(name: &'static str, key: &str) -> Result<HeaderMap, LlmEr
     Ok(headers)
 }
 
+/// POST an OpenAI-compatible chat completion and return its message content.
+pub async fn chat_completion(
+    client: &Client,
+    base_url: &str,
+    model: &str,
+    api_key: &str,
+    system: &str,
+    user: &str,
+    timeout: Duration,
+) -> Result<String, LlmError> {
+    let url = format!("{}/chat/completions", base_url.trim_end_matches('/'));
+    let headers = bearer_headers(api_key)?;
+    let body = serde_json::json!({
+        "model": model,
+        "messages": [
+            { "role": "system", "content": system },
+            { "role": "user", "content": user }
+        ],
+        "temperature": 0,
+        "response_format": { "type": "json_object" }
+    });
+    let response = post_json(client, &url, headers, &body, timeout).await?;
+    chat_content(&response)
+}
+
 pub fn chat_content(value: &serde_json::Value) -> Result<String, LlmError> {
     value
         .get("choices")

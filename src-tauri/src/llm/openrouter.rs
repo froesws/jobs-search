@@ -6,7 +6,7 @@ use reqwest::Client;
 use crate::llm::prompt::{PROFILE_SYSTEM_PROMPT, SYSTEM_PROMPT, profile_user_prompt, user_prompt};
 use crate::llm::provider::{EvaluationInput, LlmError, LlmProvider};
 use crate::llm::schemas::{EvaluationEvidence, parse_extracted_profile, parse_llm_json};
-use crate::llm::transport::{bearer_headers, chat_content, post_json};
+use crate::llm::transport::chat_completion;
 use crate::profile::schema::ExtractedProfile;
 
 pub struct OpenRouterProvider {
@@ -55,20 +55,16 @@ impl LlmProvider for OpenRouterProvider {
         attempt: u32,
     ) -> Result<EvaluationEvidence, LlmError> {
         let model = self.model_for_attempt(attempt);
-        let url = format!("{}/chat/completions", self.base_url);
-        let headers = bearer_headers(&self.api_key)?;
-        let body = serde_json::json!({
-            "model": model,
-            "messages": [
-                { "role": "system", "content": SYSTEM_PROMPT },
-                { "role": "user", "content": user_prompt(input) }
-            ],
-            "temperature": 0,
-            "response_format": { "type": "json_object" }
-        });
-
-        let response = post_json(&self.client, &url, headers, &body, self.timeout).await?;
-        let text = chat_content(&response)?;
+        let text = chat_completion(
+            &self.client,
+            &self.base_url,
+            &model,
+            &self.api_key,
+            SYSTEM_PROMPT,
+            &user_prompt(input),
+            self.timeout,
+        )
+        .await?;
         parse_llm_json(&text).map_err(|error| LlmError::parse(error.message()))
     }
 
@@ -78,20 +74,16 @@ impl LlmProvider for OpenRouterProvider {
         attempt: u32,
     ) -> Result<ExtractedProfile, LlmError> {
         let model = self.model_for_attempt(attempt);
-        let url = format!("{}/chat/completions", self.base_url);
-        let headers = bearer_headers(&self.api_key)?;
-        let body = serde_json::json!({
-            "model": model,
-            "messages": [
-                { "role": "system", "content": PROFILE_SYSTEM_PROMPT },
-                { "role": "user", "content": profile_user_prompt(resume_text) }
-            ],
-            "temperature": 0,
-            "response_format": { "type": "json_object" }
-        });
-
-        let response = post_json(&self.client, &url, headers, &body, self.timeout).await?;
-        let text = chat_content(&response)?;
+        let text = chat_completion(
+            &self.client,
+            &self.base_url,
+            &model,
+            &self.api_key,
+            PROFILE_SYSTEM_PROMPT,
+            &profile_user_prompt(resume_text),
+            self.timeout,
+        )
+        .await?;
         parse_extracted_profile(&text).map_err(|error| LlmError::parse(error.message()))
     }
 }
