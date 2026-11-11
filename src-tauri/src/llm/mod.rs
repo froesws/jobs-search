@@ -71,5 +71,10 @@ pub fn router_from_config(config: &AppConfig, client: Client) -> LlmRouter {
         }
     }
 
-    LlmRouter::new(plans, Duration::from_secs(config.llm_timeout_seconds + 5))
+    let router = LlmRouter::new(plans, Duration::from_secs(config.llm_timeout_seconds + 5));
+    if config.allow_fallback {
+        router
+    } else {
+        router.without_fallback()
+    }
 }

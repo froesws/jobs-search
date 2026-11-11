@@ -164,6 +164,17 @@ impl LlmRouter {
         }
     }
 
+    /// Restrict routing to the first configured provider and its first model.
+    /// Used when `LLM_ALLOW_FALLBACK=false` so a retryable error is surfaced
+    /// instead of silently switching provider or model.
+    pub fn without_fallback(mut self) -> Self {
+        self.plans.truncate(1);
+        if let Some(plan) = self.plans.first_mut() {
+            plan.attempts = 1;
+        }
+        self
+    }
+
     pub fn is_empty(&self) -> bool {
         self.plans.is_empty()
     }
@@ -389,6 +400,38 @@ mod tests {
         assert_eq!(outcome.provider, "second");
         assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 3);
         assert_eq!(outcome.attempts.len(), 3);
+    }
+
+    #[tokio::test]
+    async fn disabled_fallback_uses_only_the_first_provider_and_model() {
+        let calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let router = LlmRouter::from_plans(vec![
+            ProviderPlan {
+                provider: Arc::new(Fake {
+                    name: "first",
+                    fail: true,
+                    fatal: false,
+                    calls: calls.clone(),
+                }),
+                attempts: 3,
+            },
+            ProviderPlan {
+                provider: Arc::new(Fake {
+                    name: "second",
+                    fail: false,
+                    fatal: false,
+                    calls: calls.clone(),
+                }),
+                attempts: 1,
+            },
+        ])
+        .without_fallback();
+
+        let error = router.evaluate(&input()).await.expect_err("no fallback");
+        assert!(!error.fatal);
+        assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 1);
+        assert_eq!(error.attempts.len(), 1);
+        assert_eq!(error.last_provider.as_deref(), Some("first"));
     }
 
     #[tokio::test]

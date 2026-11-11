@@ -23,6 +23,7 @@ pub struct AppConfig {
     pub openrouter_api_key: Option<String>,
     pub deepseek_api_key: Option<String>,
     pub llm_timeout_seconds: u64,
+    pub allow_fallback: bool,
     pub match_threshold: i64,
     pub max_evaluations: usize,
     pub max_concurrency: usize,
@@ -41,6 +42,7 @@ impl std::fmt::Debug for AppConfig {
             .field("openrouter_free_models", &self.openrouter_free_models)
             .field("gemini_model", &self.gemini_model)
             .field("llm_timeout_seconds", &self.llm_timeout_seconds)
+            .field("allow_fallback", &self.allow_fallback)
             .field("match_threshold", &self.match_threshold)
             .field("max_evaluations", &self.max_evaluations)
             .field("max_concurrency", &self.max_concurrency)
@@ -125,6 +127,7 @@ impl AppConfig {
         let deepseek_api_key = non_empty(read("DEEPSEEK_API_KEY"));
 
         let llm_timeout_seconds = parse_u64(read("LLM_TIMEOUT_SECONDS"), 45, 1, 300)?;
+        let allow_fallback = parse_bool(read("LLM_ALLOW_FALLBACK"), false)?;
         let match_threshold = parse_i64(read("MATCH_THRESHOLD"), 70, 0, 100)?;
         let max_evaluations = parse_usize(read("JOBS_SEARCH_MAX_EVALUATIONS"), 100, 1, 1_000)?;
         let max_concurrency = parse_usize(read("JOBS_SEARCH_LLM_CONCURRENCY"), 2, 1, 4)?;
@@ -144,6 +147,7 @@ impl AppConfig {
             openrouter_api_key,
             deepseek_api_key,
             llm_timeout_seconds,
+            allow_fallback,
             match_threshold,
             max_evaluations,
             max_concurrency,
@@ -245,6 +249,19 @@ fn parse_provider_order(value: String) -> Result<Vec<String>, AppError> {
     Ok(order)
 }
 
+fn parse_bool(value: Option<String>, default: bool) -> Result<bool, AppError> {
+    match value {
+        Some(raw) => match raw.to_ascii_lowercase().as_str() {
+            "1" | "true" | "yes" | "on" => Ok(true),
+            "0" | "false" | "no" | "off" => Ok(false),
+            _ => Err(AppError::Config(format!(
+                "invalid boolean value for LLM_ALLOW_FALLBACK: {raw}"
+            ))),
+        },
+        None => Ok(default),
+    }
+}
+
 fn parse_u64(value: Option<String>, default: u64, min: u64, max: u64) -> Result<u64, AppError> {
     match value {
         Some(raw) => raw
@@ -303,6 +320,7 @@ mod tests {
         assert_eq!(config.match_threshold, 70);
         assert_eq!(config.max_evaluations, 100);
         assert_eq!(config.max_concurrency, 2);
+        assert!(!config.allow_fallback);
         assert_eq!(config.provider_order, ["gemini", "openrouter", "deepseek"]);
         assert!(!format!("{config:?}").contains("api_key"));
     }
@@ -339,5 +357,17 @@ mod tests {
     fn threshold_is_clamped() {
         let config = config(&[("MATCH_THRESHOLD", "170")]).expect("valid");
         assert_eq!(config.match_threshold, 100);
+    }
+
+    #[test]
+    fn fallback_is_opt_in_and_strictly_parsed() {
+        let enabled = config(&[("LLM_ALLOW_FALLBACK", "true")]).expect("valid");
+        assert!(enabled.allow_fallback);
+
+        let disabled = config(&[("LLM_ALLOW_FALLBACK", "off")]).expect("valid");
+        assert!(!disabled.allow_fallback);
+
+        let error = config(&[("LLM_ALLOW_FALLBACK", "sometimes")]).expect_err("invalid");
+        assert!(matches!(error, AppError::Config(_)));
     }
 }
