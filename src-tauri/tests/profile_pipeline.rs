@@ -1,4 +1,6 @@
 use jobs_search_lib::pdf::{extract_text_from_mem, extract_text_from_path};
+use jobs_search_lib::profile::merge::merge_extracted;
+use jobs_search_lib::profile::schema::{ExtractedProfile, WorkHistoryEntry};
 use lopdf::{Document, Object, Stream, dictionary};
 
 fn text_pdf(text: &str) -> Vec<u8> {
@@ -120,4 +122,87 @@ fn rejects_oversized_files_before_parsing() {
     std::fs::write(&path, vec![b'%'; (20 * 1024 * 1024 + 1) as usize]).expect("write");
     let error = extract_text_from_path(&path).expect_err("oversized");
     assert!(error.message().contains("larger than 20 MB"));
+}
+
+fn extracted(title: &str, core: &[&str]) -> ExtractedProfile {
+    ExtractedProfile {
+        core_competencies: core.iter().map(|value| value.to_string()).collect(),
+        secondary_competencies: vec!["EF SET C1".into()],
+        inferred_competencies: vec!["Embedded C".into()],
+        domain_experience: vec!["systems programming".into()],
+        work_history: vec![WorkHistoryEntry {
+            title: title.into(),
+            company: "Acme".into(),
+            start: "2023".into(),
+            end: None,
+            highlights: vec![],
+        }],
+        education: vec![],
+        certifications: vec!["EF SET C1".into()],
+        source_evidence: vec![],
+    }
+}
+
+#[test]
+fn merge_unions_lists_without_duplicates() {
+    let first = merge_extracted(
+        None,
+        &extracted("Rust Engineer", &["Rust", "Linux"]),
+        "resume-1",
+    )
+    .expect("first");
+    let second = merge_extracted(
+        Some(&first),
+        &extracted("Rust Engineer", &["Rust", "C#"]),
+        "resume-2",
+    )
+    .expect("second");
+
+    assert_eq!(second.core_competencies, ["Rust", "Linux", "C#"]);
+    assert_eq!(second.source_documents, ["resume-1", "resume-2"]);
+    assert_eq!(
+        second.extras.competency_sources.get("Rust").expect("rust"),
+        &["resume-1".to_string(), "resume-2".to_string()]
+    );
+}
+
+#[test]
+fn merge_flags_scalar_conflicts_instead_of_overwriting() {
+    let first =
+        merge_extracted(None, &extracted("Rust Engineer", &["Rust"]), "resume-1").expect("first");
+    let second = merge_extracted(
+        Some(&first),
+        &extracted("Staff Engineer", &["Rust"]),
+        "resume-2",
+    )
+    .expect("second");
+
+    assert_eq!(second.extras.conflicts.len(), 1);
+    assert_eq!(second.extras.conflicts[0].field, "current_title");
+    assert_eq!(
+        second.extras.conflicts[0].values,
+        ["Rust Engineer", "Staff Engineer"]
+    );
+}
+
+#[test]
+fn merge_preserves_manual_profile_precedence() {
+    let mut existing =
+        merge_extracted(None, &extracted("Rust Engineer", &["Rust"]), "resume-1").expect("first");
+    existing.acceptable_technologies = vec!["React".into()];
+    existing.accepted_cities = vec!["Curitiba".into()];
+    existing.dealbreakers = vec!["sales".into()];
+
+    let merged = merge_extracted(
+        Some(&existing),
+        &extracted("Rust Engineer", &["C#"]),
+        "resume-2",
+    )
+    .expect("second");
+
+    assert!(merged.technologies().contains(&"React".to_string()));
+    assert!(merged.technologies().contains(&"C#".to_string()));
+    assert_eq!(merged.accepted_cities, ["Curitiba"]);
+    assert_eq!(merged.dealbreakers, ["sales"]);
+    assert_eq!(merged.salary_threshold, None);
 }
