@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jobs-search.local/contracts/llm-profile-extraction.schema.json",
+  "title": "Extracted Profile",
+  "description": "Structured profile extraction returned by the active LLM. The app validates, merges, and presents the result for operator review.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "core_competencies",
+    "secondary_competencies",
+    "domain_experience",
+    "work_history",
+    "education",
+    "certifications"
+  ],
+  "properties": {
+    "core_competencies": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1, "maxLength": 128 },
+      "uniqueItems": true
+    },
+    "secondary_competencies": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1, "maxLength": 128 },
+      "uniqueItems": true
+    },
+    "inferred_competencies": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1, "maxLength": 128 },
+      "uniqueItems": true
+    },
+    "domain_experience": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1, "maxLength": 256 },
+      "uniqueItems": true
+    },
+    "work_history": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["title", "company", "start", "end", "highlights"],
+        "properties": {
+          "title": { "type": "string", "minLength": 1, "maxLength": 256 },
+          "company": { "type": "string", "minLength": 1, "maxLength": 256 },
+          "start": { "type": "string", "maxLength": 32 },
+          "end": { "type": ["string", "null"], "maxLength": 32 },
+          "highlights": {
+            "type": "array",
+            "items": { "type": "string", "maxLength": 512 },
+            "uniqueItems": true
+          }
+        }
+      }
+    },
+    "education": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["institution", "degree", "year"],
+        "properties": {
+          "institution": { "type": "string", "minLength": 1, "maxLength": 256 },
+          "degree": { "type": "string", "minLength": 1, "maxLength": 256 },
+          "year": { "type": ["string", "null"], "maxLength": 16 }
+        }
+      }
+    },
+    "certifications": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1, "maxLength": 256 },
+      "uniqueItems": true
+    },
+    "source_evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["attribute", "evidence"],
+        "properties": {
+          "attribute": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "evidence": { "type": "string", "minLength": 1, "maxLength": 512 }
+        }
+      }
+    }
+  }
+}

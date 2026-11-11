@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jobs-search.local/contracts/llm-evaluation.schema.json",
+  "title": "Evaluation Evidence",
+  "description": "Requirement and per-dimension evidence returned by the LLM. The app applies hard filters and computes the final 40/25/20/15 score and N/M counts.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "seniority",
+    "work_modality",
+    "location",
+    "required_skills",
+    "desirable_skills",
+    "requirements",
+    "summary"
+  ],
+  "properties": {
+    "seniority": { "type": "string", "maxLength": 64 },
+    "work_modality": {
+      "type": "string",
+      "enum": ["Remote", "Hybrid", "Onsite", "Unknown"]
+    },
+    "location": { "type": "string", "maxLength": 256 },
+    "required_skills": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1, "maxLength": 128 },
+      "uniqueItems": true
+    },
+    "desirable_skills": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1, "maxLength": 128 },
+      "uniqueItems": true
+    },
+    "requirements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "text", "dimension", "match_type", "evidence"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1, "maxLength": 64 },
+          "text": { "type": "string", "minLength": 1, "maxLength": 512 },
+          "dimension": {
+            "type": "string",
+            "enum": ["CORE_TECHNICAL", "DOMAIN", "SENIORITY", "SECONDARY"]
+          },
+          "match_type": {
+            "type": "string",
+            "enum": ["EXACT", "INFERRED", "NONE"]
+          },
+          "evidence": { "type": "string", "maxLength": 512 }
+        }
+      }
+    },
+    "summary": { "type": "string", "maxLength": 512 }
+  }
+}

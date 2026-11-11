@@ -2,7 +2,6 @@
 node_modules/
 dist/
 coverage/
-specs/*
 
 # Husky generated internals
 .husky/_/
@@ -44,10 +43,9 @@ Thumbs.db
 .idea/
 
 
-# Local-only workspace, specs, and editor state
+# Local-only workspace and editor state
 .husky/
 .opencode/
 .specify/
 .vscode/
 .venv/
-specs/

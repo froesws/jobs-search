@@ -189,12 +189,16 @@ Commits with the task ID, for example:
 feat(T012): add Gemini provider adapter
 ```
 
-Run the Rust, frontend, and Python checks before committing. Specs, Spec Kit,
-OpenCode, Husky, and editor configuration are local-only and ignored by Git.
+Run the Rust, frontend, and Python checks before committing. Spec Kit,
+OpenCode, Husky, and editor configuration are local-only and ignored by Git;
+the feature documents under `specs/` are versioned with the code.
 
 ## Specifications
 
-The Spec Kit documents (`specs/001`–`specs/004`), `.specify/`, `.opencode/`,
-`.husky/`, and `.vscode/` are local-only and ignored by Git. A clean clone
-contains the application source, tests, sidecar, and `sources.yaml`; ask the
-operator for the local Spec Kit workspace when you need the design documents.
+The Spec Kit feature documents under `specs/` are versioned so the design,
+requirements, and task history can be reviewed alongside the implementation.
+
+The local Spec Kit workspace (`.specify/`), OpenCode configuration
+(`.opencode/`), Husky hooks, and editor configuration remain local-only and
+are ignored by Git. A clean clone contains the application source, tests,
+sidecar, `sources.yaml`, and the `specs/` documents.
