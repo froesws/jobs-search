@@ -25,4 +25,14 @@ describe('ProviderIndicator', () => {
     expect(screen.queryByText(/secret|key/i)).not.toBeInTheDocument();
     await waitFor(() => expect(getActiveProvider).toHaveBeenCalledTimes(1));
   });
+
+  it('surfaces a missing provider configuration', async () => {
+    vi.mocked(getActiveProvider).mockRejectedValue({
+      code: 'CONFIG_ERROR',
+      message: 'no LLM provider key is configured',
+    });
+    render(<ProviderIndicator />);
+
+    expect(await screen.findByText('Provider not configured')).toBeInTheDocument();
+  });
 });
