@@ -500,8 +500,15 @@ async fn refresh_models(
     state: &AppState,
     provider: &str,
     include_paid: bool,
+    refresh: bool,
 ) -> Result<ModelCatalogView, AppError> {
     validate_provider_id(provider)?;
+    if !refresh {
+        if let Some(cached) = catalog_from_cache(state, provider)? {
+            return Ok(cached);
+        }
+        return Ok(builtin_catalog(provider, None));
+    }
     let config = state.config()?;
     let session = state.session_selection()?;
     let settings = ProviderSettings::resolve(&state.db, &config, session.as_ref())?;
@@ -590,10 +597,16 @@ pub async fn cmd_refresh_provider_models(
     state: State<'_, AppState>,
     provider: String,
     include_paid: Option<bool>,
+    refresh: Option<bool>,
 ) -> Result<ModelCatalogView, ErrorPayload> {
-    refresh_models(&state, &provider, include_paid.unwrap_or(false))
-        .await
-        .map_err(Into::into)
+    refresh_models(
+        &state,
+        &provider,
+        include_paid.unwrap_or(false),
+        refresh.unwrap_or(true),
+    )
+    .await
+    .map_err(Into::into)
 }
 
 #[tauri::command]

@@ -131,8 +131,9 @@ export function removeProviderCredential(
 export function refreshProviderModels(
   provider: ProviderId,
   includePaid = false,
+  refresh = true,
 ): Promise<ModelCatalogView> {
-  return call('cmd_refresh_provider_models', { provider, includePaid });
+  return call('cmd_refresh_provider_models', { provider, includePaid, refresh });
 }
 
 export function testProvider(

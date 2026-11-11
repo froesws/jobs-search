@@ -8,16 +8,60 @@ import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
+import FormControl from '@mui/material/FormControl';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import InputLabel from '@mui/material/InputLabel';
+import MenuItem from '@mui/material/MenuItem';
+import Select from '@mui/material/Select';
 import Stack from '@mui/material/Stack';
+import Switch from '@mui/material/Switch';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { toAppError } from '@/lib/errors';
-import type { ProviderId, ProviderSettingView } from '@/lib/types';
+import { refreshProviderModels, testProvider } from '@/lib/ipc';
+import type {
+  ModelCatalogView,
+  ProviderConfigInput,
+  ProviderId,
+  ProviderSettingView,
+} from '@/lib/types';
 import type { ProviderConfigState } from '@/viewmodels/useProviderConfig';
 
 const CREDENTIAL_STORE_UNAVAILABLE = 'CREDENTIAL_STORE_UNAVAILABLE';
+
+interface ProviderDraft {
+  model: string;
+  models: string[];
+  baseUrl: string;
+  attempts: number;
+  enabled: boolean;
+}
+
+interface Draft {
+  order: ProviderId[];
+  fallbackEnabled: boolean;
+  providers: Record<string, ProviderDraft>;
+}
+
+function draftFrom(config: ProviderConfigState['config']): Draft {
+  const providers: Record<string, ProviderDraft> = {};
+  for (const provider of config?.providers ?? []) {
+    providers[provider.id] = {
+      model: provider.model ?? '',
+      models: provider.models ?? [],
+      baseUrl: provider.baseUrl ?? '',
+      attempts: provider.attempts,
+      enabled: provider.enabled,
+    };
+  }
+  return {
+    order: config?.order ?? [],
+    fallbackEnabled: config?.fallbackEnabled ?? false,
+    providers,
+  };
+}
 
 export function ProviderConfigDialog({
   open,
@@ -31,20 +75,44 @@ export function ProviderConfigDialog({
   const [apiKeys, setApiKeys] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [consentProvider, setConsentProvider] = useState<ProviderId | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [draft, setDraft] = useState<Draft>(() => draftFrom(state.config));
+  const [catalogs, setCatalogs] = useState<Record<string, ModelCatalogView>>({});
+  const [showAll, setShowAll] = useState<Record<string, boolean>>({});
 
   const providers = useMemo(() => state.config?.providers ?? [], [state.config]);
+
+  const loadCatalog = useCallback(async (provider: ProviderId, includePaid: boolean) => {
+    const catalog = await refreshProviderModels(provider, includePaid, false);
+    setCatalogs((current) => ({ ...current, [provider]: catalog }));
+  }, []);
 
   useEffect(() => {
     if (!open) return;
     setApiKeys({});
     setError(null);
+    setNotice(null);
     setConsentProvider(null);
+    setDraft(draftFrom(state.config));
     setExpanded(
       Object.fromEntries(providers.map((provider) => [provider.id, provider.hasCredential])),
     );
-  }, [open, providers]);
+    for (const provider of providers) {
+      void loadCatalog(provider.id, false).catch(() => undefined);
+    }
+  }, [open, providers, state.config, loadCatalog]);
+
+  const updateProvider = (id: string, patch: Partial<ProviderDraft>) => {
+    setDraft((current) => ({
+      ...current,
+      providers: {
+        ...current.providers,
+        [id]: { ...current.providers[id]!, ...patch },
+      },
+    }));
+  };
 
   const handleSaveKey = async (provider: ProviderSettingView, allowEnvFallback = false) => {
     const apiKey = apiKeys[provider.id]?.trim() ?? '';
@@ -94,6 +162,79 @@ export function ProviderConfigDialog({
     }
   };
 
+  const handleRefresh = async (provider: ProviderSettingView) => {
+    setBusy(provider.id);
+    setError(null);
+    setNotice(null);
+    try {
+      const catalog = await refreshProviderModels(provider.id, showAll[provider.id] ?? false, true);
+      setCatalogs((current) => ({ ...current, [provider.id]: catalog }));
+      if (catalog.degraded) {
+        setNotice(catalog.message ?? 'The model list could not be refreshed.');
+      }
+    } catch (cause) {
+      setError(toAppError(cause).message);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleTest = async (provider: ProviderSettingView) => {
+    setBusy(provider.id);
+    setError(null);
+    setNotice(null);
+    try {
+      const result = await testProvider(
+        provider.id,
+        apiKeys[provider.id]?.trim() || undefined,
+        draft.providers[provider.id]?.baseUrl || undefined,
+        draft.providers[provider.id]?.model || undefined,
+      );
+      setNotice(
+        result.ok
+          ? `Connection ok (${result.latencyMs} ms).`
+          : `Connection failed: ${result.message}`,
+      );
+    } catch (cause) {
+      setError(toAppError(cause).message);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleSave = async () => {
+    setBusy('save');
+    setError(null);
+    setNotice(null);
+    const input: ProviderConfigInput = {
+      order: draft.order,
+      fallbackEnabled: draft.fallbackEnabled,
+      providers: providers.map((provider) => {
+        const value = draft.providers[provider.id]!;
+        if (provider.id === 'openrouter') {
+          return { id: provider.id, models: value.models };
+        }
+        return {
+          id: provider.id,
+          model: value.model || undefined,
+          baseUrl: provider.id === 'ollama' ? value.baseUrl || undefined : undefined,
+          attempts: value.attempts,
+          enabled: provider.id === 'ollama' ? value.enabled : undefined,
+        };
+      }),
+    };
+    try {
+      await state.save(input);
+      setNotice('Provider settings saved.');
+    } catch (cause) {
+      setError(toAppError(cause).message);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const catalogFor = (provider: ProviderSettingView) => catalogs[provider.id]?.models ?? [];
+
   return (
     <>
       <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
@@ -109,97 +250,226 @@ export function ProviderConfigDialog({
               {error}
             </Alert>
           ) : null}
+          {notice ? (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              {notice}
+            </Alert>
+          ) : null}
 
           <Stack spacing={1.5}>
-            {providers.map((provider) => (
-              <Accordion
-                key={provider.id}
-                expanded={expanded[provider.id] ?? false}
-                onChange={(_, isExpanded) =>
-                  setExpanded((current) => ({ ...current, [provider.id]: isExpanded }))
-                }
-                disableGutters
-              >
-                <AccordionSummary expandIcon={<span aria-hidden>▾</span>}>
-                  <Stack direction="row" spacing={1} sx={{ width: '100%', alignItems: 'center' }}>
-                    <Typography sx={{ flex: 1 }}>{provider.label}</Typography>
-                    <Chip
-                      size="small"
-                      variant="outlined"
-                      color={provider.hasCredential ? 'success' : 'default'}
-                      label={
-                        provider.hasCredential
-                          ? `configured (${provider.credentialSource})`
-                          : 'not configured'
-                      }
-                    />
-                  </Stack>
-                </AccordionSummary>
-                <AccordionDetails>
-                  <Stack spacing={1.5}>
-                    {provider.requiresApiKey ? (
-                      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+            {providers.map((provider) => {
+              const value = draft.providers[provider.id]!;
+              const catalog = catalogFor(provider);
+              return (
+                <Accordion
+                  key={provider.id}
+                  expanded={expanded[provider.id] ?? false}
+                  onChange={(_, isExpanded) =>
+                    setExpanded((current) => ({ ...current, [provider.id]: isExpanded }))
+                  }
+                  disableGutters
+                >
+                  <AccordionSummary expandIcon={<span aria-hidden>▾</span>}>
+                    <Stack direction="row" spacing={1} sx={{ width: '100%', alignItems: 'center' }}>
+                      <Typography sx={{ flex: 1 }}>{provider.label}</Typography>
+                      <Chip
+                        size="small"
+                        variant="outlined"
+                        color={provider.hasCredential ? 'success' : 'default'}
+                        label={
+                          provider.hasCredential
+                            ? `configured (${provider.credentialSource})`
+                            : 'not configured'
+                        }
+                      />
+                    </Stack>
+                  </AccordionSummary>
+                  <AccordionDetails>
+                    <Stack spacing={1.5}>
+                      {provider.requiresApiKey ? (
+                        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+                          <TextField
+                            size="small"
+                            type="password"
+                            label={`${provider.label} API key`}
+                            value={apiKeys[provider.id] ?? ''}
+                            onChange={(event) =>
+                              setApiKeys((current) => ({
+                                ...current,
+                                [provider.id]: event.target.value,
+                              }))
+                            }
+                            sx={{ flex: 1 }}
+                            autoComplete="off"
+                          />
+                          <Button
+                            variant="contained"
+                            size="small"
+                            disabled={busy === provider.id}
+                            onClick={() => void handleSaveKey(provider)}
+                          >
+                            Save key
+                          </Button>
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            disabled={busy === provider.id || !provider.hasCredential}
+                            onClick={() => void handleRemove(provider, false)}
+                          >
+                            Remove credential
+                          </Button>
+                        </Stack>
+                      ) : (
+                        <Typography variant="body2" color="text.secondary">
+                          Ollama runs locally and does not use an API key.
+                        </Typography>
+                      )}
+
+                      {provider.id === 'ollama' ? (
                         <TextField
                           size="small"
-                          type="password"
-                          label={`${provider.label} API key`}
-                          value={apiKeys[provider.id] ?? ''}
+                          label="Ollama base URL"
+                          value={value.baseUrl}
                           onChange={(event) =>
-                            setApiKeys((current) => ({
-                              ...current,
-                              [provider.id]: event.target.value,
-                            }))
+                            updateProvider(provider.id, { baseUrl: event.target.value })
                           }
-                          sx={{ flex: 1 }}
-                          autoComplete="off"
                         />
+                      ) : null}
+
+                      {provider.id === 'openrouter' ? (
+                        <Stack spacing={1}>
+                          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
+                            {value.models.map((model) => (
+                              <Chip
+                                key={model}
+                                label={model}
+                                onDelete={() =>
+                                  updateProvider(provider.id, {
+                                    models: value.models.filter((item) => item !== model),
+                                  })
+                                }
+                              />
+                            ))}
+                          </Stack>
+                          <FormControl size="small" sx={{ minWidth: 240 }}>
+                            <InputLabel id={`${provider.id}-add-model`}>Add model</InputLabel>
+                            <Select
+                              labelId={`${provider.id}-add-model`}
+                              label="Add model"
+                              value=""
+                              onChange={(event) => {
+                                const model = event.target.value as string;
+                                if (!model || value.models.includes(model)) return;
+                                updateProvider(provider.id, {
+                                  models: [...value.models, model],
+                                });
+                              }}
+                            >
+                              {catalog
+                                .filter((option) => !value.models.includes(option.id))
+                                .map((option) => (
+                                  <MenuItem key={option.id} value={option.id}>
+                                    {option.id}
+                                    {option.price ? ` — ${option.price}` : ''}
+                                  </MenuItem>
+                                ))}
+                            </Select>
+                          </FormControl>
+                          <FormControlLabel
+                            control={
+                              <Switch
+                                checked={showAll[provider.id] ?? false}
+                                onChange={(event) => {
+                                  const checked = event.target.checked;
+                                  setShowAll((current) => ({
+                                    ...current,
+                                    [provider.id]: checked,
+                                  }));
+                                  void loadCatalog(provider.id, checked).catch(() => undefined);
+                                }}
+                              />
+                            }
+                            label="Show all models (including paid)"
+                          />
+                        </Stack>
+                      ) : (
+                        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+                          <FormControl size="small" sx={{ minWidth: 240 }}>
+                            <InputLabel id={`${provider.id}-model`}>Model</InputLabel>
+                            <Select
+                              labelId={`${provider.id}-model`}
+                              label="Model"
+                              value={value.model}
+                              onChange={(event) =>
+                                updateProvider(provider.id, {
+                                  model: event.target.value as string,
+                                })
+                              }
+                            >
+                              {catalog.map((option) => (
+                                <MenuItem key={option.id} value={option.id}>
+                                  {option.id}
+                                </MenuItem>
+                              ))}
+                              {value.model && !catalog.some((item) => item.id === value.model) ? (
+                                <MenuItem value={value.model}>{value.model}</MenuItem>
+                              ) : null}
+                            </Select>
+                          </FormControl>
+                          <TextField
+                            size="small"
+                            label="Custom model"
+                            value={value.model}
+                            onChange={(event) =>
+                              updateProvider(provider.id, { model: event.target.value })
+                            }
+                            sx={{ flex: 1 }}
+                          />
+                        </Stack>
+                      )}
+
+                      <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
                         <Button
-                          variant="contained"
                           size="small"
                           disabled={busy === provider.id}
-                          onClick={() => void handleSaveKey(provider)}
+                          onClick={() => void handleRefresh(provider)}
                         >
-                          Save key
+                          Refresh models
                         </Button>
                         <Button
-                          variant="outlined"
                           size="small"
-                          disabled={busy === provider.id || !provider.hasCredential}
-                          onClick={() => void handleRemove(provider, false)}
+                          disabled={busy === provider.id}
+                          onClick={() => void handleTest(provider)}
                         >
-                          Remove credential
+                          Test connection
+                        </Button>
+                        <Button
+                          size="small"
+                          disabled={busy === provider.id}
+                          onClick={() => void handleReset(provider, 'model')}
+                        >
+                          Reset model
+                        </Button>
+                        <Button
+                          size="small"
+                          disabled={busy === provider.id}
+                          onClick={() => void handleReset(provider, 'attempts')}
+                        >
+                          Reset attempts
                         </Button>
                       </Stack>
-                    ) : (
-                      <Typography variant="body2" color="text.secondary">
-                        Ollama runs locally and does not use an API key.
-                      </Typography>
-                    )}
-
-                    <Stack direction="row" spacing={1}>
-                      <Button
-                        size="small"
-                        disabled={busy === provider.id}
-                        onClick={() => void handleReset(provider, 'model')}
-                      >
-                        Reset model
-                      </Button>
-                      <Button
-                        size="small"
-                        disabled={busy === provider.id}
-                        onClick={() => void handleReset(provider, 'attempts')}
-                      >
-                        Reset attempts
-                      </Button>
                     </Stack>
-                  </Stack>
-                </AccordionDetails>
-              </Accordion>
-            ))}
+                  </AccordionDetails>
+                </Accordion>
+              );
+            })}
           </Stack>
         </DialogContent>
         <DialogActions>
           <Button onClick={onClose}>Close</Button>
+          <Button variant="contained" disabled={busy === 'save'} onClick={() => void handleSave()}>
+            Save
+          </Button>
         </DialogActions>
       </Dialog>
 
