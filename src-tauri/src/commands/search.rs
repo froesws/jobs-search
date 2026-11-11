@@ -65,9 +65,73 @@ impl SearchFilters {
         }
     }
 
+    pub fn ingestion_queries(&self) -> Vec<String> {
+        let base = if self.titles.is_empty() {
+            self.stack_keyword.trim().to_string()
+        } else {
+            self.titles.join(" OR ")
+        };
+        let base = if base.trim().is_empty() {
+            "jobs".to_string()
+        } else {
+            base
+        };
+
+        let mut modalities = Vec::new();
+        for modality in &self.modalities {
+            if !modalities.contains(modality) {
+                modalities.push(*modality);
+            }
+        }
+        let modality_terms = modalities
+            .iter()
+            .filter_map(|modality| modality.search_term_pt())
+            .collect::<Vec<_>>();
+        let suffix = if modalities.is_empty() || modalities.len() >= 3 || modality_terms.is_empty()
+        {
+            String::new()
+        } else {
+            format!(" ({})", modality_terms.join(" OR "))
+        };
+
+        let seniorities = if self.seniorities.is_empty() {
+            vec![
+                Seniority::Trainee,
+                Seniority::Intern,
+                Seniority::Junior,
+                Seniority::Pleno,
+                Seniority::Senior,
+            ]
+        } else {
+            let mut values = Vec::new();
+            for seniority in &self.seniorities {
+                if !values.contains(seniority) {
+                    values.push(*seniority);
+                }
+            }
+            values
+        };
+
+        let mut queries = Vec::new();
+        for seniority in seniorities {
+            let query = format!("{base} {}{suffix}", seniority.search_term_pt())
+                .trim()
+                .to_string();
+            if !queries.contains(&query) {
+                queries.push(query);
+            }
+        }
+        if queries.is_empty() {
+            queries.push(base);
+        }
+        queries
+    }
+
     pub fn ingestion_request(&self) -> IngestionRequest {
+        let queries = self.ingestion_queries();
         IngestionRequest {
-            query: self.titles.join(" OR "),
+            query: queries.first().cloned().unwrap_or_default(),
+            queries,
             stack_keyword: self.stack_keyword.clone(),
             location: "Brazil".to_string(),
             sites: Vec::new(),
@@ -344,6 +408,56 @@ mod tests {
         assert!(request.query.contains("Rust Engineer"));
         assert_eq!(request.seniorities, filters.seniorities);
         assert_eq!(request.modalities, filters.modalities);
+    }
+
+    #[test]
+    fn builds_one_portuguese_query_per_selected_seniority() {
+        let filters = SearchFilters {
+            titles: vec!["Rust Engineer".into()],
+            seniorities: vec![Seniority::Trainee, Seniority::Junior, Seniority::Pleno],
+            modalities: vec![WorkModality::Remote],
+            ..SearchFilters::default()
+        }
+        .resolve(&profile());
+
+        assert_eq!(
+            filters.ingestion_queries(),
+            [
+                "Rust Engineer trainee (remoto)",
+                "Rust Engineer júnior (remoto)",
+                "Rust Engineer pleno (remoto)"
+            ]
+        );
+
+        let request = filters.ingestion_request();
+        assert_eq!(request.queries.len(), 3);
+        assert_eq!(request.query, request.queries[0]);
+    }
+
+    #[test]
+    fn appends_portuguese_work_type_terms_only_for_a_subset() {
+        let mixed = SearchFilters {
+            titles: vec!["Rust Engineer".into()],
+            seniorities: vec![Seniority::Pleno],
+            modalities: vec![WorkModality::Remote, WorkModality::Hybrid],
+            ..SearchFilters::default()
+        };
+        assert_eq!(
+            mixed.ingestion_queries(),
+            ["Rust Engineer pleno (remoto OR híbrido)"]
+        );
+
+        let all = SearchFilters {
+            titles: vec!["Rust Engineer".into()],
+            seniorities: vec![Seniority::Pleno],
+            modalities: vec![
+                WorkModality::Remote,
+                WorkModality::Hybrid,
+                WorkModality::Onsite,
+            ],
+            ..SearchFilters::default()
+        };
+        assert_eq!(all.ingestion_queries(), ["Rust Engineer pleno"]);
     }
 
     #[test]

@@ -58,6 +58,7 @@ pub struct SourceFailure {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct IngestionRequest {
     pub query: String,
+    pub queries: Vec<String>,
     pub stack_keyword: String,
     pub location: String,
     pub sites: Vec<String>,
@@ -73,6 +74,7 @@ impl Default for IngestionRequest {
     fn default() -> Self {
         Self {
             query: String::new(),
+            queries: Vec::new(),
             stack_keyword: String::new(),
             location: "Brazil".to_string(),
             sites: vec!["linkedin".to_string(), "indeed".to_string()],
