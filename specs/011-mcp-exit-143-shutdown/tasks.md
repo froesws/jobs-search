@@ -243,7 +243,7 @@ reported servers, and know that the `VIRTUAL_ENV` warning is benign.
   list `pid,ppid,pgid,args`, confirm the parent is the app/`opencode serve`, and
   never use `pkill -f linkedin`; scope termination to the child's process group
   (paths: `README.md`, `scripts/verify.sh`).
-- [ ] T018 [US4] Re-read the documentation and verify every referenced command
+- [x] T018 [US4] Re-read the documentation and verify every referenced command
   and path exists; do not include machine-specific absolute paths (path:
   `README.md`).
 
@@ -360,3 +360,4 @@ the docs, and cleanup cannot hit unrelated servers.
 - **T006**: signal contract suites passed (jobspy 14, linkedin-scraper 11).
 - **T010**: child-environment tests passed (generic 8, LinkedIn 3).
 - **T014**: exit-status test passed; the message includes `status=143`.
+- **T018**: documented commands and paths were re-checked.
