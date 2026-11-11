@@ -88,6 +88,37 @@ fn schema_has_no_raw_description_and_survives_reopen() {
     );
 }
 
+#[test]
+fn v6_schema_is_upgraded_to_v7_with_app_settings() {
+    let directory = tempfile::tempdir().expect("tempdir");
+    let path = directory.path().join("jobs-search.sqlite3");
+
+    // Simulate a database created before the provider settings feature.
+    let db = Db::open(&path).expect("open");
+    db.with_connection(|connection| {
+        connection.execute_batch("DROP TABLE app_settings; PRAGMA user_version = 6;")?;
+        Ok(())
+    })
+    .expect("downgrade");
+    drop(db);
+
+    let upgraded = Db::open(&path).expect("reopen");
+    let tables = table_names(&upgraded);
+    assert!(
+        tables.iter().any(|table| table == "app_settings"),
+        "app_settings must be created when upgrading from v6"
+    );
+    let version: i64 = upgraded
+        .with_connection(|connection| {
+            Ok(connection.pragma_query_value(None, "user_version", |row| row.get(0))?)
+        })
+        .expect("version");
+    assert_eq!(version, 7);
+
+    let columns = columns(&upgraded, "app_settings");
+    assert_eq!(columns, vec!["key", "value", "updated_at"]);
+}
+
 fn table_names(db: &Db) -> Vec<String> {
     db.with_connection(|connection| {
         let mut statement = connection
