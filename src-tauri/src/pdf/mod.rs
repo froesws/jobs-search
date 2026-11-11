@@ -1,4 +1,5 @@
-//! PDF text extraction for the P1 profile milestone.
-//!
-//! The first milestone deliberately does not parse resumes; it uses the
-//! synthetic fixture loaded by [`crate::profile::fixture`].
+//! PDF text extraction for the profile pipeline.
+
+pub mod extract;
+
+pub use extract::{MAX_PDF_BYTES, extract_text_from_mem, extract_text_from_path};
