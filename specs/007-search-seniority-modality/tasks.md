@@ -133,7 +133,7 @@ removes that level.
 > and the profile-only hard filter.
 
 - [X] T009 [P] [US1] Add hard-filter seniority tests: selecting `[Trainee, Junior, Pleno]` accepts a "Pleno/Sênior" job (detected as Pleno) and rejects a Senior-only job; an empty selection falls back to the profile's accepted seniorities; no conflict is raised for multiple selected levels (path: `src-tauri/tests/match_filters.rs`).
-- [ ] T010 [P] [US1] Add query-plan tests asserting that selecting Trainee + Junior + Pleno produces three Portuguese queries containing `trainee`, `júnior`, and `pleno`, that the English UI enum values are not used as query terms, and that selecting only Senior produces one `sênior` query (path: `src-tauri/src/commands/search.rs`).
+- [X] T010 [P] [US1] Add query-plan tests asserting that selecting Trainee + Junior + Pleno produces three Portuguese queries containing `trainee`, `júnior`, and `pleno`, that the English UI enum values are not used as query terms, and that selecting only Senior produces one `sênior` query (path: `src-tauri/src/commands/search.rs`).
 - [ ] T011 [P] [US1] Add normalization tests proving "Trainee", "Jr/Junior", "Mid/Pleno", and "Senior" job titles map to the four panel levels; keep "mid" as Pleno without matching "middle" (path: `src-tauri/src/ingestion/normalize.rs`).
 - [ ] T012 [P] [US1] Add TopBar tests for the seniority panel: exactly four toggle buttons named Trainee, Junior, Pleno, Senior; no Any, Intern, or Pleno-Senior; clicking three buttons calls `onChange` with the three deduplicated values; clicking a selected button removes it; no selection shows the “Profile default” hint (path: `src/components/TopBar.test.tsx`).
 
