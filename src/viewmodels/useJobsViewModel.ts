@@ -18,7 +18,7 @@ interface JobsState {
 }
 
 const INITIAL: JobsState = {
-  status: 'idle',
+  status: 'loading',
   items: [],
   total: 0,
   limit: PAGE_SIZE,
