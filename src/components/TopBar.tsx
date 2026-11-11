@@ -14,6 +14,8 @@ import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import type { ThemeMode } from '../theme/theme';
 import type { SearchFilters, SearchTimeframe, Seniority, WorkModality } from '../lib/types';
+import { ProviderIndicator } from './ProviderIndicator';
+import { ResumeManager } from './ResumeManager';
 
 const TIMEFRAMES: Array<{ value: SearchTimeframe; label: string }> = [
   { value: 'H24', label: 'Last 24 hours' },
@@ -86,6 +88,9 @@ export function TopBar({
             Career intelligence workspace
           </Typography>
         </Box>
+
+        <ProviderIndicator />
+        <ResumeManager />
 
         <Tooltip title={mode === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}>
           <Button
