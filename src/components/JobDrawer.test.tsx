@@ -92,6 +92,17 @@ describe('JobDrawer', () => {
     expect(screen.getByText(/original URL is missing or invalid/)).toBeInTheDocument();
   });
 
+  it.each(['javascript:alert(1)', 'file:///etc/passwd', 'data:text/html,x', 'not a url'])(
+    'warns and renders no posting link for %s',
+    (url) => {
+      renderDrawer({ url });
+
+      expect(screen.getByText(/original URL is missing or invalid/)).toBeInTheDocument();
+      expect(screen.queryByTestId('original-posting-url')).not.toBeInTheDocument();
+      expect(openExternalUrl).not.toHaveBeenCalled();
+    },
+  );
+
   it('shows hard-filter reasons for a rejected evaluation', () => {
     renderDrawer({
       evaluation_status: 'REJECTED',

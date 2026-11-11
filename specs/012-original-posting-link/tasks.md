@@ -169,7 +169,7 @@ without calling `openUrl`.
 - [X] T012 [P] [US2] Extend `src/lib/ipc.test.ts`: `openExternalUrl` rejects for
   `javascript:alert(1)`, `file:///etc/passwd`, `data:text/html,x`, and
   `'not a url'`, and `openUrl` is never called.
-- [ ] T013 [P] [US2] Extend `src/components/JobDrawer.test.tsx`: with
+- [X] T013 [P] [US2] Extend `src/components/JobDrawer.test.tsx`: with
   `url: 'javascript:alert(1)'` and with `url: 'not a url'`, the
   "Original URL is missing or invalid" warning renders, no
   `original-posting-url` test id exists, and `openExternalUrl` is not called
