@@ -73,7 +73,9 @@ else
 fi
 
 if [ -d sidecar/jobspy_mcp/tests ]; then
-  if command -v pytest >/dev/null 2>&1; then
+  if [ -x .venv/bin/pytest ]; then
+    run .venv/bin/pytest sidecar/jobspy_mcp/tests
+  elif command -v pytest >/dev/null 2>&1; then
     run pytest sidecar/jobspy_mcp/tests
   else
     skip "pytest (pytest not installed)"
