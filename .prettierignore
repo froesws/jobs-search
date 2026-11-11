@@ -9,3 +9,6 @@ package-lock.json
 specs/
 .specify/
 .opencode/
+
+# Editor state
+.vscode/
