@@ -1,6 +1,7 @@
 //! Search trigger and filter resolution.
 #![allow(missing_docs)]
 
+use std::path::Path;
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
@@ -247,12 +248,18 @@ async fn ingest_jobs(
 ) -> Result<IngestionResult, AppError> {
     let mut adapters: Vec<Arc<dyn SourceAdapter>> = Vec::new();
     let mut failures: Vec<SourceFailure> = Vec::new();
+    let sources_base = state
+        .config
+        .sources_path
+        .parent()
+        .filter(|directory| !directory.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
 
     for source in enabled {
         if !filters.source_ids.is_empty() && !filters.source_ids.contains(&source.id) {
             continue;
         }
-        match build_adapter(source) {
+        match build_adapter(source, sources_base) {
             Ok(adapter) => adapters.push(adapter),
             Err(failure) => failures.push(failure),
         }
@@ -315,15 +322,18 @@ async fn ingest_jobs(
     })
 }
 
-fn build_adapter(source: &SourceConfig) -> Result<Arc<dyn SourceAdapter>, SourceFailure> {
+fn build_adapter(
+    source: &SourceConfig,
+    sources_base: &Path,
+) -> Result<Arc<dyn SourceAdapter>, SourceFailure> {
     match source.source_type {
         crate::config::SourceType::Mcp => {
             if source.config_str("adapter") == Some("linkedin") {
-                LinkedInMcpAdapter::from_config(source)
+                LinkedInMcpAdapter::from_config(source, sources_base)
                     .map(|adapter| Arc::new(adapter) as Arc<dyn SourceAdapter>)
                     .map_err(|error| failure(source, "MCP_CONFIG_ERROR", error.message()))
             } else {
-                McpAdapter::from_config(source)
+                McpAdapter::from_config(source, sources_base)
                     .map(|adapter| Arc::new(adapter) as Arc<dyn SourceAdapter>)
                     .map_err(|error| failure(source, "MCP_CONFIG_ERROR", error.message()))
             }

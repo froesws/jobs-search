@@ -2,7 +2,7 @@
 #![allow(missing_docs)]
 
 use std::collections::HashSet;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::time::Duration;
 
@@ -34,7 +34,7 @@ pub struct LinkedInMcpAdapter {
 }
 
 impl LinkedInMcpAdapter {
-    pub fn from_config(source: &SourceConfig) -> Result<Self, AppError> {
+    pub fn from_config(source: &SourceConfig, base_dir: &Path) -> Result<Self, AppError> {
         let command = source
             .config_str("command")
             .map(str::trim)
@@ -52,11 +52,7 @@ impl LinkedInMcpAdapter {
             name: source.name.clone(),
             command,
             args: source.config_string_list("args"),
-            cwd: source
-                .config_str("cwd")
-                .map(str::trim)
-                .filter(|value| !value.is_empty())
-                .map(PathBuf::from),
+            cwd: source.resolved_cwd(base_dir),
             results_wanted: source.config_u32("results_wanted", 10).clamp(1, 25),
             max_pages: source.config_u32("max_pages", 1).clamp(1, 3),
             timeout: Duration::from_secs(source.rate_limit.timeout_seconds.clamp(1, 600)),

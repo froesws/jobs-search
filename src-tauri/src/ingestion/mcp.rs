@@ -2,7 +2,7 @@
 #![allow(missing_docs)]
 
 use std::collections::HashSet;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::time::Duration;
 
@@ -33,7 +33,7 @@ pub struct McpAdapter {
 }
 
 impl McpAdapter {
-    pub fn from_config(source: &SourceConfig) -> Result<Self, AppError> {
+    pub fn from_config(source: &SourceConfig, base_dir: &Path) -> Result<Self, AppError> {
         let command = source
             .config_str("command")
             .map(str::trim)
@@ -57,11 +57,7 @@ impl McpAdapter {
             name: source.name.clone(),
             command,
             args: source.config_string_list("args"),
-            cwd: source
-                .config_str("cwd")
-                .map(str::trim)
-                .filter(|value| !value.is_empty())
-                .map(PathBuf::from),
+            cwd: source.resolved_cwd(base_dir),
             sites,
             results_wanted: source.config_u32("results_wanted", 50).clamp(1, 200),
             timeout: Duration::from_secs(source.rate_limit.timeout_seconds.clamp(1, 300)),
@@ -388,4 +384,70 @@ fn jsonrpc_error_message(error: &serde_json::Value) -> String {
         .chars()
         .take(200)
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn source(yaml: &str) -> SourceConfig {
+        serde_yaml::from_str(yaml).expect("source config")
+    }
+
+    #[test]
+    fn relative_cwd_is_resolved_against_the_sources_directory() {
+        let source = source(
+            r#"
+id: jobspy
+name: jobspy
+source_type: mcp
+config:
+  command: uv
+  args: ["run", "--project", "sidecar/jobspy_mcp", "jobspy-mcp-server"]
+  cwd: "."
+"#,
+        );
+
+        let adapter =
+            McpAdapter::from_config(&source, Path::new("/home/dev/project")).expect("adapter");
+
+        assert_eq!(adapter.cwd, Some(PathBuf::from("/home/dev/project")));
+    }
+
+    #[test]
+    fn absolute_cwd_is_kept_verbatim() {
+        let source = source(
+            r#"
+id: jobspy
+name: jobspy
+source_type: mcp
+config:
+  command: uv
+  cwd: "/opt/jobspy"
+"#,
+        );
+
+        let adapter =
+            McpAdapter::from_config(&source, Path::new("/home/dev/project")).expect("adapter");
+
+        assert_eq!(adapter.cwd, Some(PathBuf::from("/opt/jobspy")));
+    }
+
+    #[test]
+    fn unset_cwd_inherits_the_application_directory() {
+        let source = source(
+            r#"
+id: jobspy
+name: jobspy
+source_type: mcp
+config:
+  command: uv
+"#,
+        );
+
+        let adapter =
+            McpAdapter::from_config(&source, Path::new("/home/dev/project")).expect("adapter");
+
+        assert_eq!(adapter.cwd, None);
+    }
 }

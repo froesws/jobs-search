@@ -2,7 +2,7 @@
 #![allow(missing_docs)]
 
 use std::collections::HashSet;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
@@ -115,6 +115,23 @@ impl SourceConfig {
 
     pub fn config_json(&self) -> Result<String, AppError> {
         serde_json::to_string(&self.config).map_err(AppError::from)
+    }
+
+    /// Resolves the optional `cwd` entry against the directory containing the
+    /// sources file. Relative paths in a config file are relative to that file,
+    /// not to the process working directory (which differs when the desktop
+    /// shell or `tauri dev` starts the app).
+    pub fn resolved_cwd(&self, base_dir: &Path) -> Option<PathBuf> {
+        let cwd = self
+            .config_str("cwd")
+            .map(str::trim)
+            .filter(|value| !value.is_empty())?;
+        let path = PathBuf::from(cwd);
+        if path.is_absolute() {
+            Some(path)
+        } else {
+            Some(base_dir.join(path))
+        }
     }
 }
 
@@ -358,6 +375,54 @@ sources:
             config.sources[1].config_str("base_url"),
             Some("https://remoteok.com/api")
         );
+    }
+
+    #[test]
+    fn relative_cwd_resolves_against_the_sources_directory() {
+        let config: SourcesConfig = serde_yaml::from_str(
+            r#"
+sources:
+  - id: jobspy
+    name: jobspy
+    source_type: mcp
+    config:
+      command: uv
+      cwd: "."
+  - id: nested
+    name: nested
+    source_type: mcp
+    config:
+      command: uv
+      cwd: "sidecar/jobspy_mcp"
+  - id: absolute
+    name: absolute
+    source_type: mcp
+    config:
+      command: uv
+      cwd: "/opt/sidecars/jobspy"
+  - id: unset
+    name: unset
+    source_type: mcp
+    config:
+      command: uv
+"#,
+        )
+        .expect("valid yaml");
+
+        let base = Path::new("/home/dev/project");
+        assert_eq!(
+            config.sources[0].resolved_cwd(base),
+            Some(PathBuf::from("/home/dev/project"))
+        );
+        assert_eq!(
+            config.sources[1].resolved_cwd(base),
+            Some(PathBuf::from("/home/dev/project/sidecar/jobspy_mcp"))
+        );
+        assert_eq!(
+            config.sources[2].resolved_cwd(base),
+            Some(PathBuf::from("/opt/sidecars/jobspy"))
+        );
+        assert_eq!(config.sources[3].resolved_cwd(base), None);
     }
 
     #[test]

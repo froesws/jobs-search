@@ -93,7 +93,7 @@ impl AppConfig {
         let sources_path = read("JOBS_SEARCH_SOURCES")
             .filter(|value| !value.is_empty())
             .map(|value| resolve(working_dir, &value))
-            .unwrap_or_else(|| working_dir.join("sources.yaml"));
+            .unwrap_or_else(|| discover_sources(working_dir));
 
         let fixture_profile_path = read("JOBS_SEARCH_FIXTURE_PROFILE")
             .filter(|value| !value.is_empty())
@@ -227,6 +227,20 @@ fn resolve(working_dir: &Path, value: &str) -> PathBuf {
     }
 }
 
+/// Finds `sources.yaml` in the working directory or the nearest ancestor.
+///
+/// `tauri dev` runs the binary from `src-tauri`, so anchoring the sources file
+/// to the process working directory alone silently falls back to the built-in
+/// defaults and makes every relative source path wrong. Searching upwards (the
+/// same way `dotenvy` locates `.env`) keeps the repository file authoritative.
+fn discover_sources(working_dir: &Path) -> PathBuf {
+    working_dir
+        .ancestors()
+        .map(|directory| directory.join("sources.yaml"))
+        .find(|candidate| candidate.is_file())
+        .unwrap_or_else(|| working_dir.join("sources.yaml"))
+}
+
 fn non_empty(value: Option<String>) -> Option<String> {
     value.filter(|item| !item.is_empty())
 }
@@ -335,6 +349,68 @@ mod tests {
             PathBuf::from("/tmp/app-data"),
             Path::new("/tmp/work"),
         )
+    }
+
+    #[test]
+    fn sources_file_is_discovered_in_a_parent_directory() {
+        let root = tempfile::tempdir().expect("temp dir");
+        let expected = root.path().join("sources.yaml");
+        std::fs::write(&expected, "sources: []\n").expect("write sources");
+        let nested = root.path().join("src-tauri");
+        std::fs::create_dir(&nested).expect("create nested dir");
+
+        let loaded = AppConfig::from_lookup(|_| None, PathBuf::from("/tmp/app-data"), &nested)
+            .expect("valid");
+
+        assert_eq!(loaded.sources_path, expected);
+    }
+
+    #[test]
+    fn missing_sources_file_falls_back_to_the_working_directory() {
+        let root = tempfile::tempdir().expect("temp dir");
+        let nested = root.path().join("nested");
+        std::fs::create_dir(&nested).expect("create nested dir");
+
+        let loaded = AppConfig::from_lookup(|_| None, PathBuf::from("/tmp/app-data"), &nested)
+            .expect("valid");
+
+        assert_eq!(loaded.sources_path, nested.join("sources.yaml"));
+    }
+
+    #[test]
+    fn explicit_sources_path_wins_and_is_resolved_against_the_working_directory() {
+        let root = tempfile::tempdir().expect("temp dir");
+        std::fs::write(root.path().join("sources.yaml"), "sources: []\n").expect("write sources");
+        let nested = root.path().join("src-tauri");
+        std::fs::create_dir(&nested).expect("create nested dir");
+
+        let loaded = AppConfig::from_lookup(
+            |key| (key == "JOBS_SEARCH_SOURCES").then(|| "custom.yaml".to_string()),
+            PathBuf::from("/tmp/app-data"),
+            &nested,
+        )
+        .expect("valid");
+
+        assert_eq!(loaded.sources_path, nested.join("custom.yaml"));
+    }
+
+    #[test]
+    fn dev_working_directory_finds_the_repository_sources_file() {
+        // `tauri dev` starts the binary with `src-tauri` as its working
+        // directory; the repository sources file must still be authoritative.
+        let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+
+        let loaded = AppConfig::from_lookup(|_| None, PathBuf::from("/tmp/app-data"), manifest_dir)
+            .expect("valid");
+
+        assert_eq!(
+            loaded.sources_path,
+            manifest_dir
+                .parent()
+                .expect("repository root")
+                .join("sources.yaml")
+        );
+        assert!(loaded.sources_path.is_file());
     }
 
     #[test]
