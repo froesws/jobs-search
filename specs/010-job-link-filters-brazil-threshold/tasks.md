@@ -227,7 +227,7 @@ is `PENDING`; setting `MATCH_THRESHOLD=70` restores the old boundary.
   `.env.example`; keep the 0-100 clamp.
 - [x] T016 [US4] Set `MATCH_THRESHOLD=50` in the local gitignored `.env` (do not
   commit it) and confirm the running app reports the new default.
-- [ ] T017 [P] [US4] Update every document that states 70 as the default:
+- [x] T017 [P] [US4] Update every document that states 70 as the default:
   `README.md`, `specs/001-career-job-sourcing/spec.md`, and
   `specs/002-job-sourcing-dashboard/spec.md`.
 - [ ] T018 [US4] Run `cargo test --manifest-path src-tauri/Cargo.toml` and

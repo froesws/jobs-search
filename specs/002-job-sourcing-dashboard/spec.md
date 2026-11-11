@@ -52,7 +52,7 @@ This section supersedes conflicting requirements below.
 - **Matching**: strict location (remote Brazil or on-site/hybrid in Porto Alegre
   or Curitiba); Trainee/Junior/Pleno (Pleno/Senior ranges accepted); core tech
   from the merged profile/manual list; Trainee/Intern any technology; no work
-  authorization/visa or salary hard filter; threshold 70.
+  authorization/visa or salary hard filter; threshold 50.
 - **Search**: default 100 evaluations per run, configurable; 2 concurrent;
   provider fallback Gemini → OpenRouter free → DeepSeek.
 - **Tests**: Rust, frontend, and Python; one commit per completed task.
@@ -765,7 +765,7 @@ that no code change is required.
   Work authorization and visa sponsorship are out of scope for the v1 hard
   filters; the location filter already restricts the search to Brazil plus Porto
   Alegre/Curitiba.
-- The default approval threshold is 70 on the 0-100 scale and is
+- The default approval threshold is 50 on the 0-100 scale and is
   operator-configurable. Jobs below the threshold remain out of the approved set.
 - The v1 scoring weights are fixed at 40% core technical, 25%
   domain/architectural, 20% seniority/role, and 15% secondary competencies. The

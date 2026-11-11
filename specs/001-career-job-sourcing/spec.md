@@ -43,7 +43,7 @@ product.
   Alegre or Curitiba); seniority accepts Trainee, Junior, and Pleno, including
   Pleno/Senior ranges. Core technologies come from the merged profile/manual
   list; Trainee/Intern accept any technology. Work authorization/visa and salary
-  are not hard filters. The approval threshold is 70 and configurable.
+  are not hard filters. The approval threshold is 50 and configurable.
 - **Evaluation**: the LLM extracts requirements and per-dimension evidence; the
   app computes the 40/25/20/15 score and N/M count. At most 100 jobs are
   evaluated per run by default, 2 evaluations run in parallel, and fallback
@@ -553,7 +553,7 @@ list, and an applied mark creates a lifecycle event.
   Work authorization and visa sponsorship are out of scope for the v1 hard
   filters; the location filter already restricts the search to Brazil plus Porto
   Alegre/Curitiba.
-- The default approval threshold is 70 on the 0-100 scale and is
+- The default approval threshold is 50 on the 0-100 scale and is
   operator-configurable. Postings below the threshold remain PENDING and are
   excluded from the approved list.
 - The v1 scoring weights are fixed at 40% core technical, 25%
