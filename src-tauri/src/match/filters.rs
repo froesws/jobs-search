@@ -1,3 +1,6 @@
+//! Deterministic hard filters.
+#![allow(missing_docs)]
+
 use crate::db::jobs::StoredJob;
 use crate::dedup::identity::normalize_text;
 use crate::ingestion::normalize::{contains_word, detect_seniority, infer_modality};

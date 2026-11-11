@@ -1,3 +1,6 @@
+//! Deterministic 40/25/20/15 scoring.
+#![allow(missing_docs)]
+
 use serde::{Deserialize, Serialize};
 
 use crate::llm::schemas::{EvaluationEvidence, RequirementDimension};

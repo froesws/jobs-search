@@ -1,3 +1,6 @@
+//! Strict profile extraction schema.
+#![allow(missing_docs)]
+
 use std::collections::HashSet;
 
 use serde::{Deserialize, Serialize};

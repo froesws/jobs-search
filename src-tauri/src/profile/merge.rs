@@ -1,3 +1,6 @@
+//! Multi-resume merge with conflicts.
+#![allow(missing_docs)]
+
 use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};

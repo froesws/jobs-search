@@ -1,3 +1,6 @@
+//! Structured log event model.
+#![allow(missing_docs)]
+
 use std::collections::HashMap;
 
 use chrono::{SecondsFormat, Utc};

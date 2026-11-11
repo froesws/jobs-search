@@ -1,3 +1,6 @@
+//! Log sanitization.
+#![allow(missing_docs)]
+
 pub const MAX_MESSAGE_LEN: usize = 512;
 pub const MAX_IDENTIFIER_LEN: usize = 128;
 

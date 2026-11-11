@@ -1,3 +1,6 @@
+//! Runtime configuration.
+#![allow(missing_docs)]
+
 pub mod env;
 pub mod sources;
 

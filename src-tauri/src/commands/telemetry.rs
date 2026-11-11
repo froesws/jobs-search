@@ -1,3 +1,6 @@
+//! Local log health command.
+#![allow(missing_docs)]
+
 use tauri::State;
 
 use crate::telemetry::health::{HealthState, LogHealth};

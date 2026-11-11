@@ -1,3 +1,6 @@
+//! Environment and `.env` configuration.
+#![allow(missing_docs)]
+
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 

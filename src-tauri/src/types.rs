@@ -1,18 +1,25 @@
+//! Core domain types shared across the Tauri command boundary.
+
 use serde::{Deserialize, Serialize};
 
 /// Controlled work modality used by sources, storage, and matching.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "PascalCase")]
-/// Controlled work modality used by sources, storage, and matching.
+#[non_exhaustive]
 pub enum WorkModality {
+    /// Fully remote work.
     Remote,
+    /// Remote plus office days.
     Hybrid,
+    /// On-site presence required.
     Onsite,
+    /// Modality could not be determined.
     #[default]
     Unknown,
 }
 
 impl WorkModality {
+    /// Stable display string used for storage and matching.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Remote => "Remote",
@@ -22,6 +29,7 @@ impl WorkModality {
         }
     }
 
+    /// Parse from a raw source value, falling back to Unknown.
     pub fn parse(value: &str) -> Self {
         match value.trim().to_ascii_lowercase().as_str() {
             "remote" | "remoto" | "remota" => Self::Remote,
@@ -35,16 +43,22 @@ impl WorkModality {
 /// Seniority values accepted by the operator profile and the hard filters.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
-/// Seniority values accepted by the operator profile and the hard filters.
+#[non_exhaustive]
 pub enum Seniority {
+    /// Trainee level.
     Trainee,
+    /// Internship/estágio.
     Intern,
+    /// Junior level.
     Junior,
+    /// Mid level (pleno).
     Pleno,
+    /// Senior level.
     Senior,
 }
 
 impl Seniority {
+    /// Stable display string used for storage and matching.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Trainee => "Trainee",
@@ -55,6 +69,7 @@ impl Seniority {
         }
     }
 
+    /// Parse from a raw source value, returning None when unrecognized.
     pub fn parse(value: &str) -> Option<Self> {
         match value.trim().to_ascii_lowercase().as_str() {
             "trainee" => Some(Self::Trainee),
@@ -70,15 +85,18 @@ impl Seniority {
 /// Search timeframe accepted by the command contract.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[non_exhaustive]
-/// Search timeframe accepted by the command contract.
 pub enum SearchTimeframe {
+    /// Last 24 hours.
     H24,
+    /// Last 7 days (default).
     #[default]
     D7,
+    /// Last 30 days.
     D30,
 }
 
 impl SearchTimeframe {
+    /// The window length in hours.
     pub fn hours_old(self) -> u32 {
         match self {
             Self::H24 => 24,
@@ -91,26 +109,34 @@ impl SearchTimeframe {
 /// Feed tab selector.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-/// Feed tab selector.
+#[non_exhaustive]
 pub enum JobTab {
+    /// Approved matches feed.
     #[default]
     NewJobs,
+    /// Applied jobs.
     Applications,
+    /// Pending evaluations below the threshold.
     BelowThreshold,
 }
 
 /// Evaluation status is separate from the application lifecycle.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-/// Evaluation status is separate from the application lifecycle.
+#[non_exhaustive]
 pub enum EvaluationStatus {
+    /// Scored below the approval threshold.
     Pending,
+    /// Passed hard filters and the threshold.
     Approved,
+    /// Failed a hard filter.
     Rejected,
+    /// Evaluation could not complete.
     Error,
 }
 
 impl EvaluationStatus {
+    /// Wire representation stored in the database.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Pending => "PENDING",
@@ -120,6 +146,7 @@ impl EvaluationStatus {
         }
     }
 
+    /// Parse the wire representation, returning None when unrecognized.
     pub fn parse(value: &str) -> Option<Self> {
         match value {
             "PENDING" => Some(Self::Pending),
@@ -134,14 +161,18 @@ impl EvaluationStatus {
 /// Application lifecycle state, kept independent from evaluation status.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-/// Application lifecycle state, kept independent from evaluation status.
+#[non_exhaustive]
 pub enum LifecycleState {
+    /// Approved and awaiting a decision.
     Discovered,
+    /// Marked as applied.
     Applied,
+    /// Hidden by the operator.
     Ignored,
 }
 
 impl LifecycleState {
+    /// Wire representation stored in the database.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Discovered => "DISCOVERED",
@@ -154,11 +185,14 @@ impl LifecycleState {
 /// Sanitized hard-filter rejection stored with an evaluation.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HardFilterRejection {
+    /// Machine-readable reason code.
     pub code: String,
+    /// Sanitized human-readable reason.
     pub message: String,
 }
 
 impl HardFilterRejection {
+    /// Build a rejection from a reason code and a sanitized message.
     pub fn new(code: impl Into<String>, message: impl Into<String>) -> Self {
         Self {
             code: code.into(),

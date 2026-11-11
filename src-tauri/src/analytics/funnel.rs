@@ -17,6 +17,7 @@ const BUCKETS: [(&str, i64, i64); 6] = [
     ("90-100", 90, 100),
 ];
 
+/// Bucket eligible scores into the six fixed ranges.
 pub fn score_distribution(jobs: &[crate::analytics::EligibleJob]) -> Vec<ScoreBucket> {
     BUCKETS
         .iter()
@@ -33,6 +34,7 @@ pub fn score_distribution(jobs: &[crate::analytics::EligibleJob]) -> Vec<ScoreBu
         .collect()
 }
 
+/// Aggregate the lifecycle funnel for a scope.
 pub fn compute_funnel(
     db: &Db,
     scope: AnalyticsScope,
@@ -156,6 +158,7 @@ fn rate(numerator: i64, denominator: i64) -> f64 {
     }
 }
 
+/// Aggregate LLM calls, outcomes, fallbacks, and latency percentiles.
 pub fn llm_metrics(
     db: &Db,
     scope: AnalyticsScope,

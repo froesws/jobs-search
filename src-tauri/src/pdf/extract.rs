@@ -1,3 +1,6 @@
+//! Safe PDF text extraction.
+#![allow(missing_docs)]
+
 use std::path::Path;
 
 use zeroize::Zeroizing;

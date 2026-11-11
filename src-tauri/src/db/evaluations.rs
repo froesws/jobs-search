@@ -1,3 +1,6 @@
+//! Evaluation persistence and stale marking.
+#![allow(missing_docs)]
+
 use std::collections::BTreeMap;
 
 use rusqlite::params;

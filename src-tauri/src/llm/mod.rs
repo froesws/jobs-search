@@ -1,3 +1,6 @@
+//! LLM provider assembly and routing.
+#![allow(missing_docs)]
+
 pub mod deepseek;
 pub mod gemini;
 pub mod openrouter;

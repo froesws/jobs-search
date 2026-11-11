@@ -1,3 +1,6 @@
+//! Analytics payload and CSV export commands.
+#![allow(missing_docs)]
+
 use tauri::State;
 
 use crate::analytics::{

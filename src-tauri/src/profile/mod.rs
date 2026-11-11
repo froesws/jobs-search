@@ -1,3 +1,6 @@
+//! Candidate profile domain model.
+#![allow(missing_docs)]
+
 pub mod fixture;
 pub mod merge;
 pub mod schema;

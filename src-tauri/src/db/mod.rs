@@ -1,3 +1,6 @@
+//! SQLite persistence layer.
+#![allow(missing_docs)]
+
 pub mod applications;
 pub mod connection;
 pub mod evaluations;

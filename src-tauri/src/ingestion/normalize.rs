@@ -1,3 +1,6 @@
+//! Cleaning and controlled normalization.
+#![allow(missing_docs)]
+
 use crate::dedup::identity::canonical_identity;
 use crate::error::AppError;
 use crate::ingestion::adapter::{NormalizedJob, RawJob};

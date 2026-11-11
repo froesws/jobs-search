@@ -1,3 +1,6 @@
+//! Canonical identity derivation and hashing.
+#![allow(missing_docs)]
+
 use sha2::{Digest, Sha256};
 
 /// The stable identity of a canonical job posting.

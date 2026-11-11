@@ -1,3 +1,6 @@
+//! Shared Tauri application state.
+#![allow(missing_docs)]
+
 use crate::config::AppConfig;
 use crate::db::Db;
 use crate::error::AppError;

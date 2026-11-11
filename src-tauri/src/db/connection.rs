@@ -1,3 +1,6 @@
+//! Thread-safe SQLite connection.
+#![allow(missing_docs)]
+
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;

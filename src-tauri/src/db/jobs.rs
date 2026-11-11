@@ -1,3 +1,6 @@
+//! Job postings, lineage, and feed queries.
+#![allow(missing_docs)]
+
 use std::collections::BTreeMap;
 
 use rusqlite::{OptionalExtension, params};

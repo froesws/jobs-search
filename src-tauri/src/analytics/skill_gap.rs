@@ -28,6 +28,7 @@ pub fn normalize_skill(value: &str) -> String {
     }
 }
 
+/// Human-friendly casing for a normalized skill key.
 #[must_use]
 pub fn display_name(key: &str) -> String {
     match key {

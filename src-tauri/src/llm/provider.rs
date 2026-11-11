@@ -1,3 +1,6 @@
+//! Provider trait, plans, and fallback routing.
+#![allow(missing_docs)]
+
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 

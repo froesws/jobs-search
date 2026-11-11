@@ -1,3 +1,6 @@
+//! Job source registry persistence.
+#![allow(missing_docs)]
+
 use rusqlite::params;
 
 use crate::config::SourceConfig;

@@ -1,3 +1,6 @@
+//! Log store health snapshot.
+#![allow(missing_docs)]
+
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 

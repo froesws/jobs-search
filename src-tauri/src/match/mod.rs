@@ -1,3 +1,6 @@
+//! Evaluation orchestration.
+#![allow(missing_docs)]
+
 pub mod filters;
 pub mod score;
 

@@ -1,3 +1,6 @@
+//! Profile and resume commands.
+#![allow(missing_docs)]
+
 use std::path::Path;
 
 use async_trait::async_trait;

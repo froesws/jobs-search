@@ -1,3 +1,5 @@
+//! Analytics aggregation for dashboards and CSV export.
+
 pub mod csv;
 pub mod funnel;
 pub mod skill_gap;
@@ -13,123 +15,185 @@ use crate::types::{JobId, RunId};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+/// Scope for analytics aggregation.
 #[non_exhaustive]
 pub enum AnalyticsScope {
+    /// The latest completed run.
     CurrentRun,
+    /// Evaluations from the last 7 days.
     Last7Days,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 /// Analytics query: scope plus an optional run for CURRENT_RUN.
 pub struct AnalyticsRequest {
+    /// The selected scope.
     pub scope: AnalyticsScope,
     #[serde(default)]
+    /// The run for CURRENT_RUN, when applicable.
     pub run_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
 /// Full analytics response for one scope.
 pub struct AnalyticsPayload {
+    /// The selected scope.
     pub scope: AnalyticsScope,
+    /// The run for CURRENT_RUN, when applicable.
     pub run_id: Option<String>,
+    /// Total eligible jobs in scope.
     pub denominator: u32,
+    /// Most recent evaluation time (UTC).
     pub last_updated: String,
+    /// True when eligible evaluations are stale.
     pub stale: bool,
+    /// Ranked missing-skill demand.
     pub skill_gap: Vec<SkillGapMetric>,
+    /// Funnel counts, rates, and breakdowns.
     pub funnel: FunnelPayload,
+    /// Evaluated scores by bucket.
     pub score_distribution: Vec<ScoreBucket>,
+    /// LLM call counts and latency.
     pub llm_metrics: LlmMetricsPayload,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
 /// One ranked missing-skill demand entry.
 pub struct SkillGapMetric {
+    /// Normalized skill key.
     pub skill: String,
+    /// Consistent display casing.
     pub display_name: String,
+    /// Jobs missing this skill, counted once per job.
     pub demand_count: u32,
+    /// Demand count over the denominator, in percent.
     pub demand_percentage: f64,
+    /// Position after ranking.
     pub rank: u32,
 }
 
 #[derive(Debug, Clone, Default, Serialize)]
 /// Funnel counts, rates, and breakdowns for one scope.
 pub struct FunnelPayload {
+    /// Postings fetched.
     pub ingested: i64,
+    /// Duplicate postings merged.
     pub duplicates: i64,
+    /// Hard-filter rejections by reason.
     pub rejected_by_reason: BTreeMap<String, i64>,
+    /// Scored below the threshold.
     pub pending: i64,
+    /// Passed the threshold.
     pub approved: i64,
+    /// Evaluations that failed.
     pub error: i64,
+    /// Jobs marked applied.
     pub applied: i64,
+    /// Jobs ignored by the operator.
     pub ignored: i64,
+    /// Approved divided by evaluated, in percent.
     pub approval_rate: f64,
+    /// Applied divided by approved, in percent.
     pub application_rate: f64,
+    /// Failures reported by sources.
     pub source_failures: Vec<String>,
+    /// Counts by source.
     pub source_breakdown: BTreeMap<String, i64>,
+    /// Counts by provider/model.
     pub provider_breakdown: BTreeMap<String, i64>,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 /// Score range and the count of evaluated jobs in it.
 pub struct ScoreBucket {
+    /// Score bucket label.
     pub range: String,
+    /// Jobs in the bucket.
     pub count: i64,
 }
 
 #[derive(Debug, Clone, Default, Serialize)]
 /// LLM call counts and latency percentiles for one scope.
 pub struct LlmMetricsPayload {
+    /// Total calls.
     pub call_count: i64,
+    /// Successful calls.
     pub success_count: i64,
+    /// Failed calls.
     pub error_count: i64,
+    /// Calls that used a fallback provider/model.
     pub fallback_count: i64,
+    /// Median latency in milliseconds.
     pub p50_latency_ms: i64,
+    /// 95th percentile latency in milliseconds.
     pub p95_latency_ms: i64,
+    /// Per provider/model metrics.
     pub by_provider: Vec<ProviderMetric>,
 }
 
 #[derive(Debug, Clone, Serialize)]
 /// Per provider/model LLM call metrics.
 pub struct ProviderMetric {
+    /// Provider name.
     pub provider: String,
+    /// Model identifier.
     pub model: String,
+    /// Total calls.
     pub call_count: i64,
+    /// Successful calls.
     pub success_count: i64,
+    /// Failed calls.
     pub error_count: i64,
+    /// Calls that used a fallback provider/model.
     pub fallback_count: i64,
+    /// Median latency in milliseconds.
     pub p50_latency_ms: i64,
+    /// 95th percentile latency in milliseconds.
     pub p95_latency_ms: i64,
 }
 
 #[derive(Debug, Clone, Serialize)]
 /// CSV export outcome: local path, row count, and byte size.
 pub struct ExportResult {
+    /// Local destination path.
     pub path: String,
+    /// Exported job rows.
     pub rows: u32,
+    /// File size in bytes.
     pub bytes: u64,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 /// CSV export request with an operator-selected local destination.
 pub struct ExportRequest {
+    /// The selected scope.
     pub scope: AnalyticsScope,
     #[serde(default)]
+    /// The run for CURRENT_RUN, when applicable.
     pub run_id: Option<String>,
+    /// Operator-selected local path.
     pub destination: String,
 }
 
-/// Placeholder until the CSV writer lands.
+/// Export the analytics CSV for a scope to a local destination.
 pub fn export_csv(db: &Db, request: ExportRequest) -> Result<ExportResult, AppError> {
     csv::export(db, request)
 }
 
+/// One evaluation included in analytics aggregation.
 #[derive(Debug, Clone)]
 pub struct EligibleJob {
+    /// Stable job identifier.
     pub job_id: JobId,
+    /// Evaluation time (UTC).
     pub evaluated_at: Option<String>,
+    /// Skills the profile lacks for this job.
     pub missing_keywords: Vec<String>,
+    /// Skills matched by the profile.
     pub matched_keywords: Vec<String>,
+    /// 0-100 match score, when evaluated.
     pub score: Option<i64>,
+    /// True when the evaluation predates a profile change.
     pub stale: bool,
 }
 

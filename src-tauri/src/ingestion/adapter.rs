@@ -1,3 +1,6 @@
+//! Source adapter contract and normalized payloads.
+#![allow(missing_docs)]
+
 use async_trait::async_trait;
 use zeroize::Zeroizing;
 

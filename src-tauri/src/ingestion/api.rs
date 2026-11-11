@@ -1,3 +1,6 @@
+//! Rust-native RemoteOK adapter.
+#![allow(missing_docs)]
+
 use std::time::Duration;
 
 use async_trait::async_trait;

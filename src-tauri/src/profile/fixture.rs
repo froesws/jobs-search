@@ -1,3 +1,6 @@
+//! Synthetic first-milestone fixture profile.
+#![allow(missing_docs)]
+
 use std::path::Path;
 
 use crate::error::AppError;

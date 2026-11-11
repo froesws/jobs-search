@@ -1,3 +1,6 @@
+//! Job feed, lifecycle, and audit commands.
+#![allow(missing_docs)]
+
 use tauri::State;
 
 use crate::db::applications::{self, JobApplication, JobEvaluationView};

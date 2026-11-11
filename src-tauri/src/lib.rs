@@ -1,10 +1,17 @@
+//! Jobs Search desktop application: multi-source job discovery, LLM-powered
+//! evaluation, and application tracking.
+
+#![warn(missing_docs)]
+
 use tauri::Manager;
 
+/// Dashboards, funnels, and CSV export.
 pub mod analytics;
 pub mod commands;
 pub mod config;
 pub mod db;
 pub mod dedup;
+/// Application error type and wire payload.
 pub mod error;
 pub mod ingestion;
 pub mod llm;
@@ -14,9 +21,11 @@ pub mod pdf;
 pub mod profile;
 pub mod state;
 pub mod telemetry;
+/// Core domain types shared across the command boundary.
 pub mod types;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
+/// Bootstrap and run the Tauri application.
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())

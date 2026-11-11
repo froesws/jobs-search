@@ -1,3 +1,6 @@
+//! Model prompts with delimited untrusted data.
+#![allow(missing_docs)]
+
 use crate::llm::provider::EvaluationInput;
 
 pub const SYSTEM_PROMPT: &str = r#"You are a job-requirement evidence extractor.

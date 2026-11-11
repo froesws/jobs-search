@@ -1,3 +1,6 @@
+//! Telemetry configuration from the environment.
+#![allow(missing_docs)]
+
 use std::path::PathBuf;
 
 use crate::telemetry::event::Level;

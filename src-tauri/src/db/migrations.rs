@@ -1,3 +1,6 @@
+//! Embedded schema migrations.
+#![allow(missing_docs)]
+
 use rusqlite::Connection;
 
 use crate::error::AppError;

@@ -1,3 +1,6 @@
+//! Bounded oldest-first event queue.
+#![allow(missing_docs)]
+
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Condvar, Mutex};

@@ -1,3 +1,6 @@
+//! JSON Lines writer with rotation and retention.
+#![allow(missing_docs)]
+
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};

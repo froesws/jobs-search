@@ -1,3 +1,6 @@
+//! Search trigger and filter resolution.
+#![allow(missing_docs)]
+
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};

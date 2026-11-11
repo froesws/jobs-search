@@ -9,6 +9,7 @@ use crate::analytics::{
 use crate::db::Db;
 use crate::error::AppError;
 
+/// Write the analytics CSV for a scope to a local destination.
 pub fn export(db: &Db, request: ExportRequest) -> Result<ExportResult, AppError> {
     let destination = Path::new(&request.destination);
     if destination.extension().and_then(|value| value.to_str()) != Some("csv") {

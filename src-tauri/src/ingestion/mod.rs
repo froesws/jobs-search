@@ -1,3 +1,6 @@
+//! Concurrent multi-source ingestion.
+#![allow(missing_docs)]
+
 pub mod adapter;
 pub mod api;
 pub mod mcp;

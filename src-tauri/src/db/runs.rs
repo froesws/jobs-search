@@ -1,3 +1,6 @@
+//! Execution runs, metrics, and audit.
+#![allow(missing_docs)]
+
 use std::collections::BTreeMap;
 
 use rusqlite::{OptionalExtension, params};

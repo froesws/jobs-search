@@ -1,3 +1,6 @@
+//! Evaluation evidence schema boundary.
+#![allow(missing_docs)]
+
 use std::collections::HashSet;
 
 use serde::{Deserialize, Serialize};

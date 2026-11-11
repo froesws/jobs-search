@@ -1,3 +1,6 @@
+//! JobSpy MCP stdio client.
+#![allow(missing_docs)]
+
 use std::process::Stdio;
 use std::time::Duration;
 

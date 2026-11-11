@@ -1,3 +1,6 @@
+//! HTTP transport shared by the LLM providers.
+#![allow(missing_docs)]
+
 use std::time::Duration;
 
 use reqwest::header::{HeaderMap, HeaderValue};

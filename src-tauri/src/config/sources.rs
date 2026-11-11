@@ -1,3 +1,6 @@
+//! Job source configuration from `sources.yaml`.
+#![allow(missing_docs)]
+
 use std::collections::HashSet;
 use std::path::Path;
 

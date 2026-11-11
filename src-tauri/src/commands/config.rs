@@ -1,3 +1,6 @@
+//! Active LLM provider command.
+#![allow(missing_docs)]
+
 use serde::Serialize;
 use tauri::State;
 

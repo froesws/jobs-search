@@ -1,3 +1,6 @@
+//! Local structured logging.
+#![allow(missing_docs)]
+
 pub mod config;
 pub mod event;
 pub mod health;
