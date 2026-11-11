@@ -60,6 +60,8 @@ pub fn run() {
             commands::analytics::cmd_get_analytics,
             commands::analytics::cmd_export_analytics_csv,
         ])
+        // Panicking here is intentional: a missing Tauri context is a build or
+        // packaging invariant, not a recoverable runtime condition.
         .run(tauri::generate_context!())
         .expect("error while running Jobs Search");
 }
