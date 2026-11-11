@@ -381,11 +381,17 @@ pub fn list_summaries(
             "WHERE e.evaluation_status = 'APPROVED'
              AND COALESCE(e.stale, 0) = 0
              AND COALESCE(a.lifecycle_state, 'DISCOVERED') <> 'IGNORED'",
-            "ORDER BY e.match_score DESC, e.total_requirements_count DESC, j.updated_at ASC, j.id ASC",
+            "ORDER BY e.match_score DESC,
+                      COALESCE(CAST(json_extract(e.score_breakdown_json, '$.core_technical.contribution') AS REAL), 0) DESC,
+                      COALESCE((SELECT MAX(l.ingested_at) FROM job_posting_sources l WHERE l.job_id = j.id), j.updated_at) DESC,
+                      j.title COLLATE NOCASE ASC, j.id ASC",
         ),
         JobTab::BelowThreshold => (
             "WHERE e.evaluation_status = 'PENDING' AND COALESCE(e.stale, 0) = 0",
-            "ORDER BY e.match_score DESC, e.total_requirements_count DESC, j.updated_at ASC, j.id ASC",
+            "ORDER BY e.match_score DESC,
+                      COALESCE(CAST(json_extract(e.score_breakdown_json, '$.core_technical.contribution') AS REAL), 0) DESC,
+                      COALESCE((SELECT MAX(l.ingested_at) FROM job_posting_sources l WHERE l.job_id = j.id), j.updated_at) DESC,
+                      j.title COLLATE NOCASE ASC, j.id ASC",
         ),
         JobTab::Applications => (
             "WHERE a.lifecycle_state = 'APPLIED'",
@@ -679,5 +685,72 @@ mod tests {
         add_lineage(&db, &first.job_id, "jobspy", "li-1", "https://a/1").expect("lineage");
         add_lineage(&db, &first.job_id, "jobspy", "li-1", "https://a/1").expect("lineage repeat");
         assert_eq!(lineage(&db, &first.job_id).expect("lineage").len(), 1);
+    }
+
+    #[test]
+    fn approved_feed_uses_documented_tie_breaker() {
+        let db = Db::open_in_memory().expect("db");
+        crate::db::sources::upsert_source(
+            &db,
+            &crate::config::SourceConfig {
+                id: "src".to_string(),
+                name: "src".to_string(),
+                source_type: crate::config::SourceType::Api,
+                enabled: true,
+                config: serde_yaml::from_str("base_url: https://example.com").expect("config"),
+                rate_limit: crate::config::RateLimitConfig::default(),
+                credential_ref: None,
+            },
+        )
+        .expect("source");
+        let run = crate::db::runs::start_run(&db, "{}").expect("run");
+
+        for (title, core, ingested) in [
+            ("Alpha", 40.0, "2026-01-01T00:00:00Z"),
+            ("Beta", 20.0, "2026-01-03T00:00:00Z"),
+            ("Gamma", 40.0, "2026-01-02T00:00:00Z"),
+            ("Delta", 40.0, "2026-01-02T00:00:00Z"),
+        ] {
+            let job = upsert_job(&db, &test_job(title)).expect("job");
+            add_lineage(&db, &job.job_id, "src", title, "https://example.com/1").expect("lineage");
+            db.with_connection(|connection| {
+                connection.execute(
+                    "UPDATE job_posting_sources SET ingested_at = ?1 WHERE job_id = ?2",
+                    rusqlite::params![ingested, job.job_id],
+                )?;
+                Ok(())
+            })
+            .expect("timestamp");
+            crate::db::evaluations::upsert_evaluation(
+                &db,
+                &crate::db::evaluations::EvaluationRecord {
+                    job_id: job.job_id,
+                    run_id: run.run_id.clone(),
+                    profile_version: 1,
+                    status: EvaluationStatus::Approved,
+                    score: Some(80),
+                    matching_items: Some(1),
+                    total_requirements: Some(1),
+                    breakdown: Some(serde_json::json!({
+                        "core_technical": {"contribution": core},
+                    })),
+                    matched_keywords: Vec::new(),
+                    missing_keywords: Vec::new(),
+                    rejections: Vec::new(),
+                    provider: None,
+                    model: None,
+                    threshold: 70,
+                },
+            )
+            .expect("evaluation");
+        }
+
+        let page = list_summaries(&db, JobTab::NewJobs, 10, 0).expect("page");
+        let titles = page
+            .items
+            .iter()
+            .map(|item| item.title.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(titles, ["Delta", "Gamma", "Alpha", "Beta"]);
     }
 }
