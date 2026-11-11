@@ -63,6 +63,21 @@ describe('ProviderIndicator', () => {
     expect(onOpenSettings).toHaveBeenCalled();
   });
 
+  it('skips providers with no configured model', () => {
+    const config: ProviderConfigView = {
+      ...providerConfigFixture,
+      order: ['ollama'],
+      providers: providerConfigFixture.providers.map((provider) =>
+        provider.id === 'ollama' ? { ...provider, model: null, models: null } : provider,
+      ),
+    };
+    const { onOpenSettings } = renderIndicator({ config });
+    fireEvent.click(screen.getByRole('button', { name: 'Provider and model' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /No provider configured/ }));
+
+    expect(onOpenSettings).toHaveBeenCalled();
+  });
+
   it('surfaces a configuration error on the button', () => {
     renderIndicator({ active: null, error: 'no provider', config: null });
     expect(screen.getByRole('button', { name: 'Provider and model' })).toHaveTextContent(
