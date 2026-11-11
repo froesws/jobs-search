@@ -90,22 +90,94 @@ pub async fn trigger(state: &AppState, filters: SearchFilters) -> Result<SearchM
     let search_config_json = serde_json::to_string(&filters)?;
     let run = crate::db::runs::start_run(&state.db, &search_config_json)?;
 
-    let mut adapters: Vec<Arc<dyn SourceAdapter>> = Vec::new();
-    let mut initial_failures: Vec<SourceFailure> = Vec::new();
+    let ingestion = ingest_jobs(state, &enabled, &filters).await?;
+    let router = llm::router_from_config(&state.config, state.http.clone());
+    let settings = crate::matching::EvaluationSettings {
+        threshold: state.config.match_threshold,
+        max_jobs: state.config.max_evaluations,
+        concurrency: state.config.max_concurrency,
+    };
+    let summary =
+        crate::matching::evaluate_run(&state.db, &run.run_id, &profile, &router, &settings).await?;
+
+    let status = if summary.fatal_provider_error
+        || !ingestion.adapters_built
+        || (ingestion.total_ingested == 0 && !ingestion.failures.is_empty())
+    {
+        "FAILED"
+    } else if ingestion.failures.is_empty() && summary.error == 0 {
+        "SUCCESS"
+    } else {
+        "PARTIAL"
+    };
 
     for source in &enabled {
+        let failed = ingestion
+            .failures
+            .iter()
+            .any(|failure| failure.source_id == source.id);
+        let last_status = if failed { "FAILED" } else { "SUCCESS" };
+        crate::db::sources::set_last_run_status(&state.db, &source.id, last_status)?;
+    }
+
+    let source_failure_messages = ingestion
+        .failures
+        .iter()
+        .map(|failure| format!("{}: {}", failure.code, failure.message))
+        .collect::<Vec<_>>();
+
+    let source_breakdown = crate::db::jobs::source_breakdown_since(&state.db, &run.started_at)?;
+    let score_distribution = crate::db::evaluations::score_distribution(&state.db)?;
+
+    let mut metrics = crate::db::runs::finish_run(
+        &state.db,
+        &RunFinish {
+            run_id: &run.run_id,
+            status,
+            total_ingested: ingestion.total_ingested,
+            duplicates_merged: ingestion.duplicates_merged,
+            rejected_count: summary.rejected,
+            pending_count: summary.pending,
+            approved_count: summary.approved,
+            error_count: summary.error,
+            source_failures: source_failure_messages,
+            rejected_by_reason: summary.rejected_by_reason,
+            score_distribution,
+            source_breakdown,
+        },
+    )?;
+    metrics.started_at = run.started_at;
+    Ok(metrics)
+}
+
+struct IngestionResult {
+    total_ingested: i64,
+    duplicates_merged: i64,
+    failures: Vec<SourceFailure>,
+    adapters_built: bool,
+}
+
+async fn ingest_jobs(
+    state: &AppState,
+    enabled: &[&SourceConfig],
+    filters: &SearchFilters,
+) -> Result<IngestionResult, AppError> {
+    let mut adapters: Vec<Arc<dyn SourceAdapter>> = Vec::new();
+    let mut failures: Vec<SourceFailure> = Vec::new();
+
+    for source in enabled {
         if !filters.source_ids.is_empty() && !filters.source_ids.contains(&source.id) {
             continue;
         }
         match build_adapter(source) {
             Ok(adapter) => adapters.push(adapter),
-            Err(failure) => initial_failures.push(failure),
+            Err(failure) => failures.push(failure),
         }
     }
 
+    let adapters_built = !adapters.is_empty();
     let request = filters.ingestion_request();
     let outcome = ingest(&adapters, &request).await;
-    let mut failures = initial_failures;
     failures.extend(outcome.failures());
     let total_ingested = outcome.total_fetched() as i64;
 
@@ -152,61 +224,12 @@ pub async fn trigger(state: &AppState, filters: SearchFilters) -> Result<SearchM
         }
     }
 
-    let router = llm::router_from_config(&state.config, state.http.clone());
-    let settings = crate::matching::EvaluationSettings {
-        threshold: state.config.match_threshold,
-        max_jobs: state.config.max_evaluations,
-        concurrency: state.config.max_concurrency,
-    };
-    let summary =
-        crate::matching::evaluate_run(&state.db, &run.run_id, &profile, &router, &settings).await?;
-
-    let status = if summary.fatal_provider_error
-        || adapters.is_empty()
-        || (total_ingested == 0 && !failures.is_empty())
-    {
-        "FAILED"
-    } else if failures.is_empty() && summary.error == 0 {
-        "SUCCESS"
-    } else {
-        "PARTIAL"
-    };
-
-    for source in &enabled {
-        let failed = failures
-            .iter()
-            .any(|failure| failure.source_id == source.id);
-        let last_status = if failed { "FAILED" } else { "SUCCESS" };
-        crate::db::sources::set_last_run_status(&state.db, &source.id, last_status)?;
-    }
-
-    let source_failure_messages = failures
-        .iter()
-        .map(|failure| format!("{}: {}", failure.code, failure.message))
-        .collect::<Vec<_>>();
-
-    let source_breakdown = crate::db::jobs::source_breakdown_since(&state.db, &run.started_at)?;
-    let score_distribution = crate::db::evaluations::score_distribution(&state.db)?;
-
-    let mut metrics = crate::db::runs::finish_run(
-        &state.db,
-        &RunFinish {
-            run_id: &run.run_id,
-            status,
-            total_ingested,
-            duplicates_merged,
-            rejected_count: summary.rejected,
-            pending_count: summary.pending,
-            approved_count: summary.approved,
-            error_count: summary.error,
-            source_failures: source_failure_messages,
-            rejected_by_reason: summary.rejected_by_reason,
-            score_distribution,
-            source_breakdown,
-        },
-    )?;
-    metrics.started_at = run.started_at;
-    Ok(metrics)
+    Ok(IngestionResult {
+        total_ingested,
+        duplicates_merged,
+        failures,
+        adapters_built,
+    })
 }
 
 fn build_adapter(source: &SourceConfig) -> Result<Arc<dyn SourceAdapter>, SourceFailure> {
@@ -215,9 +238,11 @@ fn build_adapter(source: &SourceConfig) -> Result<Arc<dyn SourceAdapter>, Source
             .map(|adapter| Arc::new(adapter) as Arc<dyn SourceAdapter>)
             .map_err(|error| failure(source, "MCP_CONFIG_ERROR", error.message())),
         crate::config::SourceType::Api => {
-            if source.id.to_ascii_lowercase().contains("remoteok")
-                || source.name.to_ascii_lowercase().contains("remoteok")
-            {
+            let adapter_kind = source.config_str("adapter").unwrap_or_default();
+            let is_remoteok = adapter_kind == "remoteok"
+                || source.id.to_ascii_lowercase().contains("remoteok")
+                || source.name.to_ascii_lowercase().contains("remoteok");
+            if is_remoteok {
                 RemoteOkAdapter::from_config(source)
                     .map(|adapter| Arc::new(adapter) as Arc<dyn SourceAdapter>)
                     .map_err(|error| failure(source, "API_CONFIG_ERROR", error.message()))
@@ -225,7 +250,7 @@ fn build_adapter(source: &SourceConfig) -> Result<Arc<dyn SourceAdapter>, Source
                 Err(failure(
                     source,
                     "UNSUPPORTED_SOURCE",
-                    "API source is not supported in this milestone".to_string(),
+                    format!("API adapter '{adapter_kind}' is not supported"),
                 ))
             }
         }

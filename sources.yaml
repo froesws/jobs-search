@@ -23,6 +23,7 @@ sources:
     config:
       base_url: 'https://remoteok.com/api'
       results_wanted: 50
+      adapter: remoteok
     rate_limit:
       requests_per_minute: 10
       max_retries: 2
