@@ -164,6 +164,85 @@ export interface ExecutionAudit {
   provider_breakdown: Record<string, number>;
 }
 
+export type AnalyticsScope = 'CURRENT_RUN' | 'LAST_7_DAYS';
+
+export interface AnalyticsRequest {
+  scope: AnalyticsScope;
+  run_id?: string | null;
+}
+
+export interface SkillGapMetric {
+  skill: string;
+  display_name: string;
+  demand_count: number;
+  demand_percentage: number;
+  rank: number;
+}
+
+export interface FunnelPayload {
+  ingested: number;
+  duplicates: number;
+  rejected_by_reason: Record<string, number>;
+  pending: number;
+  approved: number;
+  applied: number;
+  ignored: number;
+  approval_rate: number;
+  application_rate: number;
+  source_breakdown: Record<string, number>;
+  provider_breakdown: Record<string, number>;
+}
+
+export interface ScoreBucket {
+  range: string;
+  count: number;
+}
+
+export interface ProviderMetric {
+  provider: string;
+  model: string;
+  call_count: number;
+  success_count: number;
+  error_count: number;
+  fallback_count: number;
+  p50_latency_ms: number;
+  p95_latency_ms: number;
+}
+
+export interface LlmMetricsPayload {
+  call_count: number;
+  success_count: number;
+  error_count: number;
+  fallback_count: number;
+  p50_latency_ms: number;
+  p95_latency_ms: number;
+  by_provider: ProviderMetric[];
+}
+
+export interface AnalyticsPayload {
+  scope: AnalyticsScope;
+  run_id: string | null;
+  denominator: number;
+  last_updated: string;
+  stale: boolean;
+  skill_gap: SkillGapMetric[];
+  funnel: FunnelPayload;
+  score_distribution: ScoreBucket[];
+  llm_metrics: LlmMetricsPayload;
+}
+
+export interface ExportRequest {
+  scope: AnalyticsScope;
+  run_id?: string | null;
+  destination: string;
+}
+
+export interface ExportResult {
+  path: string;
+  rows: number;
+  bytes: number;
+}
+
 export const DEFAULT_FILTERS: SearchFilters = {
   titles: [],
   stack_keyword: '',
