@@ -83,49 +83,22 @@ pub fn apply_job(db: &Db, job_id: &JobId) -> Result<JobApplication, AppError> {
     }
 
     let previous = get_application(db, job_id)?;
-    let snapshot = snapshot_json(job_id, &evaluation);
     let now = now_rfc3339();
     let application = JobApplication {
         job_id: job_id.clone(),
         lifecycle_state: "APPLIED".to_string(),
         applied_at: Some(now.clone()),
         approval_source: evaluation.approval_source.clone(),
-        evaluation_snapshot_json: snapshot.clone(),
+        evaluation_snapshot_json: snapshot_json(job_id, &evaluation),
     };
-
-    db.with_connection_mut(|connection| {
-        let transaction = connection.transaction()?;
-        transaction.execute(
-            "INSERT INTO job_applications
-             (job_id, lifecycle_state, applied_at, approval_source, evaluation_snapshot_json, updated_at)
-             VALUES (?1, 'APPLIED', ?2, ?3, ?4, ?2)
-             ON CONFLICT(job_id) DO UPDATE SET
-                lifecycle_state = 'APPLIED',
-                applied_at = excluded.applied_at,
-                approval_source = excluded.approval_source,
-                evaluation_snapshot_json = excluded.evaluation_snapshot_json,
-                updated_at = excluded.updated_at",
-            params![
-                job_id.as_str(),
-                now,
-                application.approval_source,
-                snapshot,
-            ],
-        )?;
-        append_event_with_connection(
-            &transaction,
-            job_id,
-            "APPLIED",
-            previous.as_ref().map(|value| value.lifecycle_state.as_str()),
-            "APPLIED",
-            Some("operator marked applied"),
-            &now,
-        )?;
-        transaction.commit()?;
-        Ok(())
-    })?;
-
-    Ok(application)
+    persist_application(
+        db,
+        &application,
+        &now,
+        "APPLIED",
+        Some("operator marked applied"),
+        previous.as_ref(),
+    )
 }
 
 pub fn ignore_job(db: &Db, job_id: &JobId) -> Result<JobApplication, AppError> {
@@ -166,9 +139,27 @@ fn transition(
         lifecycle_state: next.to_string(),
         applied_at,
         approval_source,
-        evaluation_snapshot_json: snapshot.clone(),
+        evaluation_snapshot_json: snapshot,
     };
+    persist_application(
+        db,
+        &application,
+        &now,
+        event_for_state(next),
+        Some(reason),
+        previous.as_ref(),
+    )
+}
 
+/// Upsert `job_applications` and append the lifecycle event atomically.
+fn persist_application(
+    db: &Db,
+    application: &JobApplication,
+    now: &str,
+    event_type: &str,
+    reason: Option<&str>,
+    previous: Option<&JobApplication>,
+) -> Result<JobApplication, AppError> {
     db.with_connection_mut(|connection| {
         let transaction = connection.transaction()?;
         transaction.execute(
@@ -182,28 +173,27 @@ fn transition(
                 evaluation_snapshot_json = excluded.evaluation_snapshot_json,
                 updated_at = excluded.updated_at",
             params![
-                job_id.as_str(),
+                application.job_id.as_str(),
                 application.lifecycle_state,
                 application.applied_at,
                 application.approval_source,
-                snapshot,
+                application.evaluation_snapshot_json,
                 now,
             ],
         )?;
         append_event_with_connection(
             &transaction,
-            job_id,
-            event_for_state(next),
-            previous.as_ref().map(|value| value.lifecycle_state.as_str()),
-            next,
-            Some(reason),
-            &now,
+            &application.job_id,
+            event_type,
+            previous.map(|value| value.lifecycle_state.as_str()),
+            &application.lifecycle_state,
+            reason,
+            now,
         )?;
         transaction.commit()?;
         Ok(())
     })?;
-
-    Ok(application)
+    Ok(application.clone())
 }
 
 /// Manually approve a PENDING evaluation. The original score and breakdown are
