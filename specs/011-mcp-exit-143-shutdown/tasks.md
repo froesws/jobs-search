@@ -239,7 +239,7 @@ reported servers, and know that the `VIRTUAL_ENV` warning is benign.
   `linkedin` one is third-party and cannot trap signals, and either can be
   disabled if duplicate servers are undesirable (path:
   `.opencode/opencode.jsonc`, `README.md`).
-- [ ] T017 [P] [US4] Add a safe cleanup recipe (no new script unless needed):
+- [x] T017 [P] [US4] Add a safe cleanup recipe (no new script unless needed):
   list `pid,ppid,pgid,args`, confirm the parent is the app/`opencode serve`, and
   never use `pkill -f linkedin`; scope termination to the child's process group
   (paths: `README.md`, `scripts/verify.sh`).

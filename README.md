@@ -184,6 +184,11 @@ trap signals in this repository; `linkedin-scraper-mcp` now exits `0` on
 `SIGTERM`/`SIGINT`. The `VIRTUAL_ENV=.venv does not match` warning is benign;
 app-spawned sidecars no longer inherit `VIRTUAL_ENV`.
 
+To stop a sidecar safely, list `pid`, `ppid`, and `pgid` first
+(`ps -o pid,ppid,pgid,args`) and confirm the parent is the app or
+`opencode serve`. Never use `pkill -f linkedin` or kill by command name; it can
+terminate an unrelated server that shares the same name.
+
 ## Commands
 
 ```bash
