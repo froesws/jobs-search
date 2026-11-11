@@ -73,7 +73,7 @@ independently testable.
 
 **Purpose**: Confirm the current gate before touching four unrelated areas.
 
-- [ ] T001 Run `./scripts/verify.sh` and record the exact passing/failing checks;
+- [x] T001 Run `./scripts/verify.sh` and record the exact passing/failing checks;
   do not start implementation while an unrelated failure is present (path:
   `scripts/verify.sh`).
 
@@ -339,3 +339,9 @@ is `PENDING`; setting `MATCH_THRESHOLD=70` restores the old boundary.
 - Threshold changes must stay within 0-100 and remain overridable through the
   environment.
 - Never commit `.env`; only `.env.example` is tracked.
+
+---
+
+## Execution Notes (2026-11-11)
+
+- **T001 baseline**: `./scripts/verify.sh` passed before the changes.
