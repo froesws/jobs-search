@@ -209,7 +209,7 @@ crash without exposing stderr.
   closed, append a sanitized `status=<code>`/`signal=<n>` to the existing
   `MCP_PIPE_FAILED` message and emit the existing ingestion telemetry event. Do
   not change the retryability or the error code.
-- [ ] T014 [US3] Run the MCP and telemetry suites and confirm the diagnostic is
+- [x] T014 [US3] Run the MCP and telemetry suites and confirm the diagnostic is
   present for a pre-handshake exit and absent for a normal successful exchange
   (paths: `src-tauri/src/ingestion/mcp.rs`,
   `src-tauri/src/ingestion/linkedin_mcp.rs`).
@@ -359,3 +359,4 @@ the docs, and cleanup cannot hit unrelated servers.
   with `shutting down on SIGTERM` on stderr.
 - **T006**: signal contract suites passed (jobspy 14, linkedin-scraper 11).
 - **T010**: child-environment tests passed (generic 8, LinkedIn 3).
+- **T014**: exit-status test passed; the message includes `status=143`.
