@@ -21,6 +21,7 @@ import { ErrorState } from '../components/ErrorState';
 import { FunnelCards } from '../components/FunnelCards';
 import { LlmMetricsTable } from '../components/LlmMetricsTable';
 import { LoadingState } from '../components/LoadingState';
+import { Metric } from '../components/Metric';
 import { ScoreDistribution } from '../components/ScoreDistribution';
 import { SkillGapList } from '../components/SkillGapList';
 
@@ -173,19 +174,6 @@ export function AnalyticsView() {
           </Button>
         </DialogActions>
       </Dialog>
-    </Box>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <Box sx={{ display: 'grid', gap: 0.25, minWidth: 120 }}>
-      <Typography variant="caption" color="text.secondary">
-        {label}
-      </Typography>
-      <Typography variant="body2" sx={{ fontWeight: 700 }}>
-        {value}
-      </Typography>
     </Box>
   );
 }
