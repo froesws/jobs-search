@@ -288,7 +288,7 @@ No `link` role for the posting remains.
   state that the original posting is opened by an "Open original posting"
   button, while the normalized URL remains visible and selectable below it; do
   not claim the URL is a link or that no button exists.
-- [ ] T026 [US4] Run and report exactly:
+- [X] T026 [US4] Run and report exactly:
   `npm test -- src/components/JobDrawer.test.tsx`, `npm run typecheck`,
   `npm run lint`, and `npm run format:check`. Fix only failures introduced by
   T021-T025 (`src/components/JobDrawer.tsx`,
@@ -300,6 +300,8 @@ No `link` role for the posting remains.
   text is selectable and wraps for a long URL. Repeat after `npm run tauri
   build` if a release build is available
   (`src/components/JobDrawer.tsx`).
+  **Note**: requires a desktop session with a default browser registered for
+  http/https; skipped in this headless session. Verify before shipping.
 
 **Checkpoint**: The button is the primary affordance, the copy fallback is
 preserved, and no navigation link remains.
