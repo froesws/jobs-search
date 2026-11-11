@@ -163,6 +163,22 @@ saved configuration is restored.
 
 ---
 
+## Phase 8: Bugfix — grey screen on startup
+
+**Reported**: the UI rendered only a grey screen. The console showed
+`TypeError: undefined is not an object (evaluating 'value.model')` raised from
+`ProviderConfigDialog`.
+
+**Root cause**: the dialog renders its provider cards even while closed, but the
+draft was only rebuilt when `open` became true. The configuration loads
+asynchronously, so the first render after it arrived read
+`draft.providers[provider.id]` for a provider that was not in the draft yet.
+
+- [X] T050 [US1] Guard the dialog draft with a per-provider fallback and keep it in sync with the loaded configuration while closed, in `src/components/ProviderConfigDialog.tsx`.
+- [X] T051 [P] [US1] Add a regression test that renders the dialog closed, then rerenders with a loaded configuration, in `src/components/ProviderConfigDialog.test.tsx`.
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies

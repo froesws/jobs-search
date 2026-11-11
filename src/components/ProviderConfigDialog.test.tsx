@@ -84,6 +84,16 @@ describe('ProviderConfigDialog', () => {
     });
   });
 
+  it('does not crash when the configuration arrives after the first render', () => {
+    const { rerender } = render(
+      <ProviderConfigDialog open={false} onClose={() => {}} state={state({ config: null })} />,
+    );
+
+    expect(() =>
+      rerender(<ProviderConfigDialog open={false} onClose={() => {}} state={state()} />),
+    ).not.toThrow();
+  });
+
   it('shows the configured state without revealing a key', () => {
     render(<ProviderConfigDialog open onClose={() => {}} state={state()} />);
 

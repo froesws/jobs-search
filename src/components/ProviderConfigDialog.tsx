@@ -45,6 +45,16 @@ interface Draft {
   providers: Record<string, ProviderDraft>;
 }
 
+function emptyDraft(provider: ProviderSettingView): ProviderDraft {
+  return {
+    model: provider.model ?? '',
+    models: provider.models ?? [],
+    baseUrl: provider.baseUrl ?? '',
+    attempts: provider.attempts,
+    enabled: provider.enabled,
+  };
+}
+
 function draftFrom(config: ProviderConfigState['config']): Draft {
   const providers: Record<string, ProviderDraft> = {};
   for (const provider of config?.providers ?? []) {
@@ -103,6 +113,14 @@ export function ProviderConfigDialog({
       void loadCatalog(provider.id, false).catch(() => undefined);
     }
   }, [open, providers, state.config, loadCatalog]);
+
+  // The configuration loads asynchronously, so the draft must follow it even
+  // while the dialog is closed. Without this the first render after the config
+  // arrives would read a provider that is not in the draft yet.
+  useEffect(() => {
+    if (open) return;
+    setDraft(draftFrom(state.config));
+  }, [open, state.config]);
 
   // Ollama has no static catalog: query the local server when the dialog opens
   // and pre-select the first model it reports.
@@ -342,7 +360,7 @@ export function ProviderConfigDialog({
 
           <Stack spacing={1.5}>
             {providers.map((provider) => {
-              const value = draft.providers[provider.id]!;
+              const value = draft.providers[provider.id] ?? emptyDraft(provider);
               const catalog = catalogFor(provider);
               return (
                 <Accordion
