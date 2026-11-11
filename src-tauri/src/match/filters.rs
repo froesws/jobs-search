@@ -52,11 +52,44 @@ pub fn check_with_criteria(
     } else {
         criteria.seniorities.clone()
     };
+    let mut selected_modalities = Vec::new();
+    let configured_modalities = if criteria.modalities.is_empty() {
+        vec![
+            WorkModality::Remote,
+            WorkModality::Hybrid,
+            WorkModality::Onsite,
+        ]
+    } else {
+        criteria.modalities.clone()
+    };
+    for modality in configured_modalities {
+        if !selected_modalities.contains(&modality) {
+            selected_modalities.push(modality);
+        }
+    }
+    let all_modalities_selected = selected_modalities.len() >= 3;
     let mut rejections = Vec::new();
     let text = format!("{} {} {}", job.title, job.location, job.description_clean);
     let normalized_text = normalize_text(&text);
     let modality = effective_modality(job, &text);
     let seniority = detect_seniority(&format!("{} {}", job.title, job.description_clean));
+
+    if modality == WorkModality::Unknown {
+        if !all_modalities_selected {
+            rejections.push(HardFilterRejection::new(
+                "MODALITY_NOT_ELIGIBLE",
+                "posting modality is unknown and the selected filters are restricted",
+            ));
+        }
+    } else if !selected_modalities.contains(&modality) {
+        rejections.push(HardFilterRejection::new(
+            "MODALITY_NOT_ELIGIBLE",
+            format!(
+                "modality {} is outside the selected filters",
+                modality.as_str()
+            ),
+        ));
+    }
 
     if !location_eligible(profile, job, &normalized_text, modality) {
         rejections.push(HardFilterRejection::new(

@@ -299,3 +299,122 @@ fn unknown_mandatory_criteria_are_recorded_as_gaps() {
     );
     assert!(known.passed);
 }
+
+#[test]
+fn selected_modalities_are_enforced_with_city_rules() {
+    let remote_only = SearchCriteria {
+        modalities: vec![WorkModality::Remote],
+        ..SearchCriteria::default()
+    };
+    assert!(
+        check_with_criteria(
+            &profile(),
+            &job(
+                "Rust Engineer",
+                "Remote - Brazil",
+                WorkModality::Remote,
+                "Rust",
+            ),
+            &remote_only,
+        )
+        .passed
+    );
+    for (title, location, modality) in [
+        ("Rust Engineer", "Porto Alegre", WorkModality::Hybrid),
+        ("Rust Engineer", "Curitiba", WorkModality::Onsite),
+    ] {
+        let result = check_with_criteria(
+            &profile(),
+            &job(title, location, modality, "Rust"),
+            &remote_only,
+        );
+        assert!(!result.passed);
+        assert!(
+            result
+                .rejections
+                .iter()
+                .any(|reason| reason.code == "MODALITY_NOT_ELIGIBLE")
+        );
+    }
+
+    let hybrid_only = SearchCriteria {
+        modalities: vec![WorkModality::Hybrid],
+        ..SearchCriteria::default()
+    };
+    assert!(
+        check_with_criteria(
+            &profile(),
+            &job(
+                "Rust Engineer",
+                "Porto Alegre",
+                WorkModality::Hybrid,
+                "Rust"
+            ),
+            &hybrid_only,
+        )
+        .passed
+    );
+    assert!(
+        !check_with_criteria(
+            &profile(),
+            &job(
+                "Rust Engineer",
+                "Remote - Brazil",
+                WorkModality::Remote,
+                "Rust"
+            ),
+            &hybrid_only,
+        )
+        .passed
+    );
+
+    let onsite_only = SearchCriteria {
+        modalities: vec![WorkModality::Onsite],
+        ..SearchCriteria::default()
+    };
+    assert!(
+        check_with_criteria(
+            &profile(),
+            &job("Rust Engineer", "Curitiba", WorkModality::Onsite, "Rust"),
+            &onsite_only,
+        )
+        .passed
+    );
+    let sao_paulo = check_with_criteria(
+        &profile(),
+        &job("Rust Engineer", "São Paulo", WorkModality::Onsite, "Rust"),
+        &onsite_only,
+    );
+    assert!(!sao_paulo.passed);
+    assert!(
+        sao_paulo
+            .rejections
+            .iter()
+            .any(|reason| reason.code == "LOCATION_NOT_ELIGIBLE")
+    );
+
+    let mut open_profile = profile();
+    open_profile.mandatory_criteria.clear();
+    let unknown = job(
+        "Rust Engineer",
+        "Porto Alegre",
+        WorkModality::Unknown,
+        "Rust",
+    );
+    let restricted = check_with_criteria(&open_profile, &unknown, &remote_only);
+    assert!(
+        restricted
+            .rejections
+            .iter()
+            .any(|reason| reason.code == "MODALITY_NOT_ELIGIBLE")
+    );
+    let all_modalities = SearchCriteria {
+        modalities: vec![
+            WorkModality::Remote,
+            WorkModality::Hybrid,
+            WorkModality::Onsite,
+        ],
+        ..SearchCriteria::default()
+    };
+    assert!(check_with_criteria(&open_profile, &unknown, &all_modalities).passed);
+}
