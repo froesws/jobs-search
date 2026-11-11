@@ -161,6 +161,61 @@ fn stale_evaluations_are_reported_with_last_updated() {
     assert_eq!(payload.denominator, 2);
 }
 
+#[test]
+fn funnel_and_csv_reconcile_with_seeded_records() {
+    let db = common::test_db();
+    let seed = common::analytics::seed_analytics(&db, 3, 2);
+    jobs_search_lib::db::runs::record_llm_metric(
+        &db,
+        &seed.run_id,
+        "deepseek",
+        "deepseek-chat",
+        "job_evaluation",
+        120,
+        "SUCCESS",
+        None,
+        None,
+    )
+    .expect("metric");
+
+    let payload = get_analytics(
+        &db,
+        AnalyticsRequest {
+            scope: AnalyticsScope::CurrentRun,
+            run_id: Some(seed.run_id.clone()),
+        },
+    )
+    .expect("analytics");
+    assert_eq!(payload.denominator, 3);
+    assert_eq!(payload.funnel.ingested, 3);
+    assert_eq!(payload.funnel.approved, 3);
+    assert_eq!(
+        payload.funnel.rejected_by_reason["SENIORITY_NOT_ELIGIBLE"],
+        1
+    );
+    assert_eq!(payload.llm_metrics.call_count, 1);
+    assert_eq!(payload.llm_metrics.success_count, 1);
+
+    let directory = tempfile::tempdir().expect("tempdir");
+    let path = directory.path().join("analytics.csv");
+    let result = jobs_search_lib::analytics::export_csv(
+        &db,
+        jobs_search_lib::analytics::ExportRequest {
+            scope: AnalyticsScope::CurrentRun,
+            run_id: Some(seed.run_id),
+            destination: path.display().to_string(),
+        },
+    )
+    .expect("export");
+    assert_eq!(result.rows, 3);
+
+    let text = std::fs::read_to_string(&path).expect("csv");
+    assert!(text.contains("description_clean"));
+    assert!(text.contains("Rust Engineer 0"));
+    assert!(text.contains("Kubernetes"));
+    assert!(!text.contains("description_raw"));
+}
+
 fn set_missing(db: &jobs_search_lib::db::Db, values: &[&[&str]]) {
     let ids = db
         .with_connection(|connection| {
