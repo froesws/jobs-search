@@ -6,6 +6,7 @@ stdout carries protocol messages only; diagnostics must go to stderr.
 from __future__ import annotations
 
 import json
+import signal
 import sys
 from typing import Any, Callable, TextIO
 
@@ -146,7 +147,21 @@ def serve(
 
 
 def main() -> None:
+    _install_signal_handlers()
     serve()
+
+
+def _install_signal_handlers() -> None:
+    """Exit 0 on SIGTERM/SIGINT so supervisors do not report a crash."""
+
+    def shutdown(signum: int, _frame: object) -> None:
+        name = signal.Signals(signum).name
+        print(f"shutting down on {name}", file=sys.stderr, flush=True)
+        sys.stdout.flush()
+        raise SystemExit(0)
+
+    for signum in (signal.SIGTERM, signal.SIGINT):
+        signal.signal(signum, shutdown)
 
 
 if __name__ == "__main__":

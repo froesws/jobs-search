@@ -128,7 +128,7 @@ one shutdown diagnostic on stderr.
 
 ### Implementation for User Story 1
 
-- [ ] T004 [US1] Add a `SIGTERM`/`SIGINT` handler in
+- [x] T004 [US1] Add a `SIGTERM`/`SIGINT` handler in
   `sidecar/jobspy_mcp/jobspy_mcp_server/server.py`: set a shutdown event used by
   `serve`, flush stdout, write one sanitized line to stderr, and exit 0; install
   it in `main()` before `serve()` and keep `serve` callable with `StringIO` in
