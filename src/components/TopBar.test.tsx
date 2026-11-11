@@ -87,6 +87,42 @@ describe('TopBar', () => {
     });
   });
 
+  it('aligns seniority and work type selector tops with neighboring fields', () => {
+    render(
+      <FeedbackProvider>
+        <TopBar
+          filters={DEFAULT_FILTERS}
+          onChange={() => {}}
+          onSearch={() => {}}
+          searching={false}
+          mode="dark"
+          onToggleMode={() => {}}
+        />
+      </FeedbackProvider>,
+    );
+
+    // The filter row wraps flex items starting at the same top edge.
+    expect(screen.getByTestId('filter-row')).toHaveStyle({
+      alignItems: 'flex-start',
+    });
+
+    // Selector wrappers stack caption above selector without extra top offset.
+    expect(screen.getByRole('group', { name: 'Seniority' })).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Work modality' })).toBeInTheDocument();
+
+    // No filter control carries a margin-top that would push its selector below
+    // its neighbors (Timeframe select / Stack field / seniority / work type).
+    const controls = [
+      screen.getByLabelText('Timeframe'),
+      screen.getByRole('group', { name: 'Seniority' }),
+      screen.getByLabelText('Stack or language'),
+      screen.getByRole('group', { name: 'Work modality' }),
+    ];
+    for (const control of controls) {
+      expect(control).toHaveStyle({ marginTop: '0px' });
+    }
+  });
+
   it('allows three seniority levels at once and removes a selected level', () => {
     const onChange = vi.fn();
     const { rerender } = render(

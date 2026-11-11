@@ -121,8 +121,8 @@ export function TopBar({
           pb: 2,
           pt: 0.5,
           flexWrap: 'wrap',
+          alignItems: 'flex-start',
         }}
-        style={{ alignItems: 'flex-start' }}
       >
         <FormControl size="small" sx={{ minWidth: 150 }}>
           <InputLabel id="timeframe-label">Timeframe</InputLabel>
