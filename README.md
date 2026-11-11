@@ -8,9 +8,11 @@ and presents ranked jobs in a MUI dashboard.
 
 ## Status
 
-Specification and planning are complete for the MVP. The application source has
-not been created yet. The current implementation plan is
-[`specs/004-telemetry-execution-logging/plan.md`](specs/004-telemetry-execution-logging/plan.md).
+The `001` backend core and the read-only `002` dashboard are implemented:
+PDF resume ingestion and profile merging, hybrid MCP/API discovery, deduplication,
+hard filters, deterministic scoring, application lifecycle, execution audit, and
+a React/MUI dark-first dashboard. Analytics (`003`) and full runtime packaging of
+the Python sidecar remain in progress.
 
 ## Stack
 
@@ -58,6 +60,11 @@ GEMINI_API_KEY=
 OPENROUTER_API_KEY=
 DEEPSEEK_API_KEY=
 LLM_PROVIDER_ORDER=gemini,openrouter,deepseek
+LLM_ALLOW_FALLBACK=false
+LLM_TIMEOUT_SECONDS=45
+MATCH_THRESHOLD=70
+JOBS_SEARCH_MAX_EVALUATIONS=100
+JOBS_SEARCH_LLM_CONCURRENCY=2
 OPENROUTER_FREE_MODELS=
 RUST_LOG=info
 ```
@@ -81,18 +88,52 @@ Logs never contain credentials, raw payloads, model prompts/responses, URLs,
 filesystem paths, job descriptions, or candidate data. No MongoDB or external
 telemetry is used.
 
-## Commands (planned)
+## Commands
 
 ```bash
 npm install
+npm run dev                 # Vite frontend
+npm run tauri dev           # desktop shell
+npm run build               # frontend production build
+npm run tauri build -- --debug --no-bundle
+npm test                    # Vitest
+npm run typecheck
 ./scripts/verify.sh
 cargo test --manifest-path src-tauri/Cargo.toml
 cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+pytest sidecar/jobspy_mcp/tests
 ```
 
 The pre-commit hook runs `lint-staged` and `./scripts/verify.sh`. Enable it once
 per clone with `git config core.hooksPath .husky/_` if `npm install` did not set
 it. Do not bypass the hook with `--no-verify`.
+
+## Backend commands
+
+Profile: `cmd_get_profile`, `cmd_upload_resume`, `cmd_delete_resume`,
+`cmd_save_profile`.
+Search/jobs: `cmd_trigger_search`, `cmd_get_jobs`, `cmd_get_job`,
+`cmd_apply_job`, `cmd_ignore_job`, `cmd_restore_job`, `cmd_approve_job`,
+`cmd_get_audit`.
+Health: `cmd_get_log_health`.
+
+All commands return `{ code, message }` errors and never expose raw job
+descriptions, credentials, prompts, or filesystem paths.
+
+## Local data and privacy
+
+Profiles, stored resumes, jobs, evaluations, applications, and audit records
+live in local SQLite under the Tauri application data directory. Resume files
+are stored under `resumes/` with `0600` permissions. Raw job descriptions are
+never persisted; only clean descriptions and extracted metadata are stored.
+Provider keys stay in `.env`; logs and reports contain no credentials or raw
+payloads.
+
+## Development seed
+
+Tests use in-memory SQLite and generated PDF fixtures. The first-milestone
+profile fixture lives at `src-tauri/tests/fixtures/profile.json` and can be
+loaded with `JOBS_SEARCH_FIXTURE_PROFILE=/absolute/path/to/profile.json`.
 
 ## Commit policy
 
