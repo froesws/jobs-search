@@ -56,6 +56,17 @@ describe('JobDrawer', () => {
     expect(onApprove).toHaveBeenCalledWith(job.job_id);
   });
 
+  it('shows the original posting URL as selectable link text', () => {
+    renderDrawer();
+    const link = screen.getByTestId('original-posting-url');
+
+    expect(link).toHaveTextContent(job.url);
+    expect(link).toHaveAttribute('href', job.url);
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(link).toHaveStyle({ wordBreak: 'break-all', userSelect: 'text' });
+    expect(screen.queryByRole('button', { name: 'Open original posting' })).not.toBeInTheDocument();
+  });
+
   it('shows the no-requirements state and warns on invalid URLs', () => {
     renderDrawer({
       total_requirements_count: 0,

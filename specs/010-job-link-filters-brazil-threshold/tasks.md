@@ -103,7 +103,7 @@ instead of overflowing, and an invalid URL still shows the warning.
 
 ### Tests for User Story 1
 
-- [ ] T002 [P] [US1] Add tests in `src/components/JobDrawer.test.tsx`: the
+- [x] T002 [P] [US1] Add tests in `src/components/JobDrawer.test.tsx`: the
   normalized `job.url` is visible as link text with `href`, the
   `button` role "Open original posting" is absent, the element uses
   `user-select: text` and `word-break: break-all`, and the invalid-URL warning
