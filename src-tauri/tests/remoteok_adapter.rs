@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use jobs_search_lib::config::RateLimitConfig;
 use jobs_search_lib::ingestion::adapter::{IngestionRequest, SourceAdapter};
 use jobs_search_lib::ingestion::api::RemoteOkAdapter;
 use wiremock::matchers::{method, path};
@@ -214,4 +215,9 @@ async fn exhausted_server_errors_are_reported() {
         .expect_err("exhausted");
     assert_eq!(error.code, "API_TRANSIENT");
     assert!(error.retryable);
+}
+
+#[test]
+fn default_source_timeout_is_fifteen_seconds() {
+    assert_eq!(RateLimitConfig::default().timeout_seconds, 15);
 }
