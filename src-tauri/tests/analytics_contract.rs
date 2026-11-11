@@ -216,6 +216,33 @@ fn funnel_and_csv_reconcile_with_seeded_records() {
     assert!(!text.contains("description_raw"));
 }
 
+#[test]
+fn current_run_and_last_seven_days_agree_for_a_fresh_run() {
+    let db = common::test_db();
+    let seed = common::analytics::seed_analytics(&db, 5, 2);
+
+    let current = get_analytics(
+        &db,
+        AnalyticsRequest {
+            scope: AnalyticsScope::CurrentRun,
+            run_id: Some(seed.run_id),
+        },
+    )
+    .expect("current");
+    let recent = get_analytics(
+        &db,
+        AnalyticsRequest {
+            scope: AnalyticsScope::Last7Days,
+            run_id: None,
+        },
+    )
+    .expect("recent");
+
+    assert_eq!(current.denominator, recent.denominator);
+    assert_eq!(current.skill_gap, recent.skill_gap);
+    assert_eq!(current.funnel.approved, recent.funnel.approved);
+}
+
 fn set_missing(db: &jobs_search_lib::db::Db, values: &[&[&str]]) {
     let ids = db
         .with_connection(|connection| {
