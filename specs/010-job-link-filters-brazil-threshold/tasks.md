@@ -143,7 +143,7 @@ passes when no foreign region is named.
   cities pass; Worldwide/global/anywhere/LatAm/Latin America/South America,
   USA/Europe/Argentina/Portugal/Mexico fail; Hybrid/Onsite outside accepted
   cities still fail; unknown location passes.
-- [ ] T006 [P] [US2] Add unit tests in `src-tauri/src/match/filters.rs` for
+- [x] T006 [P] [US2] Add unit tests in `src-tauri/src/match/filters.rs` for
   `mentions_brazil` (only explicit Brazil markers count) and for the unknown
   location branch.
 

@@ -399,6 +399,22 @@ mod tests {
     }
 
     #[test]
+    fn brazil_and_foreign_markers_are_explicit() {
+        assert!(mentions_brazil("remote brazil"));
+        assert!(mentions_brazil("brasil"));
+        assert!(mentions_brazil("brazilian"));
+        assert!(mentions_brazil("br"));
+        assert!(!mentions_brazil("worldwide"));
+        assert!(!mentions_brazil("latam"));
+        assert!(!mentions_brazil("anywhere"));
+
+        assert!(mentions_foreign_region("remote worldwide"));
+        assert!(mentions_foreign_region("buenos aires argentina"));
+        assert!(mentions_foreign_region("us only"));
+        assert!(!mentions_foreign_region("remote brazil"));
+    }
+
+    #[test]
     fn metadata_only_postings_are_not_rejected_for_missing_technology() {
         assert!(
             check(
