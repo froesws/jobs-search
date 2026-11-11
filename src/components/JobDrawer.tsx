@@ -251,15 +251,23 @@ export function JobDrawer({
                 </Button>
               ) : null}
               {url ? (
-                <Button
-                  component="a"
-                  href={url}
-                  target="_blank"
-                  rel="noreferrer"
-                  variant="contained"
-                >
-                  Open original posting
-                </Button>
+                <Box>
+                  <Typography variant="overline" color="text.secondary">
+                    Original posting
+                  </Typography>
+                  <Typography
+                    component="a"
+                    href={url}
+                    target="_blank"
+                    rel="noreferrer"
+                    variant="body2"
+                    data-testid="original-posting-url"
+                    sx={{ display: 'block', color: 'primary.main' }}
+                    style={{ wordBreak: 'break-all', userSelect: 'text' }}
+                  >
+                    {url}
+                  </Typography>
+                </Box>
               ) : (
                 <Alert severity="warning" variant="outlined">
                   The original URL is missing or invalid. The stored job data is unchanged.

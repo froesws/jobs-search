@@ -111,7 +111,7 @@ instead of overflowing, and an invalid URL still shows the warning.
 
 ### Implementation for User Story 1
 
-- [ ] T003 [US1] Replace the `Button` in `src/components/JobDrawer.tsx` with a
+- [x] T003 [US1] Replace the `Button` in `src/components/JobDrawer.tsx` with a
   `Typography component="a"` (or equivalent anchor) whose children are the
   normalized URL; keep `target="_blank"`, `rel="noreferrer"`,
   `safeExternalUrl`, and add `wordBreak: 'break-all'`, `userSelect: 'text'`, and
