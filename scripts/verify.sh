@@ -3,6 +3,11 @@ set -uo pipefail
 
 cd "$(dirname "$0")/.."
 
+# Cap Cargo build parallelism: rustc/rust-lld linkers are memory-hungry, and
+# this project is often built alongside VS Code, n8n, and other services.
+# Override with CARGO_BUILD_JOBS=4 ./scripts/verify.sh when memory is tight.
+export CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS:-8}"
+
 failed=0
 skipped=()
 
