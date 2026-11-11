@@ -496,6 +496,33 @@ fn builtin_catalog(provider: &str, message: Option<String>) -> ModelCatalogView 
     }
 }
 
+fn validate_session_selection(provider: &str, models: &[String]) -> Result<(), AppError> {
+    validate_provider_id(provider)?;
+    if models.is_empty() {
+        return Err(AppError::validation("select at least one model"));
+    }
+    if provider != "openrouter" && models.len() != 1 {
+        return Err(AppError::validation(
+            "this provider accepts exactly one model",
+        ));
+    }
+    for model in models {
+        validate_model(model)?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn cmd_set_session_selection(
+    state: State<'_, AppState>,
+    provider: String,
+    models: Vec<String>,
+) -> Result<ProviderConfigView, ErrorPayload> {
+    validate_session_selection(&provider, &models)?;
+    state.set_session_selection(Some(SessionSelection { provider, models }))?;
+    build_view(&state).map_err(Into::into)
+}
+
 async fn refresh_models(
     state: &AppState,
     provider: &str,
@@ -859,6 +886,17 @@ mod tests {
 
         assert!(!result.ok);
         assert!(!result.message.contains("draft-secret"));
+    }
+
+    #[test]
+    fn session_selection_is_validated() {
+        assert!(validate_session_selection("gemini", &["a".to_string()]).is_ok());
+        assert!(validate_session_selection("gemini", &["a".to_string(), "b".to_string()]).is_err());
+        assert!(
+            validate_session_selection("openrouter", &["a".to_string(), "b".to_string()]).is_ok()
+        );
+        assert!(validate_session_selection("gemini", &[]).is_err());
+        assert!(validate_session_selection("unknown", &["a".to_string()]).is_err());
     }
 
     #[test]
