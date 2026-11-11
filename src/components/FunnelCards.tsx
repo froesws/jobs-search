@@ -1,3 +1,4 @@
+import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
@@ -17,6 +18,7 @@ export function FunnelCards({ funnel }: { funnel: FunnelPayload }) {
         />
         <Metric label="Pending" value={funnel.pending} />
         <Metric label="Approved" value={funnel.approved} />
+        <Metric label="Errors" value={funnel.error} />
         <Metric label="Applied" value={funnel.applied} />
         <Metric label="Ignored" value={funnel.ignored} />
         <Metric label="Approval rate" value={`${funnel.approval_rate.toFixed(1)}%`} />
@@ -32,6 +34,11 @@ export function FunnelCards({ funnel }: { funnel: FunnelPayload }) {
         </Typography>
         <Breakdown values={funnel.rejected_by_reason} empty="No hard-filter rejections." />
       </Box>
+      {funnel.source_failures.length > 0 ? (
+        <Alert severity="warning" variant="outlined">
+          Source failures: {funnel.source_failures.join(' · ')}
+        </Alert>
+      ) : null}
     </Paper>
   );
 }
