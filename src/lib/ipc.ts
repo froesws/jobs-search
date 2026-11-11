@@ -16,6 +16,10 @@ import type {
   JobEvaluationView,
   JobTab,
   PaginatedJobs,
+  ProviderConfigInput,
+  ProviderConfigView,
+  ProviderId,
+  ProviderSettingField,
   ResumeSummary,
   SearchFilters,
   SearchMetrics,
@@ -97,6 +101,36 @@ export function getAudit(runId: string): Promise<ExecutionAudit> {
 
 export function getActiveProvider(): Promise<ActiveProvider> {
   return call('cmd_get_active_provider');
+}
+
+export function getProviderConfig(): Promise<ProviderConfigView> {
+  return call('cmd_get_provider_config');
+}
+
+export function saveProviderConfig(config: ProviderConfigInput): Promise<ProviderConfigView> {
+  return call('cmd_save_provider_config', { config });
+}
+
+export function saveProviderCredential(
+  provider: ProviderId,
+  apiKey: string,
+  allowEnvFallback = false,
+): Promise<ProviderConfigView> {
+  return call('cmd_save_provider_credential', { provider, apiKey, allowEnvFallback });
+}
+
+export function removeProviderCredential(
+  provider: ProviderId,
+  removeEnvEntry = false,
+): Promise<ProviderConfigView> {
+  return call('cmd_remove_provider_credential', { provider, removeEnvEntry });
+}
+
+export function resetProviderSetting(
+  provider: ProviderId,
+  field: ProviderSettingField,
+): Promise<ProviderConfigView> {
+  return call('cmd_reset_provider_setting', { provider, field });
 }
 
 export function getAnalytics(request: AnalyticsRequest): Promise<AnalyticsPayload> {
