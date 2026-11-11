@@ -59,30 +59,68 @@ fn remote_brazil_and_accepted_cities_pass() {
 }
 
 #[test]
-fn global_remote_is_accepted_but_foreign_restrictions_are_not() {
+fn remote_outside_brazil_is_rejected() {
+    for location in [
+        "Remote - Worldwide",
+        "Remote - Global",
+        "Remote - LatAm",
+        "Remote - USA",
+        "Remote - Europe",
+        "Buenos Aires, Argentina",
+        "Lisbon, Portugal",
+        "Mexico",
+    ] {
+        let result = check(
+            &profile(),
+            &job("Rust Engineer", location, WorkModality::Remote, "Rust"),
+        );
+        assert!(!result.passed, "{location} should be rejected");
+        assert!(
+            result
+                .rejections
+                .iter()
+                .any(|reason| reason.code == "LOCATION_NOT_ELIGIBLE"),
+            "{location} should report LOCATION_NOT_ELIGIBLE"
+        );
+    }
+
+    for location in ["Remote - Brazil", "Brasil", "Brazil", "BR"] {
+        assert!(
+            check(
+                &profile(),
+                &job("Rust Engineer", location, WorkModality::Remote, "Rust")
+            )
+            .passed,
+            "{location} should pass"
+        );
+    }
+}
+
+#[test]
+fn unknown_location_is_kept_only_without_a_foreign_signal() {
     assert!(
         check(
             &profile(),
-            &job(
-                "Rust Engineer",
-                "Remote - Worldwide",
-                WorkModality::Remote,
-                "Rust"
-            )
+            &job("Rust Engineer", "Unknown", WorkModality::Remote, "Rust")
         )
         .passed
     );
+
+    let foreign = check(
+        &profile(),
+        &job(
+            "Rust Engineer",
+            "Unknown",
+            WorkModality::Remote,
+            "Remote role, US only",
+        ),
+    );
+    assert!(!foreign.passed);
     assert!(
-        !check(
-            &profile(),
-            &job(
-                "Rust Engineer",
-                "Remote - USA only",
-                WorkModality::Remote,
-                "Rust"
-            )
-        )
-        .passed
+        foreign
+            .rejections
+            .iter()
+            .any(|reason| reason.code == "LOCATION_NOT_ELIGIBLE")
     );
 }
 

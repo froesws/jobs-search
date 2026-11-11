@@ -138,7 +138,7 @@ passes when no foreign region is named.
 
 ### Tests for User Story 2
 
-- [ ] T005 [P] [US2] Rewrite the location tests in
+- [x] T005 [P] [US2] Rewrite the location tests in
   `src-tauri/tests/match_filters.rs`: Brazil/Brasil/Brazilian/BR and Brazilian
   cities pass; Worldwide/global/anywhere/LatAm/Latin America/South America,
   USA/Europe/Argentina/Portugal/Mexico fail; Hybrid/Onsite outside accepted
