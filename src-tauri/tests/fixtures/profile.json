@@ -20,6 +20,7 @@
   "secondary_competencies": ["SQL", "Git", "Docker", "Linux"],
   "domain_experience": ["software engineering", "systems programming", "web development"],
   "dealbreakers": ["sales", "commission only", "unpaid"],
+  "mandatory_criteria": ["location", "modality"],
   "work_authorization": "Authorized to work in Brazil",
   "salary_threshold": null,
   "source_documents": []

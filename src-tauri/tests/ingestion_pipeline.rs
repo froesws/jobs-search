@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use jobs_search_lib::db::runs::{RunFinish, finish_run, start_run};
 use jobs_search_lib::ingestion::adapter::{IngestionRequest, RawJob, SourceAdapter};
 use jobs_search_lib::ingestion::api::RemoteOkAdapter;
 use jobs_search_lib::ingestion::ingest;
@@ -112,6 +113,7 @@ async fn hybrid_ingestion_dedups_and_preserves_lineage_with_one_failure() {
         stack_keyword: "Rust".to_string(),
         ..IngestionRequest::default()
     };
+    let run = start_run(&db, "{\"timeframe\":\"D7\"}").expect("run");
 
     let outcome = ingest(&adapters, &request).await;
     assert_eq!(outcome.total_fetched(), 2);
@@ -167,6 +169,47 @@ async fn hybrid_ingestion_dedups_and_preserves_lineage_with_one_failure() {
             .len(),
         2
     );
+    let conflicts = jobs_search_lib::db::jobs::conflicts(&db, &job_id).expect("conflicts");
+    assert!(
+        conflicts
+            .iter()
+            .any(|conflict| conflict["field"] == "description_clean")
+    );
+
+    let source_breakdown =
+        jobs_search_lib::db::jobs::source_breakdown_since(&db, &run.started_at).expect("sources");
+    let metrics = finish_run(
+        &db,
+        &RunFinish {
+            run_id: &run.run_id,
+            status: "SUCCESS",
+            total_ingested: 2,
+            duplicates_merged: 1,
+            rejected_count: 0,
+            pending_count: 0,
+            approved_count: 0,
+            error_count: 0,
+            source_failures: Vec::new(),
+            rejected_by_reason: Default::default(),
+            score_distribution: Default::default(),
+            source_breakdown,
+        },
+    )
+    .expect("finish");
+    assert_eq!(metrics.total_ingested, 2);
+    assert_eq!(metrics.duplicates_merged, 1);
+    assert_eq!(metrics.status, "SUCCESS");
+    let reconciled: (i64, i64, String) = db
+        .with_connection(|connection| {
+            Ok(connection.query_row(
+                "SELECT total_ingested, duplicates_merged, status
+                 FROM execution_runs WHERE id = ?1",
+                [&run.run_id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )?)
+        })
+        .expect("run");
+    assert_eq!(reconciled, (2, 1, "SUCCESS".to_string()));
 
     // Repeat-safe: re-running the same ingestion creates no second job.
     let outcome = ingest(&adapters, &request).await;
@@ -211,4 +254,42 @@ async fn hybrid_ingestion_dedups_and_preserves_lineage_with_one_failure() {
             .work_modality,
         WorkModality::Remote.as_str()
     );
+}
+
+#[tokio::test]
+async fn zero_result_run_is_persisted_as_success() {
+    let db = common::test_db();
+    let run = start_run(&db, "{\"query\":\"Kubernetes\"}").expect("run");
+    let metrics = finish_run(
+        &db,
+        &RunFinish {
+            run_id: &run.run_id,
+            status: "SUCCESS",
+            total_ingested: 0,
+            duplicates_merged: 0,
+            rejected_count: 0,
+            pending_count: 0,
+            approved_count: 0,
+            error_count: 0,
+            source_failures: Vec::new(),
+            rejected_by_reason: Default::default(),
+            score_distribution: Default::default(),
+            source_breakdown: Default::default(),
+        },
+    )
+    .expect("finish");
+
+    assert_eq!(metrics.status, "SUCCESS");
+    assert_eq!(metrics.total_ingested, 0);
+    assert_eq!(metrics.approved_count, 0);
+    let status: String = db
+        .with_connection(|connection| {
+            Ok(connection.query_row(
+                "SELECT status FROM execution_runs WHERE id = ?1",
+                [&run.run_id],
+                |row| row.get(0),
+            )?)
+        })
+        .expect("status");
+    assert_eq!(status, "SUCCESS");
 }

@@ -7,6 +7,8 @@ pub mod dedup;
 pub mod error;
 pub mod ingestion;
 pub mod llm;
+#[path = "match/mod.rs"]
+pub mod matching;
 pub mod pdf;
 pub mod profile;
 pub mod state;
@@ -40,6 +42,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::telemetry::cmd_get_log_health,
             commands::profile::cmd_get_profile,
+            commands::search::cmd_trigger_search,
             commands::jobs::cmd_get_jobs,
             commands::jobs::cmd_get_job,
         ])

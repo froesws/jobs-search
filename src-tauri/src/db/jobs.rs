@@ -107,23 +107,34 @@ pub struct PaginatedJobs {
 pub fn upsert_job(db: &Db, job: &NewJob) -> Result<UpsertOutcome, AppError> {
     db.with_connection(|connection| {
         let now = now_rfc3339();
-        let existing: Option<String> = connection
+        let existing: Option<ExistingJob> = connection
             .query_row(
-                "SELECT id FROM job_postings WHERE canonical_hash = ?1",
+                "SELECT id, title, company, location, description_clean, conflicts_json
+                 FROM job_postings WHERE canonical_hash = ?1",
                 [&job.canonical_hash],
-                |row| row.get(0),
+                |row| {
+                    Ok(ExistingJob {
+                        id: row.get(0)?,
+                        title: row.get(1)?,
+                        company: row.get(2)?,
+                        location: row.get(3)?,
+                        description_clean: row.get(4)?,
+                        conflicts_json: row.get(5)?,
+                    })
+                },
             )
             .optional()?;
 
-        if let Some(job_id) = existing {
+        if let Some(existing) = existing {
+            let conflicts = conflict_entries(&existing, job)?;
             connection.execute(
                 "UPDATE job_postings
                  SET title = ?1, company = ?2, location = ?3, work_modality = ?4,
                      url = ?5, posted_at = COALESCE(?6, posted_at),
                      description_clean = ?7,
                      extracted_metadata_json = COALESCE(?8, extracted_metadata_json),
-                     updated_at = ?9
-                 WHERE id = ?10",
+                     conflicts_json = ?9, updated_at = ?10
+                 WHERE id = ?11",
                 params![
                     job.title,
                     job.company,
@@ -133,12 +144,13 @@ pub fn upsert_job(db: &Db, job: &NewJob) -> Result<UpsertOutcome, AppError> {
                     job.posted_at,
                     job.description_clean,
                     job.extracted_metadata_json,
+                    conflicts,
                     now,
-                    job_id,
+                    existing.id,
                 ],
             )?;
             Ok(UpsertOutcome {
-                job_id,
+                job_id: existing.id,
                 inserted: false,
             })
         } else {
@@ -147,8 +159,8 @@ pub fn upsert_job(db: &Db, job: &NewJob) -> Result<UpsertOutcome, AppError> {
                 "INSERT INTO job_postings
                  (id, canonical_key, canonical_hash, title, company, location,
                   work_modality, url, posted_at, description_clean,
-                  extracted_metadata_json, created_at, updated_at)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+                  extracted_metadata_json, conflicts_json, created_at, updated_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, '[]', ?12, ?13)",
                 params![
                     job_id,
                     job.canonical_key,
@@ -171,6 +183,54 @@ pub fn upsert_job(db: &Db, job: &NewJob) -> Result<UpsertOutcome, AppError> {
             })
         }
     })
+}
+
+struct ExistingJob {
+    id: String,
+    title: String,
+    company: String,
+    location: String,
+    description_clean: String,
+    conflicts_json: String,
+}
+
+fn conflict_entries(existing: &ExistingJob, job: &NewJob) -> Result<String, AppError> {
+    let mut conflicts: Vec<serde_json::Value> =
+        serde_json::from_str(&existing.conflicts_json).unwrap_or_default();
+    let compare = [
+        ("title", existing.title.as_str(), job.title.as_str()),
+        ("company", existing.company.as_str(), job.company.as_str()),
+        (
+            "location",
+            existing.location.as_str(),
+            job.location.as_str(),
+        ),
+        (
+            "description_clean",
+            existing.description_clean.as_str(),
+            job.description_clean.as_str(),
+        ),
+    ];
+
+    for (field, current, incoming) in compare {
+        if current.trim() != incoming.trim()
+            && !incoming.trim().is_empty()
+            && !current.trim().is_empty()
+        {
+            conflicts.push(serde_json::json!({
+                "field": field,
+                "existing": current,
+                "incoming": incoming,
+                "url": job.url,
+            }));
+        }
+    }
+
+    // Bound audit growth. The most recent conflicts are the useful ones.
+    if conflicts.len() > 50 {
+        conflicts.drain(0..conflicts.len() - 50);
+    }
+    Ok(serde_json::to_string(&conflicts)?)
 }
 
 pub fn add_lineage(
@@ -241,6 +301,22 @@ pub fn lineage_urls(db: &Db, job_id: &str) -> Result<Vec<String>, AppError> {
     Ok(urls)
 }
 
+/// Conflicting descriptive values recorded for audit when sources disagree.
+pub fn conflicts(db: &Db, job_id: &str) -> Result<Vec<serde_json::Value>, AppError> {
+    db.with_connection(|connection| {
+        let raw: Option<String> = connection
+            .query_row(
+                "SELECT conflicts_json FROM job_postings WHERE id = ?1",
+                [job_id],
+                |row| row.get(0),
+            )
+            .optional()?;
+        Ok(raw
+            .and_then(|value| serde_json::from_str(&value).ok())
+            .unwrap_or_default())
+    })
+}
+
 pub fn update_extracted_metadata(
     db: &Db,
     job_id: &str,
@@ -303,12 +379,13 @@ pub fn list_summaries(
     let (filter, order) = match tab {
         JobTab::NewJobs => (
             "WHERE e.evaluation_status = 'APPROVED'
+             AND COALESCE(e.stale, 0) = 0
              AND COALESCE(a.lifecycle_state, 'DISCOVERED') <> 'IGNORED'",
-            "ORDER BY e.match_score DESC, e.evaluated_at DESC, j.id ASC",
+            "ORDER BY e.match_score DESC, e.total_requirements_count DESC, j.updated_at ASC, j.id ASC",
         ),
         JobTab::BelowThreshold => (
-            "WHERE e.evaluation_status = 'PENDING'",
-            "ORDER BY e.match_score DESC, e.evaluated_at DESC, j.id ASC",
+            "WHERE e.evaluation_status = 'PENDING' AND COALESCE(e.stale, 0) = 0",
+            "ORDER BY e.match_score DESC, e.total_requirements_count DESC, j.updated_at ASC, j.id ASC",
         ),
         JobTab::Applications => (
             "WHERE a.lifecycle_state = 'APPLIED'",

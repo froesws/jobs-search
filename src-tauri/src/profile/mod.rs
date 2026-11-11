@@ -29,6 +29,10 @@ pub struct CandidateProfile {
     pub domain_experience: Vec<String>,
     #[serde(default)]
     pub dealbreakers: Vec<String>,
+    /// Hard criteria that must be explicitly known. Supported values are
+    /// `location`, `modality`, `seniority`, and `domain:<term>`.
+    #[serde(default)]
+    pub mandatory_criteria: Vec<String>,
     #[serde(default)]
     pub work_authorization: Option<String>,
     #[serde(default)]
@@ -67,6 +71,19 @@ impl CandidateProfile {
                 return Err(AppError::validation(
                     "target_roles cannot contain empty values",
                 ));
+            }
+        }
+
+        for criterion in &self.mandatory_criteria {
+            let key = criterion.trim().to_ascii_lowercase();
+            let domain = key
+                .strip_prefix("domain:")
+                .map(str::trim)
+                .is_some_and(|value| !value.is_empty());
+            if !matches!(key.as_str(), "location" | "modality" | "seniority") && !domain {
+                return Err(AppError::validation(format!(
+                    "unsupported mandatory criterion: {criterion}"
+                )));
             }
         }
 

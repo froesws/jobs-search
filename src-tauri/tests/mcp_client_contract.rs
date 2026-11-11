@@ -107,3 +107,37 @@ async fn missing_command_is_a_permanent_source_error() {
     assert_eq!(error.code, "MCP_START_FAILED");
     assert!(!error.retryable);
 }
+
+#[tokio::test]
+async fn malformed_json_rpc_is_a_source_error() {
+    let directory = tempfile::tempdir().expect("tempdir");
+    let script = directory.path().join("malformed.py");
+    std::fs::write(
+        &script,
+        r#"
+import json
+import sys
+for raw in sys.stdin:
+    request = json.loads(raw)
+    if "id" not in request:
+        continue
+    if request["method"] == "initialize":
+        print(json.dumps({"jsonrpc": "2.0", "id": request["id"], "result": {}}), flush=True)
+    else:
+        print("not json", flush=True)
+"#,
+    )
+    .expect("script");
+    let adapter = McpAdapter::new(
+        "jobspy",
+        "jobspy",
+        "python3",
+        vec![script.display().to_string()],
+        Vec::new(),
+        Duration::from_secs(5),
+    );
+
+    let error = adapter.fetch(&request()).await.expect_err("malformed");
+    assert_eq!(error.code, "MCP_INVALID_RESPONSE");
+    assert!(error.retryable);
+}

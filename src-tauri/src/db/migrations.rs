@@ -45,6 +45,7 @@ CREATE TABLE job_postings (
     posted_at TEXT,
     description_clean TEXT NOT NULL,
     extracted_metadata_json TEXT,
+    conflicts_json TEXT NOT NULL DEFAULT '[]',
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );

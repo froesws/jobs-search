@@ -128,3 +128,90 @@ async fn authentication_errors_are_permanent() {
     assert_eq!(error.code, "API_ERROR");
     assert!(!error.retryable);
 }
+
+#[tokio::test]
+async fn retries_rate_limits() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api"))
+        .respond_with(ResponseTemplate::new(429))
+        .up_to_n_times(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/api"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(payload()))
+        .mount(&server)
+        .await;
+
+    let adapter = RemoteOkAdapter::new(
+        "remoteok",
+        "remoteok",
+        format!("{}/api", server.uri()),
+        50,
+        2,
+        Duration::from_millis(1),
+        Duration::from_secs(5),
+    )
+    .expect("adapter");
+
+    let jobs = adapter.fetch(&request("Rust")).await.expect("jobs");
+    assert_eq!(jobs.len(), 1);
+}
+
+#[tokio::test]
+async fn timeout_is_reported_after_exhausted_retries() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_delay(Duration::from_millis(300))
+                .set_body_json(payload()),
+        )
+        .mount(&server)
+        .await;
+
+    let adapter = RemoteOkAdapter::new(
+        "remoteok",
+        "remoteok",
+        format!("{}/api", server.uri()),
+        50,
+        0,
+        Duration::from_millis(1),
+        Duration::from_millis(50),
+    )
+    .expect("adapter");
+
+    let error = adapter.fetch(&request("Rust")).await.expect_err("timeout");
+    assert_eq!(error.code, "API_TIMEOUT");
+    assert!(error.retryable);
+}
+
+#[tokio::test]
+async fn exhausted_server_errors_are_reported() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api"))
+        .respond_with(ResponseTemplate::new(503))
+        .mount(&server)
+        .await;
+
+    let adapter = RemoteOkAdapter::new(
+        "remoteok",
+        "remoteok",
+        format!("{}/api", server.uri()),
+        50,
+        1,
+        Duration::from_millis(1),
+        Duration::from_secs(5),
+    )
+    .expect("adapter");
+
+    let error = adapter
+        .fetch(&request("Rust"))
+        .await
+        .expect_err("exhausted");
+    assert_eq!(error.code, "API_TRANSIENT");
+    assert!(error.retryable);
+}

@@ -95,7 +95,8 @@ impl SourceAdapter for RemoteOkAdapter {
 
         for attempt in 0..=self.max_retries {
             if attempt > 0 {
-                tokio::time::sleep(self.backoff * attempt).await;
+                let factor = 2u32.saturating_pow(attempt.saturating_sub(1)).min(8);
+                tokio::time::sleep(self.backoff.saturating_mul(factor)).await;
             }
 
             let response = match self

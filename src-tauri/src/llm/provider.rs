@@ -347,6 +347,7 @@ mod tests {
                 secondary_competencies: vec![],
                 domain_experience: vec![],
                 dealbreakers: vec![],
+                mandatory_criteria: vec![],
                 work_authorization: None,
                 salary_threshold: None,
                 source_documents: vec![],
