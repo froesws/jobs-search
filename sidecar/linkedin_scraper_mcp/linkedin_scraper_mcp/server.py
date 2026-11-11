@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import signal
 import sys
 from pathlib import Path
 from typing import Any, Callable, TextIO
@@ -413,11 +414,25 @@ def _excepthook(exc_type, exc, _traceback) -> None:  # pragma: no cover
 
 def main() -> None:
     sys.excepthook = _excepthook
+    _install_signal_handlers()
     try:
         serve()
     except Exception as error:  # noqa: BLE001 - global MCP guard
         _diagnostic(error)
         _write(sys.stdout, _error(None, -32603, "internal error"))
+
+
+def _install_signal_handlers() -> None:
+    """Exit 0 on SIGTERM/SIGINT so supervisors do not report a crash."""
+
+    def shutdown(signum: int, _frame: object) -> None:
+        name = signal.Signals(signum).name
+        print(f"shutting down on {name}", file=sys.stderr, flush=True)
+        sys.stdout.flush()
+        raise SystemExit(0)
+
+    for signum in (signal.SIGTERM, signal.SIGINT):
+        signal.signal(signum, shutdown)
 
 
 if __name__ == "__main__":

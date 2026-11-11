@@ -133,7 +133,7 @@ one shutdown diagnostic on stderr.
   `serve`, flush stdout, write one sanitized line to stderr, and exit 0; install
   it in `main()` before `serve()` and keep `serve` callable with `StringIO` in
   tests.
-- [ ] T005 [US1] Apply the same handler contract to
+- [x] T005 [US1] Apply the same handler contract to
   `sidecar/linkedin_scraper_mcp/linkedin_scraper_mcp/server.py`, including
   cancelling an in-flight `asyncio` search without writing an error frame after
   the process starts shutting down.
