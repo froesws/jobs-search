@@ -112,6 +112,23 @@ The two authenticated LinkedIn sources are optional. Set `enabled: false` in
 JobSpy and the local wrapper are started with `uv run --project`, so `uv` must
 be available in the environment that starts the app.
 
+## Search filters
+
+The search bar uses two independent multi-select panels:
+
+- Seniority: Trainee, Junior, Pleno, Senior. There is no “Any”; an empty panel
+  uses the profile's accepted seniorities.
+- Work type: On-site, Hybrid, Remote. There is no “All”; an empty panel uses the
+  profile/default modalities.
+
+The UI labels are English, but the external source query terms are Portuguese:
+`trainee`, `júnior`, `pleno`, `sênior`, `presencial`, `híbrido`, `remoto`. One
+query is generated per selected seniority, for example
+`Rust Engineer pleno (remoto OR híbrido)`. The hard filters enforce the exact
+selected levels and modalities before the LLM call: Hybrid/Onsite require a
+city from the profile's accepted cities, Remote accepts Brazil/global, and
+`is_remote` is true only for a Remote-only selection.
+
 ## Analytics
 
 The `Analytics` tab is read-only. It aggregates eligible evaluations
