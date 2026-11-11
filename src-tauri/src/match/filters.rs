@@ -111,7 +111,12 @@ pub fn check_with_criteria(
     }
 
     let trainee_like = matches!(seniority, Some(Seniority::Trainee | Seniority::Intern));
-    if !trainee_like {
+    // An empty description means the technology is unknown, not absent. JobSpy
+    // and other metadata-only sources return no description, so rejecting on
+    // the title alone would discard almost everything. Only judge the
+    // technology when the posting actually has text to inspect.
+    let has_description = !job.description_clean.trim().is_empty();
+    if !trainee_like && has_description {
         let technologies = profile.technologies();
         let has_technology = technologies
             .iter()
@@ -134,26 +139,26 @@ pub fn check_with_criteria(
         }
     }
 
+    // Mandatory criteria never reject because a field is *unknown*: a missing
+    // location, modality, or seniority is not a mismatch, and the dedicated
+    // filters above already reject the values we can prove are wrong. Only a
+    // domain keyword that is provably absent from a non-empty description is a
+    // rejection.
     for criterion in &profile.mandatory_criteria {
         let key = criterion.trim().to_ascii_lowercase();
-        let known = match key.as_str() {
-            "location" => {
-                normalize_text(&job.location) != "unknown"
-                    && !normalize_text(&job.location).is_empty()
-            }
-            "modality" => modality != WorkModality::Unknown,
-            "seniority" => seniority.is_some(),
-            _ => key
-                .strip_prefix("domain:")
-                .map(str::trim)
-                .is_some_and(|domain| {
-                    !domain.is_empty() && contains_word(&normalized_text, &normalize_text(domain))
-                }),
+        if matches!(key.as_str(), "location" | "modality" | "seniority") {
+            continue;
+        }
+        let Some(domain) = key.strip_prefix("domain:").map(str::trim) else {
+            continue;
         };
-        if !known {
+        if domain.is_empty() || !has_description {
+            continue;
+        }
+        if !contains_word(&normalized_text, &normalize_text(domain)) {
             rejections.push(HardFilterRejection::new(
                 "UNKNOWN_MANDATORY_CRITERION",
-                format!("mandatory criterion is unknown: {criterion}"),
+                format!("posting does not mention mandatory domain: {domain}"),
             ));
         }
     }
@@ -390,6 +395,42 @@ mod tests {
                 )
             )
             .passed
+        );
+    }
+
+    #[test]
+    fn metadata_only_postings_are_not_rejected_for_missing_technology() {
+        assert!(
+            check(
+                &profile(),
+                &job(
+                    "Analista de Desenvolvimento de Software Pleno",
+                    "Brazil",
+                    WorkModality::Unknown,
+                    ""
+                )
+            )
+            .passed
+        );
+    }
+
+    #[test]
+    fn empty_description_does_not_hide_known_mismatches() {
+        let result = check(
+            &profile(),
+            &job(
+                "Senior Rust Engineer",
+                "Remote - Brazil",
+                WorkModality::Remote,
+                "",
+            ),
+        );
+        assert!(!result.passed);
+        assert!(
+            result
+                .rejections
+                .iter()
+                .any(|reason| reason.code == "SENIORITY_NOT_ELIGIBLE")
         );
     }
 

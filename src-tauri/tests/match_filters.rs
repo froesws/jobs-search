@@ -221,6 +221,22 @@ fn missing_core_technology_is_rejected_except_for_trainee() {
 }
 
 #[test]
+fn metadata_only_postings_are_not_rejected_for_missing_technology() {
+    assert!(
+        check(
+            &profile(),
+            &job(
+                "Analista de Desenvolvimento de Software Pleno",
+                "Brazil",
+                WorkModality::Unknown,
+                "",
+            ),
+        )
+        .passed
+    );
+}
+
+#[test]
 fn dealbreakers_are_rejected() {
     let result = check(
         &profile(),
@@ -250,7 +266,7 @@ fn accepted_seniorities_come_from_the_profile() {
 }
 
 #[test]
-fn unknown_mandatory_criteria_are_recorded_as_gaps() {
+fn unknown_mandatory_values_do_not_reject_but_missing_domains_do() {
     let mut profile = profile();
     profile.mandatory_criteria = vec![
         "location".to_string(),
@@ -261,14 +277,30 @@ fn unknown_mandatory_criteria_are_recorded_as_gaps() {
 
     let unknown = check(
         &profile,
-        &job("Rust Engineer", "Unknown", WorkModality::Unknown, "Rust"),
+        &job(
+            "Rust Engineer",
+            "Remote - Brazil",
+            WorkModality::Unknown,
+            "Rust and Kubernetes",
+        ),
     );
-    assert!(!unknown.passed);
     assert!(
-        unknown
-            .rejections
-            .iter()
-            .any(|reason| reason.code == "UNKNOWN_MANDATORY_CRITERION")
+        unknown.passed,
+        "unknown modality must not reject: {unknown:?}"
+    );
+
+    let unknown_location = check(
+        &profile,
+        &job(
+            "Rust Engineer",
+            "Unknown",
+            WorkModality::Remote,
+            "Rust and Kubernetes",
+        ),
+    );
+    assert!(
+        unknown_location.passed,
+        "unknown location must not reject: {unknown_location:?}"
     );
 
     let missing_domain = check(
