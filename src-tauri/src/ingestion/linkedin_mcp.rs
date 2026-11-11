@@ -100,79 +100,84 @@ impl LinkedInMcpAdapter {
         };
         client.initialize().await?;
 
-        let limit = if request.results_wanted == 0 {
+        let total_limit = if request.results_wanted == 0 {
             self.results_wanted
         } else {
             request.results_wanted.min(self.results_wanted)
         };
-
-        let mut arguments = json!({
-            "keywords": request.query,
-            "location": request.location,
-            "max_pages": self.max_pages,
-        });
-        if let Some(date_posted) = date_filter(request.hours_old) {
-            arguments["date_posted"] = json!(date_posted);
-        }
-        if let Some(experience) = experience_filter(&request.seniorities) {
-            arguments["experience_level"] = json!(experience);
-        }
-        if let Some(work_type) = work_type_filter(&request.modalities) {
-            arguments["work_type"] = json!(work_type);
-        }
-
-        let search = client.call_tool("search_jobs", &arguments).await?;
-        let payload = tool_payload(&search)?;
-        let ids = payload
-            .get("job_ids")
-            .and_then(Value::as_array)
-            .cloned()
-            .unwrap_or_default();
-        if ids.is_empty() {
-            return Ok(Vec::new());
-        }
+        let queries = if request.queries.is_empty() {
+            vec![request.query.clone()]
+        } else {
+            request.queries.clone()
+        };
+        let per_query = (total_limit / queries.len().max(1) as u32).max(1);
 
         let mut jobs = Vec::new();
         let mut detail_failures = 0_u32;
-        for id in ids.iter().take(limit as usize) {
-            let Some(id) = job_id_value(id) else {
-                continue;
-            };
-            let detail = match client
-                .call_tool("get_job_details", &json!({ "job_id": id }))
-                .await
-            {
-                Ok(value) => value,
-                Err(error) => {
-                    detail_failures += 1;
-                    tracing::warn!(
-                        provider = "linkedin",
-                        code = error.code,
-                        "linkedin job detail failed"
-                    );
-                    continue;
-                }
-            };
-            let payload = match tool_payload(&detail) {
-                Ok(value) => value,
-                Err(_) => {
-                    detail_failures += 1;
-                    continue;
-                }
-            };
-            let url = payload
-                .get("url")
-                .and_then(Value::as_str)
-                .map(str::to_string)
-                .unwrap_or_else(|| format!("https://www.linkedin.com/jobs/view/{id}/"));
-            let text = payload
-                .pointer("/sections/job_posting")
-                .and_then(Value::as_str)
+        for query in queries {
+            let mut arguments = json!({
+                "keywords": query,
+                "location": request.location,
+                "max_pages": self.max_pages,
+            });
+            if let Some(date_posted) = date_filter(request.hours_old) {
+                arguments["date_posted"] = json!(date_posted);
+            }
+            if let Some(experience) = experience_filter(&request.seniorities) {
+                arguments["experience_level"] = json!(experience);
+            }
+            if let Some(work_type) = work_type_filter(&request.modalities) {
+                arguments["work_type"] = json!(work_type);
+            }
+
+            let search = client.call_tool("search_jobs", &arguments).await?;
+            let payload = tool_payload(&search)?;
+            let ids = payload
+                .get("job_ids")
+                .and_then(Value::as_array)
+                .cloned()
                 .unwrap_or_default();
-            if let Some(job) = parse_job_posting(&url, text) {
-                jobs.push(job);
-            } else {
-                detail_failures += 1;
+
+            for id in ids.iter().take(per_query as usize) {
+                let Some(id) = job_id_value(id) else {
+                    continue;
+                };
+                let detail = match client
+                    .call_tool("get_job_details", &json!({ "job_id": id }))
+                    .await
+                {
+                    Ok(value) => value,
+                    Err(error) => {
+                        detail_failures += 1;
+                        tracing::warn!(
+                            provider = "linkedin",
+                            code = error.code,
+                            "linkedin job detail failed"
+                        );
+                        continue;
+                    }
+                };
+                let payload = match tool_payload(&detail) {
+                    Ok(value) => value,
+                    Err(_) => {
+                        detail_failures += 1;
+                        continue;
+                    }
+                };
+                let url = payload
+                    .get("url")
+                    .and_then(Value::as_str)
+                    .map(str::to_string)
+                    .unwrap_or_else(|| format!("https://www.linkedin.com/jobs/view/{id}/"));
+                let text = payload
+                    .pointer("/sections/job_posting")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default();
+                if let Some(job) = parse_job_posting(&url, text) {
+                    jobs.push(job);
+                } else {
+                    detail_failures += 1;
+                }
             }
         }
 

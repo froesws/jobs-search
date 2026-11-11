@@ -95,3 +95,100 @@ async fn linkedin_mcp_adapter_reads_search_and_details() {
     assert!(jobs[0].description.contains("Rust and Linux"));
     assert!(!jobs[0].description.contains("Other job"));
 }
+
+#[tokio::test]
+async fn linkedin_mcp_adapter_runs_each_query_variant() {
+    let directory = tempfile::tempdir().expect("tempdir");
+    let script = directory.path().join("variant_linkedin_mcp.py");
+    let log = directory.path().join("queries.log");
+    let source = format!(
+        r#"
+import json
+import sys
+
+log = {log:?}
+ids = {{
+    "Rust Engineer trainee": "123",
+    "Rust Engineer júnior": "456",
+}}
+
+for raw in sys.stdin:
+    request = json.loads(raw)
+    if "id" not in request:
+        continue
+    request_id = request["id"]
+    if request["method"] == "initialize":
+        print(json.dumps({{"jsonrpc": "2.0", "id": request_id, "result": {{}}}}), flush=True)
+    elif request["method"] == "tools/call":
+        params = request.get("params") or {{}}
+        name = params.get("name")
+        arguments = params.get("arguments") or {{}}
+        if name == "search_jobs":
+            query = arguments.get("keywords", "")
+            with open(log, "a") as handle:
+                handle.write(query + "\n")
+            job_id = ids.get(query, "999")
+            payload = {{"job_ids": [job_id], "url": "https://www.linkedin.com/jobs/search/"}}
+            print(json.dumps({{
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "result": {{
+                    "content": [{{"type": "text", "text": json.dumps(payload)}}],
+                    "isError": False,
+                }},
+            }}), flush=True)
+        elif name == "get_job_details":
+            job_id = arguments.get("job_id", "999")
+            posting = (
+                "Acme\n"
+                f"Rust Engineer {{job_id}}\n"
+                "Porto Alegre, Brasil  · Compartilhada há 2 dias · 10 pessoas clicaram\n"
+                "Presencial\n"
+                "Sobre a vaga\n"
+                "We need Rust and Linux.\n"
+                "Ative um alerta para vagas semelhantes\n"
+            )
+            print(json.dumps({{
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "result": {{
+                    "structuredContent": {{
+                        "url": f"https://www.linkedin.com/jobs/view/{{job_id}}/",
+                        "sections": {{"job_posting": posting}},
+                    }},
+                    "isError": False,
+                }},
+            }}), flush=True)
+        else:
+            print(json.dumps({{"jsonrpc": "2.0", "id": request_id, "error": {{
+                "code": -32601, "message": "unknown tool"}}}}), flush=True)
+"#
+    );
+    std::fs::write(&script, source).expect("script");
+
+    let adapter = LinkedInMcpAdapter::new(
+        "linkedin",
+        "linkedin",
+        "python3",
+        vec![script.display().to_string()],
+        10,
+        1,
+        Duration::from_secs(5),
+    );
+    let request = IngestionRequest {
+        queries: vec![
+            "Rust Engineer trainee".to_string(),
+            "Rust Engineer júnior".to_string(),
+        ],
+        results_wanted: 10,
+        ..IngestionRequest::default()
+    };
+
+    let jobs = adapter.fetch(&request).await.expect("jobs");
+    assert_eq!(jobs.len(), 2);
+    let written = std::fs::read_to_string(log).expect("log");
+    assert_eq!(
+        written.lines().collect::<Vec<_>>(),
+        ["Rust Engineer trainee", "Rust Engineer júnior"]
+    );
+}

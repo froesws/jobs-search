@@ -141,3 +141,73 @@ for raw in sys.stdin:
     assert_eq!(error.code, "MCP_INVALID_RESPONSE");
     assert!(error.retryable);
 }
+
+#[tokio::test]
+async fn stdio_client_runs_each_query_variant() {
+    let directory = tempfile::tempdir().expect("tempdir");
+    let script = directory.path().join("variants.py");
+    let log = directory.path().join("queries.log");
+    let source = format!(
+        r#"
+import json
+import os
+import sys
+
+log = {log:?}
+
+for raw in sys.stdin:
+    request = json.loads(raw)
+    if "id" not in request:
+        continue
+    if request["method"] == "initialize":
+        print(json.dumps({{"jsonrpc": "2.0", "id": request["id"], "result": {{}}}}), flush=True)
+    elif request["method"] == "tools/call":
+        arguments = request["params"]["arguments"]
+        query = arguments["query"]
+        with open(log, "a") as handle:
+            handle.write(query + "\n")
+        print(json.dumps({{
+            "jsonrpc": "2.0",
+            "id": request["id"],
+            "result": {{
+                "jobs": [{{
+                    "title": query,
+                    "company": "Acme",
+                    "location": "Remote - Brazil",
+                    "url": "https://example.com/" + query.replace(" ", "-"),
+                    "description": "Rust",
+                }}]
+            }}
+        }}), flush=True)
+"#
+    );
+    std::fs::write(&script, source).expect("script");
+    let adapter = McpAdapter::new(
+        "jobspy",
+        "jobspy",
+        "python3",
+        vec![script.display().to_string()],
+        Vec::new(),
+        Duration::from_secs(5),
+    );
+    let request = IngestionRequest {
+        queries: vec![
+            "Rust Engineer trainee".to_string(),
+            "Rust Engineer júnior".to_string(),
+            "Rust Engineer pleno".to_string(),
+        ],
+        ..IngestionRequest::default()
+    };
+
+    let jobs = adapter.fetch(&request).await.expect("jobs");
+    assert_eq!(jobs.len(), 3);
+    let written = std::fs::read_to_string(log).expect("log");
+    assert_eq!(
+        written.lines().collect::<Vec<_>>(),
+        [
+            "Rust Engineer trainee",
+            "Rust Engineer júnior",
+            "Rust Engineer pleno"
+        ]
+    );
+}

@@ -1,6 +1,7 @@
 //! JobSpy MCP stdio client.
 #![allow(missing_docs)]
 
+use std::collections::HashSet;
 use std::path::PathBuf;
 use std::process::Stdio;
 use std::time::Duration;
@@ -174,7 +175,6 @@ impl McpAdapter {
         )
         .await?;
 
-        let call_id = "jobs-search-search-1";
         let sites = if request.sites.is_empty() {
             self.sites.clone()
         } else {
@@ -185,59 +185,77 @@ impl McpAdapter {
         } else {
             request.results_wanted
         };
+        let queries = if request.queries.is_empty() {
+            vec![request.query.clone()]
+        } else {
+            request.queries.clone()
+        };
 
-        write_message(
-            stdin,
-            &serde_json::json!({
-                "jsonrpc": "2.0",
-                "id": call_id,
-                "method": "tools/call",
-                "params": {
-                    "name": "search_jobs",
-                    "arguments": {
-                        "query": request.query,
-                        "location": request.location,
-                        "sites": sites,
-                        "results_wanted": results_wanted,
-                        "hours_old": request.hours_old,
-                        "is_remote": request.is_remote,
-                        "job_type": null,
-                        "offset": request.offset
+        let mut jobs = Vec::new();
+        for (index, query) in queries.iter().enumerate() {
+            let call_id = format!("jobs-search-search-{}", index + 1);
+            write_message(
+                stdin,
+                &serde_json::json!({
+                    "jsonrpc": "2.0",
+                    "id": call_id,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "search_jobs",
+                        "arguments": {
+                            "query": query,
+                            "location": request.location,
+                            "sites": sites,
+                            "results_wanted": results_wanted,
+                            "hours_old": request.hours_old,
+                            "is_remote": request.is_remote,
+                            "job_type": null,
+                            "offset": request.offset
+                        }
                     }
-                }
-            }),
-        )
-        .await?;
+                }),
+            )
+            .await?;
 
-        for _ in 0..MAX_RESPONSE_LINES {
-            let message = read_message(reader, self.timeout).await?;
-            if message.get("id").and_then(serde_json::Value::as_str) != Some(call_id) {
-                continue;
+            let mut received = false;
+            for _ in 0..MAX_RESPONSE_LINES {
+                let message = read_message(reader, self.timeout).await?;
+                if message.get("id").and_then(serde_json::Value::as_str) != Some(call_id.as_str()) {
+                    continue;
+                }
+                if let Some(error) = message.get("error") {
+                    return Err(SourceError::transient(
+                        "MCP_TOOL_ERROR",
+                        jsonrpc_error_message(error),
+                    ));
+                }
+                let result = message.get("result").ok_or_else(|| {
+                    SourceError::transient("MCP_INVALID_RESPONSE", "sidecar response has no result")
+                })?;
+                let mut batch = self.convert_jobs(result)?;
+                if let Some(failures) = result.get("failures").and_then(serde_json::Value::as_array)
+                {
+                    tracing::warn!(
+                        source = %self.id,
+                        failed_sites = failures.len(),
+                        "some MCP sites failed"
+                    );
+                }
+                jobs.append(&mut batch);
+                received = true;
+                break;
             }
-            if let Some(error) = message.get("error") {
+            if !received {
                 return Err(SourceError::transient(
-                    "MCP_TOOL_ERROR",
-                    jsonrpc_error_message(error),
+                    "MCP_INVALID_RESPONSE",
+                    "sidecar did not return the requested tool result",
                 ));
             }
-            let result = message.get("result").ok_or_else(|| {
-                SourceError::transient("MCP_INVALID_RESPONSE", "sidecar response has no result")
-            })?;
-            let jobs = self.convert_jobs(result)?;
-            if let Some(failures) = result.get("failures").and_then(serde_json::Value::as_array) {
-                tracing::warn!(
-                    source = %self.id,
-                    failed_sites = failures.len(),
-                    "some MCP sites failed"
-                );
-            }
-            return Ok(jobs);
         }
 
-        Err(SourceError::transient(
-            "MCP_INVALID_RESPONSE",
-            "sidecar did not return the requested tool result",
-        ))
+        let mut seen = HashSet::new();
+        jobs.retain(|job| seen.insert(job.external_id.clone()));
+        Ok(jobs)
     }
 
     fn convert_jobs(&self, result: &serde_json::Value) -> Result<Vec<RawJob>, SourceError> {
