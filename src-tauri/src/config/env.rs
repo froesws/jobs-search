@@ -521,6 +521,12 @@ mod tests {
     }
 
     #[test]
+    fn explicit_threshold_overrides_the_default() {
+        let config = config(&[("MATCH_THRESHOLD", "70")]).expect("valid");
+        assert_eq!(config.match_threshold, 70);
+    }
+
+    #[test]
     fn fallback_is_opt_in_and_strictly_parsed() {
         let enabled = config(&[("LLM_ALLOW_FALLBACK", "true")]).expect("valid");
         assert!(enabled.allow_fallback);

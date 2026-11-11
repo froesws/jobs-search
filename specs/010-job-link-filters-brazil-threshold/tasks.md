@@ -216,7 +216,7 @@ is `PENDING`; setting `MATCH_THRESHOLD=70` restores the old boundary.
   `src-tauri/tests/fixture_match.rs` (`EvaluationSettings::default`), and change
   the boundary test in `src-tauri/tests/score_contract.rs` to assert 50 is
   inclusive while 49 is pending.
-- [ ] T014 [P] [US4] Add a config test in `src-tauri/src/config/env.rs` proving
+- [x] T014 [P] [US4] Add a config test in `src-tauri/src/config/env.rs` proving
   `MATCH_THRESHOLD=70` still overrides the 50 default.
 
 ### Implementation for User Story 4
