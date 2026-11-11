@@ -16,14 +16,3 @@ export function scoreTone(score: number | null | undefined) {
   if (score >= 50) return 'warning' as const;
   return 'error' as const;
 }
-
-export function lifecycleTone(state: string) {
-  switch (state) {
-    case 'APPLIED':
-      return 'success' as const;
-    case 'IGNORED':
-      return 'default' as const;
-    default:
-      return 'primary' as const;
-  }
-}

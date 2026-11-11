@@ -196,17 +196,6 @@ impl LlmRouter {
         self
     }
 
-    pub fn is_empty(&self) -> bool {
-        self.plans.is_empty()
-    }
-
-    pub fn provider_names(&self) -> Vec<&'static str> {
-        self.plans
-            .iter()
-            .map(|plan| plan.provider.provider())
-            .collect()
-    }
-
     pub async fn evaluate(
         &self,
         input: &EvaluationInput,

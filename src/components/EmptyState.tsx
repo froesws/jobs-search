@@ -1,5 +1,4 @@
 import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 import type { ReactNode } from 'react';
 
@@ -50,13 +49,5 @@ export function EmptyState({ title, description, action }: EmptyStateProps) {
         {action}
       </Box>
     </Box>
-  );
-}
-
-export function EmptyStateAction({ label, onClick }: { label: string; onClick: () => void }) {
-  return (
-    <Button variant="outlined" onClick={onClick} sx={{ mt: 1 }}>
-      {label}
-    </Button>
   );
 }

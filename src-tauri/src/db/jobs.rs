@@ -5,7 +5,7 @@ use rusqlite::{OptionalExtension, params};
 use crate::db::Db;
 use crate::db::now_rfc3339;
 use crate::error::AppError;
-use crate::types::{EvaluationStatus, HardFilterRejection, JobTab, LifecycleState, WorkModality};
+use crate::types::{EvaluationStatus, HardFilterRejection, JobTab, WorkModality};
 
 const SUMMARY_COLUMNS: &str = "
     j.id, j.title, j.company, j.location, j.work_modality, j.url, j.posted_at,
@@ -556,26 +556,6 @@ fn error_category(breakdown: Option<&serde_json::Value>) -> Option<String> {
         .map(str::to_string)
 }
 
-/// Group lineage counts by source name for run metrics.
-pub fn source_breakdown(db: &Db) -> Result<BTreeMap<String, i64>, AppError> {
-    db.with_connection(|connection| {
-        let mut statement = connection.prepare(
-            "SELECT s.name, COUNT(*) FROM job_posting_sources l
-             JOIN job_sources s ON s.id = l.source_id
-             GROUP BY s.name ORDER BY s.name",
-        )?;
-        let rows = statement.query_map([], |row| {
-            Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
-        })?;
-        let mut values = BTreeMap::new();
-        for row in rows {
-            let (name, count) = row?;
-            values.insert(name, count);
-        }
-        Ok(values)
-    })
-}
-
 /// Source lineage counts ingested at or after a run start.
 pub fn source_breakdown_since(
     db: &Db,
@@ -624,26 +604,6 @@ pub fn status_counts(db: &Db) -> Result<(i64, i64, i64, i64), AppError> {
             }
         }
         Ok((rejected, pending, approved, error))
-    })
-}
-
-pub fn lifecycle(db: &Db, job_id: &str) -> Result<LifecycleState, AppError> {
-    db.with_connection(|connection| {
-        let state: Option<String> = connection
-            .query_row(
-                "SELECT lifecycle_state FROM job_applications WHERE job_id = ?1",
-                [job_id],
-                |row| row.get(0),
-            )
-            .optional()?;
-        Ok(state
-            .as_deref()
-            .and_then(|value| match value {
-                "APPLIED" => Some(LifecycleState::Applied),
-                "IGNORED" => Some(LifecycleState::Ignored),
-                _ => None,
-            })
-            .unwrap_or(LifecycleState::Discovered))
     })
 }
 

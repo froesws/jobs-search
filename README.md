@@ -32,7 +32,7 @@ No Tailwind, TanStack Query, Zustand, MongoDB, or external telemetry.
 src/              React/MUI frontend
 src-tauri/        Rust/Tauri backend
 sidecar/          Python JobSpy MCP sidecar
-specs/            Spec Kit feature specifications and plan
+specs/            Spec Kit feature docs (local-only; ignored by Git)
 .specify/         Spec Kit project configuration
 .opencode/        OpenCode commands, rules, and skills
 ```
@@ -163,13 +163,12 @@ Commits with the task ID, for example:
 feat(T012): add Gemini provider adapter
 ```
 
-Run the Rust, frontend, and Python checks before committing. The initial commit
-contains only `.gitignore`, `requirements.txt`, and this README; specs and
-Spec Kit/OpenCode configuration follow in a separate commit.
+Run the Rust, frontend, and Python checks before committing. Specs, Spec Kit,
+OpenCode, Husky, and editor configuration are local-only and ignored by Git.
 
 ## Specifications
 
-- [001 — Career Intelligence & Job Sourcing System](specs/001-career-job-sourcing/spec.md)
-- [002 — Job Sourcing Dashboard & Application Tracker](specs/002-job-sourcing-dashboard/spec.md)
-- [003 — Skill Gap Analytics](specs/003-skill-gap-analytics/spec.md)
-- [004 — Local Telemetry & Execution Logging](specs/004-telemetry-execution-logging/spec.md)
+The Spec Kit documents (`specs/001`–`specs/004`), `.specify/`, `.opencode/`,
+`.husky/`, and `.vscode/` are local-only and ignored by Git. A clean clone
+contains the application source, tests, sidecar, and `sources.yaml`; ask the
+operator for the local Spec Kit workspace when you need the design documents.

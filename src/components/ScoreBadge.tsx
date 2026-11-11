@@ -2,6 +2,7 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import { useTheme } from '@mui/material/styles';
 
+import { scoreLabel } from '../lib/format';
 import { scoreTone } from '../theme/tokens';
 
 export function ScoreBadge({
@@ -21,7 +22,7 @@ export function ScoreBadge({
         : tone === 'error'
           ? theme.palette.error.main
           : theme.palette.text.disabled;
-  const value = score === null || score === undefined ? '—' : Math.round(score);
+  const value = scoreLabel(score);
 
   return (
     <Box
