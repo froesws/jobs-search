@@ -142,12 +142,18 @@ def search_jobs(
     hours_old: int = 168,
     is_remote: bool = True,
     offset: int = 0,
+    fetch_descriptions: bool = True,
     max_retries: int = 2,
     backoff_seconds: float = 0.5,
     scrape: Callable[..., Any] | None = None,
     limiter: RateLimiter | None = None,
 ) -> dict[str, Any]:
-    """Search each requested board and return normalized postings."""
+    """Search each requested board and return normalized postings.
+
+    ``fetch_descriptions`` asks JobSpy to download each posting body. Without
+    it LinkedIn (and several other boards) return metadata only, which leaves
+    the Rust hard filters and the LLM with just a title to work from.
+    """
 
     requested = [str(site).strip().lower() for site in sites if str(site).strip()]
     if not requested:
@@ -169,15 +175,18 @@ def search_jobs(
         for attempt in range(retries + 1):
             limiter.wait()
             try:
-                result = scrape_fn(
-                    site_name=[site],
-                    search_term=query,
-                    location=location,
-                    results_wanted=results_wanted,
-                    hours_old=max(1, int(hours_old)),
-                    is_remote=bool(is_remote),
-                    offset=max(0, int(offset)),
-                )
+                scrape_kwargs: dict[str, Any] = {
+                    "site_name": [site],
+                    "search_term": query,
+                    "location": location,
+                    "results_wanted": results_wanted,
+                    "hours_old": max(1, int(hours_old)),
+                    "is_remote": bool(is_remote),
+                    "offset": max(0, int(offset)),
+                }
+                if fetch_descriptions:
+                    scrape_kwargs["fetch_description"] = True
+                result = scrape_fn(**scrape_kwargs)
                 break
             except JobSpyError as error:
                 site_error = error

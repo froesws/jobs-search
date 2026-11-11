@@ -28,6 +28,7 @@ pub struct McpAdapter {
     cwd: Option<PathBuf>,
     sites: Vec<String>,
     results_wanted: u32,
+    fetch_descriptions: bool,
     timeout: Duration,
     pacer: SourcePacer,
 }
@@ -60,6 +61,7 @@ impl McpAdapter {
             cwd: source.resolved_cwd(base_dir),
             sites,
             results_wanted: source.config_u32("results_wanted", 50).clamp(1, 200),
+            fetch_descriptions: source.config_bool("fetch_descriptions", true),
             timeout: Duration::from_secs(source.rate_limit.timeout_seconds.clamp(1, 300)),
             pacer: SourcePacer::new(source.rate_limit.requests_per_minute),
         })
@@ -81,6 +83,7 @@ impl McpAdapter {
             cwd: None,
             sites,
             results_wanted: 50,
+            fetch_descriptions: true,
             timeout,
             pacer: SourcePacer::new(60_000),
         }
@@ -205,6 +208,7 @@ impl McpAdapter {
                             "results_wanted": results_wanted,
                             "hours_old": request.hours_old,
                             "is_remote": request.is_remote,
+                            "fetch_descriptions": self.fetch_descriptions,
                             "job_type": null,
                             "offset": request.offset
                         }
@@ -431,6 +435,36 @@ config:
             McpAdapter::from_config(&source, Path::new("/home/dev/project")).expect("adapter");
 
         assert_eq!(adapter.cwd, Some(PathBuf::from("/opt/jobspy")));
+    }
+
+    #[test]
+    fn descriptions_are_fetched_by_default_and_can_be_disabled() {
+        let default_source = source(
+            r#"
+id: jobspy
+name: jobspy
+source_type: mcp
+config:
+  command: uv
+"#,
+        );
+        let adapter = McpAdapter::from_config(&default_source, Path::new("/home/dev/project"))
+            .expect("adapter");
+        assert!(adapter.fetch_descriptions);
+
+        let disabled_source = source(
+            r#"
+id: jobspy
+name: jobspy
+source_type: mcp
+config:
+  command: uv
+  fetch_descriptions: false
+"#,
+        );
+        let adapter = McpAdapter::from_config(&disabled_source, Path::new("/home/dev/project"))
+            .expect("adapter");
+        assert!(!adapter.fetch_descriptions);
     }
 
     #[test]

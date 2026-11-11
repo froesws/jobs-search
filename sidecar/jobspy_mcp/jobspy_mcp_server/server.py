@@ -45,6 +45,7 @@ TOOLS = [
                 "results_wanted": {"type": "integer", "minimum": 1, "maximum": 200},
                 "hours_old": {"type": "integer", "minimum": 1, "maximum": 720},
                 "is_remote": {"type": "boolean"},
+                "fetch_descriptions": {"type": "boolean", "default": True},
                 "job_type": {"type": ["string", "null"]},
                 "offset": {"type": "integer", "minimum": 0},
             },
@@ -111,6 +112,7 @@ def handle(
                 results_wanted=int(arguments.get("results_wanted") or 50),
                 hours_old=int(arguments.get("hours_old") or 168),
                 is_remote=bool(arguments.get("is_remote", True)),
+                fetch_descriptions=bool(arguments.get("fetch_descriptions", True)),
                 offset=int(arguments.get("offset") or 0),
             )
         except JobSpyError as error:

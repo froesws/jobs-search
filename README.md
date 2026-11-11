@@ -112,6 +112,11 @@ The two authenticated LinkedIn sources are optional. Set `enabled: false` in
 JobSpy and the local wrapper are started with `uv run --project`, so `uv` must
 be available in the environment that starts the app.
 
+JobSpy fetches posting bodies by default (`fetch_descriptions: true`); LinkedIn
+and Glassdoor otherwise return metadata only, leaving the hard filters and the
+LLM with just a title. Fetching descriptions is slower and more likely to hit a
+board's rate limit, so set `fetch_descriptions: false` for title-only results.
+
 ## Search filters
 
 The search bar uses two independent multi-select panels:
@@ -127,7 +132,10 @@ query is generated per selected seniority, for example
 `Rust Engineer pleno (remoto OR híbrido)`. The hard filters enforce the exact
 selected levels and modalities before the LLM call: Hybrid/Onsite require a
 city from the profile's accepted cities, Remote accepts Brazil/global, and
-`is_remote` is true only for a Remote-only selection.
+`is_remote` is true only for a Remote-only selection. Unknown metadata never
+rejects a posting on its own: an absent modality, location, or seniority is a
+gap to review, and `NO_CORE_TECHNOLOGY` only applies when the description is
+present but lacks an accepted technology.
 
 ## Analytics
 

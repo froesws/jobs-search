@@ -113,6 +113,13 @@ impl SourceConfig {
             .unwrap_or(default)
     }
 
+    pub fn config_bool(&self, key: &str, default: bool) -> bool {
+        self.config
+            .get(key)
+            .and_then(serde_yaml::Value::as_bool)
+            .unwrap_or(default)
+    }
+
     pub fn config_json(&self) -> Result<String, AppError> {
         serde_json::to_string(&self.config).map_err(AppError::from)
     }
@@ -423,6 +430,25 @@ sources:
             Some(PathBuf::from("/opt/sidecars/jobspy"))
         );
         assert_eq!(config.sources[3].resolved_cwd(base), None);
+    }
+
+    #[test]
+    fn parses_boolean_config_values() {
+        let config: SourcesConfig = serde_yaml::from_str(
+            r#"
+sources:
+  - id: jobspy
+    name: jobspy
+    source_type: mcp
+    config:
+      command: uv
+      fetch_descriptions: false
+"#,
+        )
+        .expect("valid yaml");
+
+        assert!(!config.sources[0].config_bool("fetch_descriptions", true));
+        assert!(config.sources[0].config_bool("missing", true));
     }
 
     #[test]

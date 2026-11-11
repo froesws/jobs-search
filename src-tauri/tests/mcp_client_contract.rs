@@ -36,6 +36,61 @@ async fn stdio_client_initializes_and_reads_tool_result() {
 }
 
 #[tokio::test]
+async fn stdio_client_requests_descriptions_by_default() {
+    use jobs_search_lib::config::SourceConfig;
+    use std::path::Path;
+
+    let directory = tempfile::tempdir().expect("tempdir");
+    let script = directory.path().join("echo_args.py");
+    std::fs::write(
+        &script,
+        r#"
+import json
+import sys
+for raw in sys.stdin:
+    request = json.loads(raw)
+    if "id" not in request:
+        continue
+    if request["method"] == "initialize":
+        result = {}
+    elif request["method"] == "tools/call":
+        value = request["params"]["arguments"].get("fetch_descriptions")
+        result = {"jobs": [{"title": f"fetch={value!r}", "url": "https://example.com/1"}]}
+    print(json.dumps({"jsonrpc": "2.0", "id": request["id"], "result": result}), flush=True)
+"#,
+    )
+    .expect("script");
+
+    let default_adapter = McpAdapter::new(
+        "jobspy",
+        "jobspy",
+        "python3",
+        vec![script.display().to_string()],
+        Vec::new(),
+        Duration::from_secs(5),
+    );
+    let jobs = default_adapter.fetch(&request()).await.expect("jobs");
+    assert_eq!(jobs[0].title, "fetch=True");
+
+    let source: SourceConfig = serde_yaml::from_str(&format!(
+        r#"
+id: jobspy
+name: jobspy
+source_type: mcp
+config:
+  command: python3
+  args: ["{}"]
+  fetch_descriptions: false
+"#,
+        script.display()
+    ))
+    .expect("source");
+    let disabled_adapter = McpAdapter::from_config(&source, Path::new("/tmp")).expect("adapter");
+    let jobs = disabled_adapter.fetch(&request()).await.expect("jobs");
+    assert_eq!(jobs[0].title, "fetch=False");
+}
+
+#[tokio::test]
 async fn stdio_timeout_is_isolated_as_a_source_error() {
     let directory = tempfile::tempdir().expect("tempdir");
     let script = directory.path().join("slow.py");

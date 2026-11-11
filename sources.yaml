@@ -20,6 +20,9 @@ sources:
         - bdjobs
         - hellowork
       results_wanted: 10
+      # Download posting bodies so matching sees technologies and modality.
+      # Slower and more prone to 429s; set false for title-only results.
+      fetch_descriptions: true
     rate_limit:
       requests_per_minute: 10
       max_retries: 2

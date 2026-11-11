@@ -56,6 +56,38 @@ def test_searches_linkedin_and_indeed_with_normalized_output():
     assert job["tags"] == ["rust", "backend"]
 
 
+def test_fetches_descriptions_by_default():
+    calls = []
+
+    def scrape(**kwargs):
+        calls.append(kwargs)
+        return fake_scrape(**kwargs)
+
+    limiter = RateLimiter(min_interval_seconds=0, clock=lambda: 0.0, sleep=lambda _: None)
+    search_jobs(query="Rust", sites=["linkedin"], limiter=limiter, scrape=scrape)
+
+    assert calls[0]["fetch_description"] is True
+
+
+def test_fetch_descriptions_can_be_disabled():
+    calls = []
+
+    def scrape(**kwargs):
+        calls.append(kwargs)
+        return fake_scrape(**kwargs)
+
+    limiter = RateLimiter(min_interval_seconds=0, clock=lambda: 0.0, sleep=lambda _: None)
+    search_jobs(
+        query="Rust",
+        sites=["linkedin"],
+        fetch_descriptions=False,
+        limiter=limiter,
+        scrape=scrape,
+    )
+
+    assert "fetch_description" not in calls[0]
+
+
 def test_rate_limiter_paces_board_calls():
     clock_values = iter([0.0, 0.0, 0.4, 0.4])
     sleeps = []
@@ -170,6 +202,12 @@ def test_mcp_initialize_and_tools_call_round_trip():
     initialize = handle({"jsonrpc": "2.0", "id": 1, "method": "initialize"})
     assert initialize["result"]["serverInfo"]["name"] == "jobspy-mcp-server"
 
+    captured = {}
+
+    def fake_search(**kwargs):
+        captured.update(kwargs)
+        return {"jobs": [{"title": "Rust"}]}
+
     called = handle(
         {
             "jsonrpc": "2.0",
@@ -180,10 +218,29 @@ def test_mcp_initialize_and_tools_call_round_trip():
                 "arguments": {"query": "Rust", "sites": ["linkedin"]},
             },
         },
-        search=lambda **_kwargs: {"jobs": [{"title": "Rust"}]},
+        search=fake_search,
     )
     assert called["result"]["jobs"][0]["title"] == "Rust"
     assert json.dumps(called).find("secret") == -1
+    assert captured["fetch_descriptions"] is True
+
+    handle(
+        {
+            "jsonrpc": "2.0",
+            "id": "run-2",
+            "method": "tools/call",
+            "params": {
+                "name": "search_jobs",
+                "arguments": {
+                    "query": "Rust",
+                    "sites": ["linkedin"],
+                    "fetch_descriptions": False,
+                },
+            },
+        },
+        search=fake_search,
+    )
+    assert captured["fetch_descriptions"] is False
 
 
 def test_mcp_rejects_missing_query_and_unknown_tool():
