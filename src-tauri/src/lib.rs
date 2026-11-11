@@ -73,6 +73,8 @@ pub fn run() {
             commands::config::cmd_save_provider_credential,
             commands::config::cmd_remove_provider_credential,
             commands::config::cmd_reset_provider_setting,
+            commands::config::cmd_refresh_provider_models,
+            commands::config::cmd_test_provider,
             commands::analytics::cmd_get_analytics,
             commands::analytics::cmd_export_analytics_csv,
         ])
