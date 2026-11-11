@@ -1,3 +1,7 @@
+use jobs_search_lib::db::Db;
+use jobs_search_lib::db::profile::{
+    delete_resume, insert_resume, list_resumes, load_active_profile, resume_count, save_profile,
+};
 use jobs_search_lib::pdf::{extract_text_from_mem, extract_text_from_path};
 use jobs_search_lib::profile::merge::merge_extracted;
 use jobs_search_lib::profile::schema::{ExtractedProfile, WorkHistoryEntry};
@@ -205,4 +209,53 @@ fn merge_preserves_manual_profile_precedence() {
     assert_eq!(merged.accepted_cities, ["Curitiba"]);
     assert_eq!(merged.dealbreakers, ["sales"]);
     assert_eq!(merged.salary_threshold, None);
+}
+
+#[test]
+fn profile_and_resumes_survive_reopen() {
+    let directory = tempfile::tempdir().expect("tempdir");
+    let path = directory.path().join("profile.sqlite3");
+    let db = Db::open(&path).expect("open");
+    let profile =
+        merge_extracted(None, &extracted("Rust Engineer", &["Rust"]), "resume-1").expect("profile");
+    let saved = save_profile(&db, profile).expect("save");
+    insert_resume(&db, "resume.pdf", "sha-1", "/tmp/resume.pdf").expect("resume");
+    drop(db);
+
+    let reopened = Db::open(&path).expect("reopen");
+    let loaded = load_active_profile(&reopened)
+        .expect("load")
+        .expect("profile");
+    assert_eq!(loaded.profile_id, saved.profile_id);
+    assert_eq!(loaded.version, 1);
+    assert_eq!(list_resumes(&reopened).expect("resumes").len(), 1);
+}
+
+#[test]
+fn profile_version_is_monotonic_and_delete_removes_resume() {
+    let db = Db::open_in_memory().expect("db");
+    let profile =
+        merge_extracted(None, &extracted("Rust Engineer", &["Rust"]), "resume-1").expect("profile");
+    let first = save_profile(&db, profile).expect("first");
+    let second = save_profile(&db, first.clone()).expect("second");
+    assert_eq!(second.version, first.version + 1);
+
+    let resume = insert_resume(&db, "resume.pdf", "sha-1", "/tmp/resume.pdf").expect("resume");
+    let deleted = delete_resume(&db, &resume.resume.id).expect("delete");
+    assert!(deleted.is_some());
+    assert_eq!(resume_count(&db).expect("count"), 0);
+}
+
+#[test]
+fn invalid_profile_does_not_overwrite_the_last_valid_one() {
+    let db = Db::open_in_memory().expect("db");
+    let profile =
+        merge_extracted(None, &extracted("Rust Engineer", &["Rust"]), "resume-1").expect("profile");
+    let saved = save_profile(&db, profile.clone()).expect("save");
+    let mut invalid = profile;
+    invalid.target_roles.clear();
+
+    assert!(save_profile(&db, invalid).is_err());
+    let loaded = load_active_profile(&db).expect("load").expect("profile");
+    assert_eq!(loaded, saved);
 }
