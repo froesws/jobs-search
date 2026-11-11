@@ -222,7 +222,7 @@ the URL; pressing Enter on the focused link opens the browser.
   `npm run typecheck`, `npm test`, `npm run lint`, `npm run format:check`,
   `cargo test --manifest-path src-tauri/Cargo.toml`,
   `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings`.
-- [ ] T020 [P] Review the capability diff: only `opener:default` is added; the
+- [X] T020 [P] Review the capability diff: only `opener:default` is added; the
   dialog and `core` permissions, the MCP servers, and the CSP
   (`src-tauri/tauri.conf.json`) are untouched. No `opener:allow-open-path`.
 
