@@ -92,7 +92,7 @@ installed; no behavior has changed.
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T004 Register `.plugin(tauri_plugin_opener::init())` in the
+- [X] T004 Register `.plugin(tauri_plugin_opener::init())` in the
   `tauri::Builder` chain in `src-tauri/src/lib.rs`, next to
   `.plugin(tauri_plugin_dialog::init())` and before `.invoke_handler(...)`.
 - [ ] T005 Add `"opener:default"` to `permissions` in
