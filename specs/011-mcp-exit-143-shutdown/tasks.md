@@ -121,7 +121,7 @@ one shutdown diagnostic on stderr.
   `initialize` response, send `SIGTERM`, and assert exit code 0, no `Traceback`
   in stderr, stdout contains only JSON-RPC lines, and a shutdown line reaches
   stderr.
-- [ ] T003 [P] [US1] Create
+- [x] T003 [P] [US1] Create
   `sidecar/linkedin_scraper_mcp/tests/test_signals.py` with the same contract
   for `linkedin-scraper-mcp`, including the case where a `tools/call` has not
   finished yet.
