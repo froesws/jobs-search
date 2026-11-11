@@ -76,23 +76,18 @@ no filter is selected and when a value is selected.
   `Select` and Stack `TextField` tops while keeping the "Seniority"/"Work type"
   captions visible. Keep `filter-row` `gap`, `flexWrap`, and `alignItems: 'flex-start'`;
   no new dependency; MUI/Emotion only.
-- [ ] T005 [P] [US1] Run `npm test -- src/components/TopBar.test.tsx`,
+- [X] T005 [P] [US1] Run `npm test -- src/components/TopBar.test.tsx`,
   `npm run typecheck`, `npm run lint`, and `npm run format:check`. Fix only failures
   introduced by T004 (`src/components/TopBar.tsx`, `src/components/TopBar.test.tsx`).
-
-**Checkpoint**: Selector tops align with neighboring items in all states.
-
----
-
-## Phase 4: Polish & Cross-Cutting Concerns
-
-- [ ] T006 [P] Confirm the change stays within the project stack: MUI/Emotion only,
+- [X] T006 [P] Confirm the change stays within the project stack: MUI/Emotion only,
   function components, no new data-fetching library, no new dependency
   (`src/components/TopBar.tsx`).
-- [ ] T007 [P] Manual acceptance: open the app, verify the seniority and work type
+- [ ] T007 [US1] Manual acceptance: open the app, verify the seniority and work type
   selectors line up with the Timeframe and Stack fields beside them when empty and when
   a value is selected; verify the filter row still wraps gracefully on narrow widths
   (`src/components/TopBar.tsx`).
+  **Note**: requires a desktop session/browser; skipped in this headless session. Verify
+  before shipping.
 
 ---
 
