@@ -62,6 +62,23 @@ function state(overrides: Partial<ProviderConfigState> = {}): ProviderConfigStat
   };
 }
 
+function stubRowRects() {
+  const rows = screen.getAllByTestId(/^order-/);
+  rows.forEach((row, index) => {
+    vi.spyOn(row, 'getBoundingClientRect').mockReturnValue({
+      top: index * 40,
+      bottom: index * 40 + 40,
+      height: 40,
+      left: 0,
+      right: 200,
+      width: 200,
+      x: 0,
+      y: index * 40,
+      toJSON: () => ({}),
+    } as DOMRect);
+  });
+}
+
 function catalog(overrides: Partial<ModelCatalogView> = {}): ModelCatalogView {
   return {
     provider: 'gemini',
@@ -259,23 +276,24 @@ describe('ProviderConfigDialog', () => {
     expect(input.order.indexOf('ollama')).toBeLessThan(input.order.indexOf('deepseek'));
   });
 
-  it('reorders providers by dragging a row onto another', () => {
+  it('reorders providers by dragging the handle', () => {
     render(<ProviderConfigDialog open onClose={() => {}} state={state()} />);
+    stubRowRects();
 
-    fireEvent.dragStart(screen.getByTestId('order-ollama'));
-    fireEvent.dragOver(screen.getByTestId('order-gemini'));
-    fireEvent.drop(screen.getByTestId('order-gemini'));
+    fireEvent.pointerDown(screen.getByTestId('handle-ollama'), { pointerId: 1 });
+    fireEvent.pointerMove(window, { clientY: 10 });
+    fireEvent.pointerUp(window);
 
     const rows = screen.getAllByTestId(/^order-/);
     expect(rows[0]).toHaveAttribute('data-testid', 'order-ollama');
     expect(rows[1]).toHaveAttribute('data-testid', 'order-gemini');
   });
 
-  it('does not reorder while dragging over a row', () => {
+  it('does not reorder without an active drag', () => {
     render(<ProviderConfigDialog open onClose={() => {}} state={state()} />);
+    stubRowRects();
 
-    fireEvent.dragStart(screen.getByTestId('order-ollama'));
-    fireEvent.dragOver(screen.getByTestId('order-gemini'));
+    fireEvent.pointerMove(window, { clientY: 10 });
 
     const rows = screen.getAllByTestId(/^order-/);
     expect(rows[0]).toHaveAttribute('data-testid', 'order-gemini');

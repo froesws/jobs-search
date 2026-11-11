@@ -209,6 +209,17 @@ accordion expand arrow sat too close to the status chip.
 
 ---
 
+## Phase 12: Pointer-based provider reordering
+
+**Reported**: HTML5 drag-and-drop fired `dragstart` but never delivered `drop`, and
+the drag image looked broken. Tauri on Linux uses WebKitGTK, which does not
+reliably implement HTML5 dropping inside a modal.
+
+- [X] T059 [US3] Replace native HTML5 drag events with pointer events (handle `pointerdown`, window `pointermove`/`pointerup`) and hit-test rows by bounding box, in `src/components/ProviderConfigDialog.tsx`. Drop the custom drag image entirely.
+- [X] T060 [P] [US3] Replace the drag tests with pointer-based tests using stubbed row rectangles, and cover the no-active-drag case, in `src/components/ProviderConfigDialog.test.tsx`.
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies

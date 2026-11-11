@@ -18,7 +18,8 @@ import Stack from '@mui/material/Stack';
 import Switch from '@mui/material/Switch';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { PointerEvent as ReactPointerEvent } from 'react';
 
 import { toAppError } from '@/lib/errors';
 import { refreshProviderModels, testProvider } from '@/lib/ipc';
@@ -93,7 +94,7 @@ export function ProviderConfigDialog({
   const [catalogs, setCatalogs] = useState<Record<string, ModelCatalogView>>({});
   const [showAll, setShowAll] = useState<Record<string, boolean>>({});
   const [dragging, setDragging] = useState<number | null>(null);
-  const [dragOver, setDragOver] = useState<number | null>(null);
+  const orderRows = useRef<Array<HTMLDivElement | null>>([]);
 
   const providers = useMemo(() => state.config?.providers ?? [], [state.config]);
 
@@ -155,6 +156,12 @@ export function ProviderConfigDialog({
   const labelFor = (providerId: ProviderId) =>
     state.config?.providers.find((provider) => provider.id === providerId)?.label ?? providerId;
 
+  const startDrag = (event: ReactPointerEvent<HTMLElement>, index: number) => {
+    event.preventDefault();
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    setDragging(index);
+  };
+
   const moveProvider = (from: number, to: number) => {
     if (from === to) return;
     setDraft((current) => {
@@ -166,6 +173,39 @@ export function ProviderConfigDialog({
       return { ...current, order };
     });
   };
+
+  // Pointer-based dragging: WebKitGTK (the Tauri Linux webview) does not deliver
+  // HTML5 drop events reliably, so the reorder is driven by pointer movement.
+  useEffect(() => {
+    if (dragging === null) return;
+
+    const targetIndex = (clientY: number) => {
+      for (let index = 0; index < orderRows.current.length; index += 1) {
+        const element = orderRows.current[index];
+        if (!element) continue;
+        const rect = element.getBoundingClientRect();
+        if (clientY >= rect.top && clientY <= rect.bottom) return index;
+      }
+      return null;
+    };
+
+    const handleMove = (event: PointerEvent) => {
+      const target = targetIndex(event.clientY);
+      if (target === null || target === dragging) return;
+      moveProvider(dragging, target);
+      setDragging(target);
+    };
+    const handleUp = () => setDragging(null);
+
+    window.addEventListener('pointermove', handleMove);
+    window.addEventListener('pointerup', handleUp);
+    window.addEventListener('pointercancel', handleUp);
+    return () => {
+      window.removeEventListener('pointermove', handleMove);
+      window.removeEventListener('pointerup', handleUp);
+      window.removeEventListener('pointercancel', handleUp);
+    };
+  }, [dragging]);
 
   const updateProvider = (id: string, patch: Partial<ProviderDraft>) => {
     setDraft((current) => ({
@@ -342,39 +382,8 @@ export function ProviderConfigDialog({
                 <Box
                   key={providerId}
                   data-testid={`order-${providerId}`}
-                  draggable
-                  onDragStart={(event) => {
-                    if (event.dataTransfer) {
-                      event.dataTransfer.effectAllowed = 'move';
-                      // Use a compact ghost: the default drag image is the whole
-                      // full-width row, which looks enormous while dragging.
-                      const ghost = document.createElement('div');
-                      ghost.textContent = `${index + 1}. ${labelFor(providerId)}`;
-                      ghost.style.cssText =
-                        'position:absolute;top:-1000px;left:-1000px;padding:4px 10px;' +
-                        'border:1px solid #888;border-radius:6px;background:#fff;' +
-                        'color:#111;font:13px sans-serif;white-space:nowrap;';
-                      document.body.appendChild(ghost);
-                      event.dataTransfer.setDragImage(ghost, 8, 8);
-                      window.setTimeout(() => ghost.remove(), 0);
-                    }
-                    setDragging(index);
-                  }}
-                  onDragOver={(event) => {
-                    event.preventDefault();
-                    if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
-                    if (dragOver !== index) setDragOver(index);
-                  }}
-                  onDragLeave={() => setDragOver((current) => (current === index ? null : current))}
-                  onDrop={(event) => {
-                    event.preventDefault();
-                    if (dragging !== null) moveProvider(dragging, index);
-                    setDragging(null);
-                    setDragOver(null);
-                  }}
-                  onDragEnd={() => {
-                    setDragging(null);
-                    setDragOver(null);
+                  ref={(element: HTMLDivElement | null) => {
+                    orderRows.current[index] = element;
                   }}
                   sx={{
                     display: 'flex',
@@ -383,23 +392,43 @@ export function ProviderConfigDialog({
                     px: 1,
                     py: 0.5,
                     border: '1px solid',
-                    borderColor:
-                      dragging === index
-                        ? 'primary.main'
-                        : dragOver === index
-                          ? 'primary.light'
-                          : 'divider',
+                    borderColor: dragging === index ? 'primary.main' : 'divider',
                     borderRadius: 1,
-                    bgcolor: dragOver === index ? 'action.hover' : 'background.paper',
-                    cursor: 'grab',
-                    opacity: dragging === index ? 0.5 : 1,
-                    '&:active': { cursor: 'grabbing' },
+                    bgcolor: 'background.paper',
+                    boxShadow: dragging === index ? 3 : 0,
+                    opacity: dragging === index ? 0.85 : 1,
+                    transition: 'box-shadow 120ms ease, border-color 120ms ease',
                   }}
                 >
-                  <Typography aria-hidden sx={{ color: 'text.secondary', letterSpacing: 2 }}>
+                  <Box
+                    component="span"
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Reorder ${providerId}`}
+                    data-testid={`handle-${providerId}`}
+                    onPointerDown={(event) => startDrag(event, index)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'ArrowUp') moveProvider(index, index - 1);
+                      if (event.key === 'ArrowDown') moveProvider(index, index + 1);
+                    }}
+                    sx={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: 24,
+                      height: 24,
+                      borderRadius: 1,
+                      color: 'text.secondary',
+                      cursor: 'grab',
+                      touchAction: 'none',
+                      userSelect: 'none',
+                      '&:hover': { bgcolor: 'action.hover' },
+                      '&:active': { cursor: 'grabbing' },
+                    }}
+                  >
                     ⠿
-                  </Typography>
-                  <Typography sx={{ flex: 1 }}>
+                  </Box>
+                  <Typography sx={{ flex: 1, userSelect: 'none' }}>
                     {index + 1}. {labelFor(providerId)}
                   </Typography>
                   <Button
