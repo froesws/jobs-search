@@ -2,8 +2,22 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import App from '@/App';
-import { applyJob, getActiveProvider, getJob, getJobs, getProfile, listResumes } from '@/lib/ipc';
-import { emptyPage, jobDetailFixture, jobFixture, profileFixture } from '@/test/fixtures';
+import {
+  applyJob,
+  getActiveProvider,
+  getJob,
+  getJobs,
+  getProfile,
+  listResumes,
+  triggerSearch,
+} from '@/lib/ipc';
+import {
+  emptyPage,
+  jobDetailFixture,
+  jobFixture,
+  profileFixture,
+  searchMetricsFixture,
+} from '@/test/fixtures';
 
 vi.mock('@/lib/ipc', async () => {
   const { createIpcMock } = await import('@/test/ipc-mock');
@@ -21,7 +35,9 @@ describe('dashboard application flow', () => {
       fallback_enabled: false,
     });
     vi.mocked(listResumes).mockResolvedValue([]);
+    vi.mocked(getJobs).mockResolvedValue(emptyPage);
     vi.mocked(getProfile).mockResolvedValue(profileFixture);
+    vi.mocked(triggerSearch).mockResolvedValue(searchMetricsFixture);
     vi.mocked(getJob).mockResolvedValue(detail);
     vi.mocked(applyJob).mockResolvedValue({
       job_id: 'j1',
@@ -49,5 +65,23 @@ describe('dashboard application flow', () => {
 
     await waitFor(() => expect(applyJob).toHaveBeenCalledWith(jobFixture.job_id));
     expect(await screen.findByText('No approved jobs yet')).toBeInTheDocument();
+  });
+
+  it('submits the selected seniority and work-type panels', async () => {
+    render(<App />);
+    await screen.findByRole('group', { name: 'Seniority' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Trainee' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Junior' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Pleno' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Hybrid' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Remote' }));
+    fireEvent.click(screen.getAllByRole('button', { name: 'Refresh Search' })[0]!);
+
+    await waitFor(() => expect(triggerSearch).toHaveBeenCalled());
+    const filters = vi.mocked(triggerSearch).mock.calls[0]?.[0];
+    expect(filters).toBeDefined();
+    expect(filters?.seniorities).toEqual(['Trainee', 'Junior', 'Pleno']);
+    expect(filters?.modalities).toEqual(['Hybrid', 'Remote']);
   });
 });
