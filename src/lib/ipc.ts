@@ -3,8 +3,12 @@ import { invoke } from '@tauri-apps/api/core';
 import { toAppError } from './errors';
 import type {
   ActiveProvider,
+  AnalyticsPayload,
+  AnalyticsRequest,
   CandidateProfile,
   ExecutionAudit,
+  ExportRequest,
+  ExportResult,
   JobApplication,
   JobDetail,
   JobEvaluationView,
@@ -77,4 +81,12 @@ export function getAudit(runId: string): Promise<ExecutionAudit> {
 
 export function getActiveProvider(): Promise<ActiveProvider> {
   return call('cmd_get_active_provider');
+}
+
+export function getAnalytics(request: AnalyticsRequest): Promise<AnalyticsPayload> {
+  return call('cmd_get_analytics', { request });
+}
+
+export function exportAnalyticsCsv(request: ExportRequest): Promise<ExportResult> {
+  return call('cmd_export_analytics_csv', { request });
 }
