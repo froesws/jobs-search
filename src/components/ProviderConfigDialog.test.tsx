@@ -203,6 +203,38 @@ describe('ProviderConfigDialog', () => {
     );
   });
 
+  it('derives OpenRouter attempts from the model list and omits the field', async () => {
+    const save = vi.fn().mockResolvedValue(configView());
+    const withOpenRouter = configView({
+      providers: [
+        {
+          ...configView().providers[0]!,
+          id: 'openrouter',
+          label: 'OpenRouter',
+          model: null,
+          models: ['a', 'b'],
+        },
+      ],
+    });
+    render(
+      <ProviderConfigDialog
+        open
+        onClose={() => {}}
+        state={state({ config: withOpenRouter, save })}
+      />,
+    );
+
+    fireEvent.click(screen.getByText('OpenRouter'));
+    const attempts = screen.getByLabelText('Attempts');
+    expect(attempts).toBeDisabled();
+    expect(attempts).toHaveValue(2);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(save).toHaveBeenCalled());
+    const input = vi.mocked(save).mock.calls[0]![0];
+    expect(input.providers[0]).toEqual({ id: 'openrouter', models: ['a', 'b'] });
+  });
+
   it('resets a field without removing the credential', async () => {
     const resetSetting = vi.fn().mockResolvedValue(configView());
     render(<ProviderConfigDialog open onClose={() => {}} state={state({ resetSetting })} />);
