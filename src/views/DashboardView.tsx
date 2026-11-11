@@ -2,6 +2,7 @@ import Box from '@mui/material/Box';
 import { useState } from 'react';
 
 import { safeMessage } from '../lib/errors';
+import { normalizeFilters, validateFilters } from '../lib/filters';
 import { applyJob, approveJob, ignoreJob, restoreJob, triggerSearch } from '../lib/ipc';
 import type { JobSummary, SearchMetrics } from '../lib/types';
 import { JobDrawer } from '../components/JobDrawer';
@@ -33,9 +34,14 @@ export function DashboardView({
   const [metrics, setMetrics] = useState<SearchMetrics | null>(null);
 
   const handleSearch = async () => {
+    const invalid = validateFilters(dashboard.filters);
+    if (invalid) {
+      feedback.notify(invalid, 'warning');
+      return;
+    }
     setSearching(true);
     try {
-      const result = await triggerSearch(dashboard.filters);
+      const result = await triggerSearch(normalizeFilters(dashboard.filters));
       setMetrics(result);
       setRefreshToken((value) => value + 1);
       feedback.notify(
