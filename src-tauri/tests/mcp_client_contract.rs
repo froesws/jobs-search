@@ -91,6 +91,67 @@ config:
 }
 
 #[tokio::test]
+async fn children_do_not_inherit_virtual_env() {
+    let directory = tempfile::tempdir().expect("tempdir");
+    let script = directory.path().join("env.py");
+    let log = directory.path().join("env.txt");
+    std::fs::write(
+        &script,
+        format!(
+            r#"
+import json
+import os
+import pathlib
+import sys
+
+pathlib.Path({log:?}).write_text(os.environ.get("VIRTUAL_ENV") or "unset")
+
+for raw in sys.stdin:
+    request = json.loads(raw)
+    if "id" not in request:
+        continue
+    if request["method"] == "initialize":
+        result = {{}}
+    else:
+        result = {{"jobs": [{{"title": "Rust", "url": "https://example.com/1"}}]}}
+    print(json.dumps({{"jsonrpc": "2.0", "id": request["id"], "result": result}}), flush=True)
+"#
+        ),
+    )
+    .expect("script");
+
+    static ENV_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+    struct EnvGuard;
+    impl EnvGuard {
+        fn set(value: &str) -> Self {
+            // Tests that mutate the process environment must serialize.
+            unsafe { std::env::set_var("VIRTUAL_ENV", value) };
+            Self
+        }
+    }
+    impl Drop for EnvGuard {
+        fn drop(&mut self) {
+            unsafe { std::env::remove_var("VIRTUAL_ENV") };
+        }
+    }
+
+    let _lock = ENV_LOCK.lock().await;
+    let _guard = EnvGuard::set(".venv");
+
+    let adapter = McpAdapter::new(
+        "jobspy",
+        "jobspy",
+        "python3",
+        vec![script.display().to_string()],
+        Vec::new(),
+        Duration::from_secs(5),
+    );
+    adapter.fetch(&request()).await.expect("jobs");
+
+    assert_eq!(std::fs::read_to_string(&log).expect("env log"), "unset");
+}
+
+#[tokio::test]
 async fn stdio_timeout_is_isolated_as_a_source_error() {
     let directory = tempfile::tempdir().expect("tempdir");
     let script = directory.path().join("slow.py");

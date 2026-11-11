@@ -158,7 +158,7 @@ both MCP adapters reports it unset even when the parent process has it set.
 
 ### Tests for User Story 2
 
-- [ ] T007 [P] [US2] Add a Rust contract test in
+- [x] T007 [P] [US2] Add a Rust contract test in
   `src-tauri/tests/mcp_client_contract.rs` with a fake sidecar that puts
   `os.environ.get("VIRTUAL_ENV")` in the job title; assert the adapter-spawned
   child sees `None` while the test process sets `VIRTUAL_ENV=.venv`.
