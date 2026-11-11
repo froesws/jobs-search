@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import AppBar from '@mui/material/AppBar';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -112,15 +113,16 @@ export function TopBar({
       </Toolbar>
 
       <Box
+        data-testid="filter-row"
         sx={{
           display: 'flex',
           gap: 1.5,
-          alignItems: 'center',
           px: 3,
           pb: 2,
           pt: 0.5,
           flexWrap: 'wrap',
         }}
+        style={{ alignItems: 'flex-start' }}
       >
         <FormControl size="small" sx={{ minWidth: 150 }}>
           <InputLabel id="timeframe-label">Timeframe</InputLabel>
@@ -138,10 +140,11 @@ export function TopBar({
           </Select>
         </FormControl>
 
-        <Box sx={{ display: 'grid', gap: 0.25, minWidth: 0 }}>
-          <Typography variant="caption" color="text.secondary">
-            Seniority
-          </Typography>
+        <FilterGroup
+          label="Seniority"
+          showFooter={filters.seniorities.length === 0}
+          testId="seniority-footer"
+        >
           <ToggleButtonGroup
             exclusive={false}
             size="small"
@@ -156,12 +159,7 @@ export function TopBar({
               </ToggleButton>
             ))}
           </ToggleButtonGroup>
-          {filters.seniorities.length === 0 ? (
-            <Typography variant="caption" color="text.secondary">
-              Profile default
-            </Typography>
-          ) : null}
-        </Box>
+        </FilterGroup>
 
         <TextField
           size="small"
@@ -172,10 +170,11 @@ export function TopBar({
           sx={{ minWidth: 210, flex: '0 1 260px' }}
         />
 
-        <Box sx={{ display: 'grid', gap: 0.25, minWidth: 0 }}>
-          <Typography variant="caption" color="text.secondary">
-            Work type
-          </Typography>
+        <FilterGroup
+          label="Work type"
+          showFooter={filters.modalities.length === 0}
+          testId="modality-footer"
+        >
           <ToggleButtonGroup
             exclusive={false}
             size="small"
@@ -190,13 +189,38 @@ export function TopBar({
               </ToggleButton>
             ))}
           </ToggleButtonGroup>
-          {filters.modalities.length === 0 ? (
-            <Typography variant="caption" color="text.secondary">
-              Profile default
-            </Typography>
-          ) : null}
-        </Box>
+        </FilterGroup>
       </Box>
     </AppBar>
+  );
+}
+
+function FilterGroup({
+  label,
+  showFooter,
+  testId,
+  children,
+}: {
+  label: string;
+  showFooter: boolean;
+  testId: string;
+  children: ReactNode;
+}) {
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, minWidth: 0 }}>
+      <Typography variant="caption" color="text.secondary">
+        {label}
+      </Typography>
+      {children}
+      <Typography
+        variant="caption"
+        color="text.secondary"
+        data-testid={testId}
+        aria-hidden={showFooter ? undefined : true}
+        style={{ visibility: showFooter ? 'visible' : 'hidden' }}
+      >
+        Profile default
+      </Typography>
+    </Box>
   );
 }

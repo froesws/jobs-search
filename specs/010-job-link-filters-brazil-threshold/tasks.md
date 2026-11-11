@@ -188,7 +188,7 @@ row uses top alignment so all filter groups start at the same height.
 
 ### Implementation for User Story 3
 
-- [ ] T011 [US3] In `src/components/TopBar.tsx`, extract a `FilterGroup` that
+- [x] T011 [US3] In `src/components/TopBar.tsx`, extract a `FilterGroup` that
   always reserves the caption line (render an `aria-hidden` placeholder with
   `visibility: 'hidden'` when a value is selected) and change the filter row
   from `alignItems: 'center'` to `alignItems: 'flex-start'`; apply it to both
