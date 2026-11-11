@@ -42,6 +42,9 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::telemetry::cmd_get_log_health,
             commands::profile::cmd_get_profile,
+            commands::profile::cmd_upload_resume,
+            commands::profile::cmd_delete_resume,
+            commands::profile::cmd_save_profile,
             commands::search::cmd_trigger_search,
             commands::jobs::cmd_get_jobs,
             commands::jobs::cmd_get_job,

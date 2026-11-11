@@ -10,7 +10,6 @@ use crate::ingestion::adapter::{IngestionRequest, SourceAdapter, SourceFailure};
 use crate::ingestion::{api::RemoteOkAdapter, ingest, mcp::McpAdapter, normalize};
 use crate::llm;
 use crate::profile::CandidateProfile;
-use crate::profile::fixture;
 use crate::state::AppState;
 use crate::types::{SearchTimeframe, Seniority, WorkModality};
 
@@ -72,7 +71,7 @@ pub async fn trigger(state: &AppState, filters: SearchFilters) -> Result<SearchM
         .try_lock()
         .map_err(|_| AppError::SearchInProgress)?;
 
-    let profile = fixture::load(state.config.fixture_profile_path.as_deref())?;
+    let profile = crate::commands::profile::load_profile_for_search(state)?;
     let sources = crate::config::SourcesConfig::load_or_default(&state.config.sources_path)?;
     let enabled = sources.enabled();
 

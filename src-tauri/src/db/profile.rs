@@ -16,6 +16,7 @@ pub struct StoredResume {
     pub content_hash: String,
     pub local_path: String,
     pub uploaded_at: String,
+    pub extracted_json: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -88,7 +89,7 @@ pub fn find_resume_by_hash(db: &Db, content_hash: &str) -> Result<Option<StoredR
     db.with_connection(|connection| {
         Ok(connection
             .query_row(
-                "SELECT id, filename, content_hash, local_path, uploaded_at
+                "SELECT id, filename, content_hash, local_path, uploaded_at, extracted_json
                  FROM resumes WHERE content_hash = ?1",
                 [content_hash],
                 resume_from_row,
@@ -102,6 +103,7 @@ pub fn insert_resume(
     filename: &str,
     content_hash: &str,
     local_path: &str,
+    extracted_json: Option<&str>,
 ) -> Result<ResumeInsertOutcome, AppError> {
     if let Some(existing) = find_resume_by_hash(db, content_hash)? {
         return Ok(ResumeInsertOutcome {
@@ -116,18 +118,21 @@ pub fn insert_resume(
         content_hash: content_hash.to_string(),
         local_path: local_path.to_string(),
         uploaded_at: now_rfc3339(),
+        extracted_json: extracted_json.map(str::to_string),
     };
 
     db.with_connection(|connection| {
         connection.execute(
-            "INSERT INTO resumes (id, filename, content_hash, local_path, uploaded_at)
-             VALUES (?1, ?2, ?3, ?4, ?5)",
+            "INSERT INTO resumes
+             (id, filename, content_hash, local_path, uploaded_at, extracted_json)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
             params![
                 resume.id,
                 resume.filename,
                 resume.content_hash,
                 resume.local_path,
                 resume.uploaded_at,
+                resume.extracted_json,
             ],
         )?;
         Ok(())
@@ -142,7 +147,7 @@ pub fn insert_resume(
 pub fn list_resumes(db: &Db) -> Result<Vec<StoredResume>, AppError> {
     db.with_connection(|connection| {
         let mut statement = connection.prepare(
-            "SELECT id, filename, content_hash, local_path, uploaded_at
+            "SELECT id, filename, content_hash, local_path, uploaded_at, extracted_json
              FROM resumes ORDER BY uploaded_at ASC",
         )?;
         let rows = statement.query_map([], resume_from_row)?;
@@ -158,7 +163,7 @@ pub fn delete_resume(db: &Db, id: &str) -> Result<Option<StoredResume>, AppError
     let resume = db.with_connection(|connection| {
         Ok(connection
             .query_row(
-                "SELECT id, filename, content_hash, local_path, uploaded_at
+                "SELECT id, filename, content_hash, local_path, uploaded_at, extracted_json
                  FROM resumes WHERE id = ?1",
                 [id],
                 resume_from_row,
@@ -189,6 +194,7 @@ fn resume_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<StoredResume> {
         content_hash: row.get(2)?,
         local_path: row.get(3)?,
         uploaded_at: row.get(4)?,
+        extracted_json: row.get(5)?,
     })
 }
 
@@ -226,8 +232,8 @@ mod tests {
     #[test]
     fn resume_content_hash_is_unique() {
         let db = Db::open_in_memory().expect("db");
-        let first = insert_resume(&db, "a.pdf", "hash", "/tmp/a.pdf").expect("first");
-        let second = insert_resume(&db, "b.pdf", "hash", "/tmp/b.pdf").expect("second");
+        let first = insert_resume(&db, "a.pdf", "hash", "/tmp/a.pdf", None).expect("first");
+        let second = insert_resume(&db, "b.pdf", "hash", "/tmp/b.pdf", None).expect("second");
         assert!(first.inserted);
         assert!(!second.inserted);
         assert_eq!(list_resumes(&db).expect("list").len(), 1);

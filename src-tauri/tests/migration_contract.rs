@@ -38,7 +38,15 @@ fn schema_has_no_raw_description_and_survives_reopen() {
             Ok(connection.pragma_query_value(None, "user_version", |row| row.get(0))?)
         })
         .expect("version");
-    assert_eq!(version, 3);
+    assert_eq!(version, 4);
+
+    let resume_columns = columns(&db, "resumes");
+    assert!(
+        resume_columns
+            .iter()
+            .any(|column| column == "extracted_json"),
+        "resumes must store the validated extraction for recalculation"
+    );
 
     let evaluation_columns = columns(&db, "job_evaluations");
     assert!(

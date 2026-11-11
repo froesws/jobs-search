@@ -119,8 +119,17 @@ fn is_tracking_parameter(pair: &str) -> bool {
 
 pub fn sha256_hex(input: &str) -> String {
     let digest = Sha256::digest(input.as_bytes());
-    let mut output = String::with_capacity(digest.len() * 2);
-    for byte in digest {
+    hex_digest(digest)
+}
+
+pub fn sha256_bytes(input: &[u8]) -> String {
+    let digest = Sha256::digest(input);
+    hex_digest(digest)
+}
+
+fn hex_digest(digest: impl AsRef<[u8]>) -> String {
+    let mut output = String::with_capacity(digest.as_ref().len() * 2);
+    for byte in digest.as_ref() {
         use std::fmt::Write;
         let _ = write!(output, "{byte:02x}");
     }

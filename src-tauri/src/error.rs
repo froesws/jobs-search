@@ -24,6 +24,8 @@ pub enum AppError {
     SearchInProgress,
     #[error("a fixture profile is required; set JOBS_SEARCH_FIXTURE_PROFILE")]
     ProfileRequired,
+    #[error("upload a resume before starting a new search")]
+    ResumeRequired,
 }
 
 impl AppError {
@@ -40,6 +42,7 @@ impl AppError {
             Self::Provider(_) => "PROVIDER_ERROR",
             Self::SearchInProgress => "SEARCH_IN_PROGRESS",
             Self::ProfileRequired => "PROFILE_REQUIRED",
+            Self::ResumeRequired => "RESUME_REQUIRED",
         }
     }
 

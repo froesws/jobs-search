@@ -2,7 +2,7 @@ use rusqlite::Connection;
 
 use crate::error::AppError;
 
-const SCHEMA_VERSION: i64 = 3;
+const SCHEMA_VERSION: i64 = 4;
 
 const SCHEMA_V1: &str = r#"
 CREATE TABLE resumes (
@@ -176,6 +176,12 @@ ALTER TABLE job_postings
 CREATE INDEX idx_job_postings_needs_review ON job_postings(needs_review);
 "#;
 
+/// V4 stores each resume's validated extraction so deleting a resume can
+/// recompute the profile without calling the LLM again or losing other sources.
+const SCHEMA_V4: &str = r#"
+ALTER TABLE resumes ADD COLUMN extracted_json TEXT;
+"#;
+
 pub fn apply(connection: &mut Connection) -> Result<(), AppError> {
     let current: i64 = connection.pragma_query_value(None, "user_version", |row| row.get(0))?;
     if current >= SCHEMA_VERSION {
@@ -191,6 +197,9 @@ pub fn apply(connection: &mut Connection) -> Result<(), AppError> {
     }
     if current < 3 {
         transaction.execute_batch(SCHEMA_V3)?;
+    }
+    if current < 4 {
+        transaction.execute_batch(SCHEMA_V4)?;
     }
     transaction.pragma_update(None, "user_version", SCHEMA_VERSION)?;
     transaction.commit()?;
