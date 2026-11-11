@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 
+pub mod analytics;
+
 use std::path::{Path, PathBuf};
 
 use jobs_search_lib::config::{RateLimitConfig, SourceConfig, SourceType};
