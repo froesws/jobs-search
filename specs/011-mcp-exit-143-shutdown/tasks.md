@@ -168,7 +168,7 @@ both MCP adapters reports it unset even when the parent process has it set.
 
 ### Implementation for User Story 2
 
-- [ ] T009 [US2] Call `.env_remove("VIRTUAL_ENV")` on the spawned `Command` in
+- [x] T009 [US2] Call `.env_remove("VIRTUAL_ENV")` on the spawned `Command` in
   `src-tauri/src/ingestion/mcp.rs` and
   `src-tauri/src/ingestion/linkedin_mcp.rs`, before `spawn`; keep the rest of the
   environment inherited.

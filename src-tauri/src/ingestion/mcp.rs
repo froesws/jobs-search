@@ -112,7 +112,8 @@ impl SourceAdapter for McpAdapter {
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
-            .kill_on_drop(true);
+            .kill_on_drop(true)
+            .env_remove("VIRTUAL_ENV");
         if let Some(cwd) = &self.cwd {
             command.current_dir(cwd);
         }
