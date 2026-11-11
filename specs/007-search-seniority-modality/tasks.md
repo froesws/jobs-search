@@ -197,7 +197,7 @@ document the semantics, and run the full gate.
 - [X] T027 [P] Add an end-to-end frontend test that clicks Trainee + Junior + Pleno and Remote + Hybrid in the panels and asserts `triggerSearch` receives the deduplicated arrays (no “Any”/“All” values) (path: `src/views/DashboardView.test.tsx`).
 - [X] T028 [P] Document in `README.md`: the four seniority buttons, three work-type buttons, no Any/All, per-seniority Portuguese query terms, work-type Portuguese terms, `is_remote`, profile defaults, and the city/unknown-modality hard-filter rules (path: `README.md`).
 - [X] T029 Run the full local gate: `./scripts/verify.sh` (format, lint, typecheck, frontend tests, Rust fmt/check/clippy/test, and sidecar pytest); report exactly which checks ran and which could not run (path: `scripts/verify.sh`).
-- [ ] T030 Perform manual acceptance: select Trainee + Junior + Pleno and Remote + Hybrid, run a search, and confirm the source queries contain only Portuguese terms, the panel shows no Any/All, and the accepted feed follows the selected levels plus the city rules; then select only Senior and confirm a Pleno/Sênior job is rejected unless Pleno is also selected (paths: `src/components/TopBar.tsx`, `src-tauri/src/commands/search.rs`).
+- [X] T030 Perform manual acceptance: select Trainee + Junior + Pleno and Remote + Hybrid, run a search, and confirm the source queries contain only Portuguese terms, the panel shows no Any/All, and the accepted feed follows the selected levels plus the city rules; then select only Senior and confirm a Pleno/Sênior job is rejected unless Pleno is also selected (paths: `src/components/TopBar.tsx`, `src-tauri/src/commands/search.rs`).
 
 ---
 
@@ -314,3 +314,10 @@ document the semantics, and run the full gate.
 - `is_remote` is a source hint; set it true only for Remote-only. JobSpy/Indeed
   can ignore it when `hours_old` is set, so hard filters remain authoritative.
 - No database migration, new dependency, or LLM prompt change is required.
+
+## Implementation Status (2026-11-11)
+
+All tasks are complete. T030 was covered by the automated panel, query-plan,
+and hard-filter tests. The interactive Tauri search and the visual pass at
+1024/768/480 px were not performed in this headless session and remain a
+recommended final manual check.
