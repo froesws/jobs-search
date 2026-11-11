@@ -13,7 +13,7 @@ import Toolbar from '@mui/material/Toolbar';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import type { ThemeMode } from '@/theme/theme';
-import { SENIORITY_PANEL_VALUES } from '@/lib/filters';
+import { MODALITY_PANEL_VALUES, SENIORITY_PANEL_VALUES } from '@/lib/filters';
 import type { SearchFilters, SearchTimeframe, Seniority, WorkModality } from '@/lib/types';
 import { ProviderIndicator } from '@/components/ProviderIndicator';
 import { ResumeManager } from '@/components/ResumeManager';
@@ -24,12 +24,12 @@ const TIMEFRAMES: Array<{ value: SearchTimeframe; label: string }> = [
   { value: 'D30', label: 'Last 30 days' },
 ];
 
-const MODALITIES: Array<{ value: 'All' | WorkModality; label: string }> = [
-  { value: 'All', label: 'All' },
-  { value: 'Remote', label: 'Remote' },
-  { value: 'Hybrid', label: 'Hybrid' },
-  { value: 'Onsite', label: 'On-site' },
-];
+const MODALITY_LABELS: Record<WorkModality, string> = {
+  Remote: 'Remote',
+  Hybrid: 'Hybrid',
+  Onsite: 'On-site',
+  Unknown: 'Unknown',
+};
 
 export function TopBar({
   filters,
@@ -46,8 +46,6 @@ export function TopBar({
   mode: ThemeMode;
   onToggleMode: () => void;
 }) {
-  const modality = filters.modalities[0] ?? 'All';
-
   return (
     <AppBar
       position="sticky"
@@ -174,23 +172,30 @@ export function TopBar({
           sx={{ minWidth: 210, flex: '0 1 260px' }}
         />
 
-        <ToggleButtonGroup
-          exclusive
-          size="small"
-          value={modality}
-          onChange={(_, value: 'All' | WorkModality | null) => {
-            if (!value) return;
-            onChange({ modalities: value === 'All' ? [] : [value] });
-          }}
-          aria-label="Work modality"
-          sx={{ bgcolor: 'background.paper', borderRadius: 2 }}
-        >
-          {MODALITIES.map((item) => (
-            <ToggleButton key={item.value} value={item.value} sx={{ px: 1.75 }}>
-              {item.label}
-            </ToggleButton>
-          ))}
-        </ToggleButtonGroup>
+        <Box sx={{ display: 'grid', gap: 0.25, minWidth: 0 }}>
+          <Typography variant="caption" color="text.secondary">
+            Work type
+          </Typography>
+          <ToggleButtonGroup
+            exclusive={false}
+            size="small"
+            value={filters.modalities}
+            onChange={(_, value: WorkModality[]) => onChange({ modalities: value })}
+            aria-label="Work modality"
+            sx={{ flexWrap: 'wrap', bgcolor: 'background.paper', borderRadius: 2 }}
+          >
+            {MODALITY_PANEL_VALUES.map((value) => (
+              <ToggleButton key={value} value={value} sx={{ px: 1.75 }}>
+                {MODALITY_LABELS[value]}
+              </ToggleButton>
+            ))}
+          </ToggleButtonGroup>
+          {filters.modalities.length === 0 ? (
+            <Typography variant="caption" color="text.secondary">
+              Profile default
+            </Typography>
+          ) : null}
+        </Box>
       </Box>
     </AppBar>
   );

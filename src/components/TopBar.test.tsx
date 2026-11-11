@@ -45,9 +45,13 @@ describe('TopBar', () => {
     expect(screen.queryByRole('button', { name: 'Any' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Intern' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Pleno-Senior' })).not.toBeInTheDocument();
-    expect(screen.getByText('Profile default')).toBeInTheDocument();
+    expect(screen.getAllByText('Profile default')).toHaveLength(2);
     expect(screen.getByLabelText('Stack or language')).toBeInTheDocument();
     expect(screen.getByRole('group', { name: 'Work modality' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'On-site' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Hybrid' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Remote' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'All' })).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText('Stack or language'), {
       target: { value: 'Rust' },
@@ -92,6 +96,42 @@ describe('TopBar', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: 'Trainee' }));
     expect(onChange).toHaveBeenLastCalledWith({ seniorities: ['Junior', 'Pleno'] });
+  });
+
+  it('allows Remote and Hybrid together and adds On-site', () => {
+    const onChange = vi.fn();
+    const { rerender } = render(
+      <FeedbackProvider>
+        <TopBar
+          filters={{ ...DEFAULT_FILTERS, modalities: ['Remote'] }}
+          onChange={onChange}
+          onSearch={() => {}}
+          searching={false}
+          mode="dark"
+          onToggleMode={() => {}}
+        />
+      </FeedbackProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hybrid' }));
+    expect(onChange).toHaveBeenLastCalledWith({ modalities: ['Remote', 'Hybrid'] });
+
+    rerender(
+      <FeedbackProvider>
+        <TopBar
+          filters={{ ...DEFAULT_FILTERS, modalities: ['Hybrid', 'Remote'] }}
+          onChange={onChange}
+          onSearch={() => {}}
+          searching={false}
+          mode="dark"
+          onToggleMode={() => {}}
+        />
+      </FeedbackProvider>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'On-site' }));
+    expect(onChange).toHaveBeenLastCalledWith({
+      modalities: ['Hybrid', 'Remote', 'Onsite'],
+    });
   });
 
   it('disables the search trigger while a run is active', () => {

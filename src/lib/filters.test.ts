@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  MODALITY_PANEL_VALUES,
   SENIORITY_PANEL_VALUES,
   normalizeFilters,
+  toggleModality,
   toggleSeniority,
   validateFilters,
 } from '@/lib/filters';
@@ -43,6 +45,14 @@ describe('search filters', () => {
     expect(toggleSeniority(['Trainee'], 'Junior')).toEqual(['Trainee', 'Junior']);
     expect(toggleSeniority(['Trainee', 'Junior'], 'Trainee')).toEqual(['Junior']);
     expect(toggleSeniority(['Intern'], 'Intern')).toEqual([]);
+  });
+
+  it('toggles only the three work-type panel values', () => {
+    expect(MODALITY_PANEL_VALUES).toEqual(['Onsite', 'Hybrid', 'Remote']);
+    expect(toggleModality([], 'Remote')).toEqual(['Remote']);
+    expect(toggleModality(['Remote'], 'Hybrid')).toEqual(['Hybrid', 'Remote']);
+    expect(toggleModality(['Remote', 'Hybrid'], 'Remote')).toEqual(['Hybrid']);
+    expect(toggleModality(['Hybrid'], 'Hybrid')).toEqual([]);
   });
 
   it('accepts the default filters and all modalities encoded as empty', () => {

@@ -5,12 +5,20 @@ const TIMEFRAMES: SearchTimeframe[] = ['H24', 'D7', 'D30'];
 const MODALITIES: WorkModality[] = ['Remote', 'Hybrid', 'Onsite'];
 
 export const SENIORITY_PANEL_VALUES: Seniority[] = ['Trainee', 'Junior', 'Pleno', 'Senior'];
+export const MODALITY_PANEL_VALUES: WorkModality[] = ['Onsite', 'Hybrid', 'Remote'];
 
 export function toggleSeniority(current: Seniority[], value: Seniority): Seniority[] {
   const next = current.includes(value)
     ? current.filter((item) => item !== value)
     : [...current, value];
   return SENIORITY_PANEL_VALUES.filter((item) => next.includes(item));
+}
+
+export function toggleModality(current: WorkModality[], value: WorkModality): WorkModality[] {
+  const next = current.includes(value)
+    ? current.filter((item) => item !== value)
+    : [...current, value];
+  return MODALITY_PANEL_VALUES.filter((item) => next.includes(item));
 }
 
 export function normalizeFilters(filters: SearchFilters): SearchFilters {
