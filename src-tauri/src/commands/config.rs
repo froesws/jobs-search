@@ -380,6 +380,29 @@ pub fn cmd_remove_provider_credential(
     build_view(&state).map_err(Into::into)
 }
 
+#[tauri::command]
+pub fn cmd_reset_provider_setting(
+    state: State<'_, AppState>,
+    provider: String,
+    field: String,
+) -> Result<ProviderConfigView, ErrorPayload> {
+    let key = match field.as_str() {
+        "order" => "provider.order".to_string(),
+        "fallbackEnabled" => "provider.fallback_enabled".to_string(),
+        "model" | "models" | "baseUrl" | "attempts" | "enabled" => {
+            validate_provider_id(&provider)?;
+            let suffix = match field.as_str() {
+                "baseUrl" => "base_url",
+                other => other,
+            };
+            format!("provider.{provider}.{suffix}")
+        }
+        _ => return Err(AppError::validation("unknown setting field").into()),
+    };
+    settings::delete(&state.db, &key)?;
+    build_view(&state).map_err(Into::into)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
