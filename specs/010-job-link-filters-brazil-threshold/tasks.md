@@ -116,7 +116,7 @@ instead of overflowing, and an invalid URL still shows the warning.
   normalized URL; keep `target="_blank"`, `rel="noreferrer"`,
   `safeExternalUrl`, and add `wordBreak: 'break-all'`, `userSelect: 'text'`, and
   a visible "Original posting" caption.
-- [ ] T004 [US1] Run `npm test -- src/components/JobDrawer.test.tsx` and
+- [x] T004 [US1] Run `npm test -- src/components/JobDrawer.test.tsx` and
   `npm run typecheck`; verify in the running drawer that a long URL wraps and is
   selectable/copyable (path: `src/components/JobDrawer.tsx`).
 
@@ -345,3 +345,4 @@ is `PENDING`; setting `MATCH_THRESHOLD=70` restores the old boundary.
 ## Execution Notes (2026-11-11)
 
 - **T001 baseline**: `./scripts/verify.sh` passed before the changes.
+- **T004**: `npm test -- src/components/JobDrawer.test.tsx` passed (6).
