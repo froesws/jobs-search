@@ -9,6 +9,7 @@ use zeroize::Zeroizing;
 
 use crate::config::SourceConfig;
 use crate::error::AppError;
+use crate::ingestion::SourcePacer;
 use crate::ingestion::adapter::{IngestionRequest, RawJob, SourceAdapter, SourceError};
 
 const PROTOCOL_VERSION: &str = "2024-11-05";
@@ -22,6 +23,7 @@ pub struct McpAdapter {
     sites: Vec<String>,
     results_wanted: u32,
     timeout: Duration,
+    pacer: SourcePacer,
 }
 
 impl McpAdapter {
@@ -52,6 +54,7 @@ impl McpAdapter {
             sites,
             results_wanted: source.config_u32("results_wanted", 50).clamp(1, 200),
             timeout: Duration::from_secs(source.rate_limit.timeout_seconds.clamp(1, 300)),
+            pacer: SourcePacer::new(source.rate_limit.requests_per_minute),
         })
     }
 
@@ -71,6 +74,7 @@ impl McpAdapter {
             sites,
             results_wanted: 50,
             timeout,
+            pacer: SourcePacer::new(60_000),
         }
     }
 }
@@ -90,6 +94,7 @@ impl SourceAdapter for McpAdapter {
     }
 
     async fn fetch(&self, request: &IngestionRequest) -> Result<Vec<RawJob>, SourceError> {
+        self.pacer.wait().await;
         let mut child = Command::new(&self.command)
             .args(&self.args)
             .stdin(Stdio::piped())

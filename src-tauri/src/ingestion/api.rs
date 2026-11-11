@@ -7,6 +7,7 @@ use zeroize::Zeroizing;
 
 use crate::config::SourceConfig;
 use crate::error::AppError;
+use crate::ingestion::SourcePacer;
 use crate::ingestion::adapter::{IngestionRequest, RawJob, SourceAdapter, SourceError};
 
 pub struct RemoteOkAdapter {
@@ -18,6 +19,7 @@ pub struct RemoteOkAdapter {
     max_retries: u32,
     backoff: Duration,
     results_wanted: u32,
+    pacer: SourcePacer,
 }
 
 impl RemoteOkAdapter {
@@ -45,6 +47,7 @@ impl RemoteOkAdapter {
             max_retries: source.rate_limit.max_retries.min(5),
             backoff: Duration::from_millis(source.rate_limit.backoff_ms.clamp(10, 5_000)),
             results_wanted: source.config_u32("results_wanted", 50).clamp(1, 200),
+            pacer: SourcePacer::new(source.rate_limit.requests_per_minute),
         })
     }
 
@@ -71,6 +74,7 @@ impl RemoteOkAdapter {
             max_retries,
             backoff,
             results_wanted,
+            pacer: SourcePacer::new(60_000),
         })
     }
 }
@@ -94,6 +98,7 @@ impl SourceAdapter for RemoteOkAdapter {
             SourceError::transient("API_REQUEST_FAILED", "RemoteOK request failed");
 
         for attempt in 0..=self.max_retries {
+            self.pacer.wait().await;
             if attempt > 0 {
                 let factor = 2u32.saturating_pow(attempt.saturating_sub(1)).min(8);
                 tokio::time::sleep(self.backoff.saturating_mul(factor)).await;
