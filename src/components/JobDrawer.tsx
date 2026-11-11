@@ -254,10 +254,7 @@ export function JobDrawer({
                 </Button>
               ) : null}
               {url ? (
-                <Box>
-                  <Typography variant="overline" color="text.secondary">
-                    Original posting
-                  </Typography>
+                <Box sx={{ mt: 'auto', display: 'grid', gap: 1, textAlign: 'center' }}>
                   <Button
                     variant="contained"
                     size="small"
@@ -275,14 +272,6 @@ export function JobDrawer({
                   >
                     Open original posting
                   </Button>
-                  <Typography
-                    variant="caption"
-                    color="text.secondary"
-                    data-testid="original-posting-url-text"
-                    sx={{ mt: 1, wordBreak: 'break-all', userSelect: 'text' }}
-                  >
-                    {url}
-                  </Typography>
                 </Box>
               ) : (
                 <Alert severity="warning" variant="outlined">

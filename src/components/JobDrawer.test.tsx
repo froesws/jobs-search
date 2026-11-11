@@ -79,11 +79,6 @@ describe('JobDrawer', () => {
     expect(button).toHaveAttribute('data-testid', 'original-posting-url');
     expect(button).not.toHaveAttribute('href');
     expect(button).not.toHaveAttribute('target');
-    expect(screen.getByTestId('original-posting-url-text')).toHaveTextContent(job.url);
-    expect(screen.getByTestId('original-posting-url-text')).toHaveStyle({
-      wordBreak: 'break-all',
-      userSelect: 'text',
-    });
     expect(screen.queryByRole('link', { name: job.url })).not.toBeInTheDocument();
 
     fireEvent.click(button);
@@ -101,7 +96,6 @@ describe('JobDrawer', () => {
 
     await waitFor(() => expect(notify).toHaveBeenCalledTimes(1));
     expect(notify).toHaveBeenCalledWith(expect.stringContaining(job.url), 'error');
-    expect(screen.getByTestId('original-posting-url-text')).toHaveTextContent(job.url);
     expect(button).toBeInTheDocument();
     expect(screen.getByText('Senior Rust Engineer')).toBeInTheDocument();
   });
