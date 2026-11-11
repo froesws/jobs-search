@@ -2,25 +2,9 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { JobCard } from '@/components/JobCard';
-import type { JobSummary } from '@/lib/types';
+import { jobFixture } from '@/test/fixtures';
 
-const job: JobSummary = {
-  job_id: 'job-1',
-  title: 'Senior Rust Engineer',
-  company: 'Acme',
-  location: 'Remote - Brazil',
-  work_modality: 'Remote',
-  url: 'https://example.com/jobs/1',
-  posted_at: '2026-11-08T12:00:00Z',
-  evaluation_status: 'APPROVED',
-  lifecycle_state: 'DISCOVERED',
-  match_score: 92,
-  matching_items_count: 4,
-  total_requirements_count: 5,
-  summary: 'Own the systems platform.',
-  needs_review: false,
-  applied_at: null,
-};
+const job = jobFixture;
 
 describe('JobCard', () => {
   it('shows the role, score, and N/M ratio', () => {
@@ -33,7 +17,7 @@ describe('JobCard', () => {
     expect(screen.getByText('4/5')).toBeInTheDocument();
 
     fireEvent.click(screen.getByText('Senior Rust Engineer'));
-    expect(onOpen).toHaveBeenCalledWith('job-1');
+    expect(onOpen).toHaveBeenCalledWith(job.job_id);
   });
 
   it('flags jobs that need identity review', () => {

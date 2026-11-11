@@ -101,6 +101,21 @@ export const jobDetailFixture: JobDetail = {
   error_category: null,
 };
 
+export const errorJobDetailFixture: JobDetail = {
+  ...jobDetailFixture,
+  job_id: 'fixture-job-error',
+  evaluation_status: 'ERROR',
+  match_score: null,
+  matching_items_count: null,
+  total_requirements_count: null,
+  summary: '',
+  description_clean: 'Rust',
+  requirements: [],
+  matched_keywords: [],
+  missing_keywords: [],
+  error_category: 'RATE_LIMIT',
+};
+
 export const providerFixture: ActiveProvider = {
   provider: 'deepseek',
   model: 'deepseek-chat',
