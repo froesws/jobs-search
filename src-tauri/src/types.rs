@@ -38,6 +38,17 @@ impl WorkModality {
             _ => Self::Unknown,
         }
     }
+
+    /// Portuguese term used in external source queries. This is separate from
+    /// the stable storage/display value returned by `as_str`.
+    pub fn search_term_pt(self) -> Option<&'static str> {
+        match self {
+            Self::Remote => Some("remoto"),
+            Self::Hybrid => Some("híbrido"),
+            Self::Onsite => Some("presencial"),
+            Self::Unknown => None,
+        }
+    }
 }
 
 /// Seniority values accepted by the operator profile and the hard filters.
@@ -78,6 +89,18 @@ impl Seniority {
             "pleno" | "mid" | "mid-level" | "midlevel" => Some(Self::Pleno),
             "senior" | "sênior" | "sr" => Some(Self::Senior),
             _ => None,
+        }
+    }
+
+    /// Portuguese term used in external source queries. This is separate from
+    /// the stable storage/display value returned by `as_str`.
+    pub fn search_term_pt(self) -> &'static str {
+        match self {
+            Self::Trainee => "trainee",
+            Self::Intern => "estágio",
+            Self::Junior => "júnior",
+            Self::Pleno => "pleno",
+            Self::Senior => "sênior",
         }
     }
 }
@@ -322,5 +345,26 @@ impl From<String> for ResumeId {
 impl From<&str> for ResumeId {
     fn from(value: &str) -> Self {
         Self(value.to_string())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn exposes_portuguese_search_terms_without_changing_display_values() {
+        assert_eq!(Seniority::Trainee.search_term_pt(), "trainee");
+        assert_eq!(Seniority::Intern.search_term_pt(), "estágio");
+        assert_eq!(Seniority::Junior.search_term_pt(), "júnior");
+        assert_eq!(Seniority::Pleno.search_term_pt(), "pleno");
+        assert_eq!(Seniority::Senior.search_term_pt(), "sênior");
+        assert_eq!(WorkModality::Remote.search_term_pt(), Some("remoto"));
+        assert_eq!(WorkModality::Hybrid.search_term_pt(), Some("híbrido"));
+        assert_eq!(WorkModality::Onsite.search_term_pt(), Some("presencial"));
+        assert_eq!(WorkModality::Unknown.search_term_pt(), None);
+
+        assert_eq!(Seniority::Senior.as_str(), "Senior");
+        assert_eq!(WorkModality::Remote.as_str(), "Remote");
     }
 }
