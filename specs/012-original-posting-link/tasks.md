@@ -105,7 +105,7 @@ installed; no behavior has changed.
   that is not `http(s)` **without** invoking the plugin, then
   `await openUrl(safe)` imported from `@tauri-apps/plugin-opener`. Components
   must call this wrapper, never the plugin directly (project IPC rule).
-- [ ] T007 Verify the wiring compiles and the capability schema regenerates:
+- [X] T007 Verify the wiring compiles and the capability schema regenerates:
   `cargo check --manifest-path src-tauri/Cargo.toml`, `npm run typecheck`, and
   confirm `src-tauri/gen/schemas/` now lists the opener permissions.
 
