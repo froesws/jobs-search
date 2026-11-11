@@ -168,6 +168,22 @@ Logs never contain credentials, raw payloads, model prompts/responses, URLs,
 filesystem paths, job descriptions, or candidate data. No MongoDB or external
 telemetry is used.
 
+## MCP troubleshooting
+
+An MCP server that stops with exit code `143` received `SIGTERM` (`128 + 15`).
+That is an orderly shutdown from a supervisor, a configuration reload, or a
+manual cleanup — not a sidecar crash. The FastMCP banner, the `uv` environment
+lines, and `Starting MCP server` are startup diagnostics. Reload the client or
+restart the app to launch the server again.
+
+The desktop app reads `sources.yaml`; OpenCode reads `.opencode/opencode.jsonc`.
+The `linkedin` and `linkedin-scraper` entries there are independent from the
+app's sources and can be disabled if duplicate servers are not wanted. The
+`linkedin` server is the third-party `mcp-server-linkedin` package and cannot
+trap signals in this repository; `linkedin-scraper-mcp` now exits `0` on
+`SIGTERM`/`SIGINT`. The `VIRTUAL_ENV=.venv does not match` warning is benign;
+app-spawned sidecars no longer inherit `VIRTUAL_ENV`.
+
 ## Commands
 
 ```bash

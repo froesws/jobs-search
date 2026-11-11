@@ -230,7 +230,7 @@ reported servers, and know that the `VIRTUAL_ENV` warning is benign.
 
 ### Implementation for User Story 4
 
-- [ ] T015 [P] [US4] Add a README troubleshooting section: `143 = SIGTERM`, it
+- [x] T015 [P] [US4] Add a README troubleshooting section: `143 = SIGTERM`, it
   is an orderly shutdown (supervisor, config reload, or manual cleanup), the
   FastMCP banner/`uv` install output is startup noise, and an app restart or
   OpenCode reload reconnects the server (path: `README.md`).
