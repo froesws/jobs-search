@@ -3,7 +3,7 @@ import { open } from '@tauri-apps/plugin-dialog';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { deleteResume, listResumes, uploadResume } from '@/lib/ipc';
-import type { CandidateProfile } from '@/lib/types';
+import type { CandidateProfile, UploadResumeResult } from '@/lib/types';
 import { FeedbackProvider } from '@/components/FeedbackProvider';
 import { ResumeManager } from '@/components/ResumeManager';
 
@@ -21,6 +21,13 @@ const profile = {
   extras: { resumes_available: true },
 } as unknown as CandidateProfile;
 
+const uploaded: UploadResumeResult = {
+  resume_id: 'r2',
+  profile,
+  duplicate: false,
+  warning: null,
+};
+
 describe('ResumeManager', () => {
   beforeEach(() => {
     vi.mocked(listResumes).mockResolvedValue([
@@ -32,7 +39,7 @@ describe('ResumeManager', () => {
       },
     ]);
     vi.mocked(open).mockResolvedValue('/tmp/resume.pdf');
-    vi.mocked(uploadResume).mockResolvedValue(profile);
+    vi.mocked(uploadResume).mockResolvedValue(uploaded);
     vi.mocked(deleteResume).mockResolvedValue(profile);
   });
 
@@ -49,6 +56,47 @@ describe('ResumeManager', () => {
     expect(await screen.findByText(/Resume processed/)).toBeInTheDocument();
   });
 
+  it('shows a warning when extraction fails but the resume is saved', async () => {
+    vi.mocked(uploadResume).mockResolvedValue({
+      ...uploaded,
+      profile: null,
+      warning: 'Resume saved, but profile extraction failed.',
+    });
+
+    render(
+      <FeedbackProvider>
+        <ResumeManager />
+      </FeedbackProvider>,
+    );
+    await waitFor(() => expect(screen.getByText('Resumes (1)')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Upload resume' }));
+    expect(
+      await screen.findByText('Resume saved, but profile extraction failed.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Resume processed/)).not.toBeInTheDocument();
+  });
+
+  it('does not claim the profile was recalculated for a duplicate', async () => {
+    vi.mocked(uploadResume).mockResolvedValue({
+      ...uploaded,
+      duplicate: true,
+    });
+
+    render(
+      <FeedbackProvider>
+        <ResumeManager />
+      </FeedbackProvider>,
+    );
+    await waitFor(() => expect(screen.getByText('Resumes (1)')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Upload resume' }));
+    expect(await screen.findByText(/already stored/)).toBeInTheDocument();
+    expect(
+      screen.queryByText('Resume processed and profile recalculated.'),
+    ).not.toBeInTheDocument();
+  });
+
   it('deletes a stored resume from the menu', async () => {
     render(
       <FeedbackProvider>
@@ -61,5 +109,22 @@ describe('ResumeManager', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Delete' }));
 
     await waitFor(() => expect(deleteResume).toHaveBeenCalledWith('r1'));
+  });
+
+  it('shows a warning when deleting leaves no active profile', async () => {
+    vi.mocked(deleteResume).mockResolvedValue(null);
+
+    render(
+      <FeedbackProvider>
+        <ResumeManager />
+      </FeedbackProvider>,
+    );
+    await waitFor(() => expect(screen.getByText('Resumes (1)')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Resumes (1)' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete' }));
+
+    expect(await screen.findByText(/Resume removed/)).toBeInTheDocument();
+    expect(screen.queryByText(/Removed resume.pdf/)).not.toBeInTheDocument();
   });
 });

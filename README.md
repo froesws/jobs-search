@@ -154,6 +154,17 @@ Health: `cmd_get_log_health`.
 All commands return `{ code, message }` errors and never expose raw job
 descriptions, credentials, prompts, or filesystem paths.
 
+## Resume uploads
+
+Uploading a PDF validates the file, hashes it, extracts its text, writes the
+file under `resumes/`, and inserts the `resumes` row before calling the LLM. If
+extraction fails, the command returns a partial success with a warning and
+keeps the file and row with `extracted_json = NULL`. The resume remains listed
+and can be deleted or replaced; deleting such a resume when no active profile
+exists succeeds without an error. Fix the provider configuration and upload a
+different PDF (or delete and re-add the same file) to rebuild the profile.
+Duplicate uploads are reported as duplicates and are not reprocessed.
+
 ## Local data and privacy
 
 Profiles, stored resumes, jobs, evaluations, applications, and audit records

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { safeMessage } from '@/lib/errors';
 import { deleteResume, listResumes, uploadResume } from '@/lib/ipc';
-import type { CandidateProfile, ResumeSummary } from '@/lib/types';
+import type { CandidateProfile, ResumeSummary, UploadResumeResult } from '@/lib/types';
 
 type Status = 'loading' | 'ready' | 'empty' | 'error';
 
@@ -30,12 +30,12 @@ export function useResumeViewModel() {
   }, [refresh]);
 
   const upload = useCallback(
-    async (filePath: string): Promise<CandidateProfile> => {
+    async (filePath: string): Promise<UploadResumeResult> => {
       setBusy(true);
       try {
-        const profile = await uploadResume(filePath);
+        const result = await uploadResume(filePath);
         await refresh();
-        return profile;
+        return result;
       } finally {
         setBusy(false);
       }
@@ -44,7 +44,7 @@ export function useResumeViewModel() {
   );
 
   const remove = useCallback(
-    async (fileId: string): Promise<CandidateProfile> => {
+    async (fileId: string): Promise<CandidateProfile | null> => {
       setBusy(true);
       try {
         const profile = await deleteResume(fileId);

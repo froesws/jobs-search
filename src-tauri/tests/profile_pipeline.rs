@@ -1,3 +1,6 @@
+use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
+
 use async_trait::async_trait;
 use jobs_search_lib::commands::profile::{
     ProfileExtractor, delete_resume_with, load_profile_for_search,
@@ -271,11 +274,26 @@ fn invalid_profile_does_not_overwrite_the_last_valid_one() {
 
 struct FakeExtractor {
     fail: bool,
+    calls: Arc<AtomicUsize>,
+}
+
+impl FakeExtractor {
+    fn new(fail: bool) -> Self {
+        Self {
+            fail,
+            calls: Arc::new(AtomicUsize::new(0)),
+        }
+    }
+
+    fn calls(&self) -> usize {
+        self.calls.load(Ordering::SeqCst)
+    }
 }
 
 #[async_trait]
 impl ProfileExtractor for FakeExtractor {
     async fn extract(&self, _resume_text: &str) -> Result<ExtractedProfile, AppError> {
+        self.calls.fetch_add(1, Ordering::SeqCst);
         if self.fail {
             return Err(AppError::Provider("provider failed".into()));
         }
@@ -301,23 +319,23 @@ async fn upload_resume_persists_profile_and_file() {
     let state = app_state(directory.path());
     let path = write_resume(directory.path());
 
-    let outcome = upload_resume_with(&state, &path, &FakeExtractor { fail: false })
+    let extractor = FakeExtractor::new(false);
+    let outcome = upload_resume_with(&state, &path, &extractor)
         .await
         .expect("upload");
 
     assert!(!outcome.duplicate);
-    assert!(
-        outcome
-            .profile
-            .core_competencies
-            .contains(&"Rust".to_string())
-    );
-    assert!(outcome.profile.has_resumes());
+    assert!(outcome.warning.is_none());
+    assert_eq!(extractor.calls(), 1);
+    let profile = outcome.profile.expect("profile");
+    assert!(profile.core_competencies.contains(&"Rust".to_string()));
+    assert!(profile.has_resumes());
     assert_eq!(resume_count(&state.db).expect("count"), 1);
     assert!(load_profile_for_search(&state).is_ok());
-    assert!(
-        std::path::Path::new(&list_resumes(&state.db).expect("resumes")[0].local_path).exists()
-    );
+    let resumes = list_resumes(&state.db).expect("resumes");
+    assert_eq!(resumes.len(), 1);
+    assert!(resumes[0].extracted_json.is_some());
+    assert!(std::path::Path::new(&resumes[0].local_path).exists());
 }
 
 #[tokio::test]
@@ -326,30 +344,68 @@ async fn duplicate_resume_is_not_stored_twice() {
     let state = app_state(directory.path());
     let path = write_resume(directory.path());
 
-    let first = upload_resume_with(&state, &path, &FakeExtractor { fail: false })
+    let extractor = FakeExtractor::new(false);
+    let first = upload_resume_with(&state, &path, &extractor)
         .await
         .expect("first");
-    let second = upload_resume_with(&state, &path, &FakeExtractor { fail: false })
+    let second = upload_resume_with(&state, &path, &extractor)
         .await
         .expect("second");
 
     assert!(!first.duplicate);
     assert!(second.duplicate);
+    assert!(second.warning.is_none());
+    assert_eq!(extractor.calls(), 1);
     assert_eq!(resume_count(&state.db).expect("count"), 1);
-    assert_eq!(first.profile.version, second.profile.version);
+    let first_profile = first.profile.expect("first profile");
+    let second_profile = second.profile.expect("second profile");
+    assert_eq!(first_profile.version, second_profile.version);
 }
 
 #[tokio::test]
-async fn failed_extraction_does_not_create_a_partial_profile() {
+async fn duplicate_failed_resume_is_reported_without_reprocessing() {
     let directory = tempfile::tempdir().expect("tempdir");
     let state = app_state(directory.path());
     let path = write_resume(directory.path());
 
-    let error = upload_resume_with(&state, &path, &FakeExtractor { fail: true })
+    let failing = FakeExtractor::new(true);
+    let first = upload_resume_with(&state, &path, &failing)
         .await
-        .expect_err("failure");
-    assert!(error.message().contains("provider failed"));
-    assert_eq!(resume_count(&state.db).expect("count"), 0);
+        .expect("partial success");
+    assert!(first.warning.is_some());
+    assert!(first.profile.is_none());
+    assert_eq!(failing.calls(), 1);
+
+    let succeeding = FakeExtractor::new(false);
+    let second = upload_resume_with(&state, &path, &succeeding)
+        .await
+        .expect("duplicate");
+    assert!(second.duplicate);
+    assert!(second.warning.is_some());
+    assert!(second.profile.is_none());
+    assert_eq!(succeeding.calls(), 0);
+    assert_eq!(resume_count(&state.db).expect("count"), 1);
+}
+
+#[tokio::test]
+async fn failed_extraction_keeps_the_resume_and_returns_a_warning() {
+    let directory = tempfile::tempdir().expect("tempdir");
+    let state = app_state(directory.path());
+    let path = write_resume(directory.path());
+
+    let extractor = FakeExtractor::new(true);
+    let outcome = upload_resume_with(&state, &path, &extractor)
+        .await
+        .expect("partial success");
+    assert!(outcome.warning.is_some());
+    assert!(!outcome.duplicate);
+    assert!(outcome.profile.is_none());
+    assert_eq!(extractor.calls(), 1);
+
+    let resumes = list_resumes(&state.db).expect("resumes");
+    assert_eq!(resumes.len(), 1);
+    assert!(resumes[0].extracted_json.is_none());
+    assert!(std::path::Path::new(&resumes[0].local_path).exists());
     assert!(load_active_profile(&state.db).expect("load").is_none());
 }
 
@@ -358,12 +414,14 @@ async fn deleting_the_last_resume_blocks_new_searches() {
     let directory = tempfile::tempdir().expect("tempdir");
     let state = app_state(directory.path());
     let path = write_resume(directory.path());
-    upload_resume_with(&state, &path, &FakeExtractor { fail: false })
+    upload_resume_with(&state, &path, &FakeExtractor::new(false))
         .await
         .expect("upload");
     let resume = list_resumes(&state.db).expect("resumes").remove(0);
 
-    let profile = delete_resume_with(&state, resume.id.as_str()).expect("delete");
+    let profile = delete_resume_with(&state, resume.id.as_str())
+        .expect("delete")
+        .expect("profile");
     assert!(!profile.has_resumes());
     assert_eq!(resume_count(&state.db).expect("count"), 0);
     assert!(!std::path::Path::new(&resume.local_path).exists());
@@ -372,20 +430,38 @@ async fn deleting_the_last_resume_blocks_new_searches() {
 }
 
 #[tokio::test]
+async fn deleting_a_failed_resume_without_a_profile_succeeds() {
+    let directory = tempfile::tempdir().expect("tempdir");
+    let state = app_state(directory.path());
+    let path = write_resume(directory.path());
+
+    upload_resume_with(&state, &path, &FakeExtractor::new(true))
+        .await
+        .expect("partial success");
+    let resume = list_resumes(&state.db).expect("resumes").remove(0);
+
+    let profile = delete_resume_with(&state, resume.id.as_str()).expect("delete");
+    assert!(profile.is_none());
+    assert_eq!(resume_count(&state.db).expect("count"), 0);
+    assert!(!std::path::Path::new(&resume.local_path).exists());
+}
+
+#[tokio::test]
 async fn saving_the_profile_advances_version_and_clears_no_resume_state() {
     let directory = tempfile::tempdir().expect("tempdir");
     let state = app_state(directory.path());
     let path = write_resume(directory.path());
-    let uploaded = upload_resume_with(&state, &path, &FakeExtractor { fail: false })
+    let uploaded = upload_resume_with(&state, &path, &FakeExtractor::new(false))
         .await
         .expect("upload");
+    let uploaded_profile = uploaded.profile.expect("profile");
 
-    let mut edited = uploaded.profile.clone();
+    let mut edited = uploaded_profile.clone();
     edited.extras.resumes_available = false;
     edited.acceptable_technologies = vec!["React".into(), "react".into()];
     let saved = save_profile_command(&state, edited).expect("save");
 
-    assert_eq!(saved.version, uploaded.profile.version + 1);
+    assert_eq!(saved.version, uploaded_profile.version + 1);
     assert!(saved.has_resumes());
     assert_eq!(saved.acceptable_technologies, ["React"]);
 }
@@ -419,18 +495,64 @@ async fn deleting_one_resume_removes_only_its_contributions() {
     let merged = upload_resume_with(&state, &second_path.display().to_string(), &TextExtractor)
         .await
         .expect("second upload");
-    assert!(
-        merged
-            .profile
-            .core_competencies
-            .contains(&"Rust".to_string())
-    );
-    assert!(merged.profile.core_competencies.contains(&"C#".to_string()));
+    let profile = merged.profile.expect("profile");
+    assert!(profile.core_competencies.contains(&"Rust".to_string()));
+    assert!(profile.core_competencies.contains(&"C#".to_string()));
 
     let first_resume = list_resumes(&state.db).expect("resumes").remove(0);
-    let recalculated = delete_resume_with(&state, first_resume.id.as_str()).expect("delete");
+    let recalculated = delete_resume_with(&state, first_resume.id.as_str())
+        .expect("delete")
+        .expect("profile");
 
     assert_eq!(recalculated.core_competencies, ["C#"]);
     assert_eq!(recalculated.source_documents.len(), 1);
     assert_eq!(resume_count(&state.db).expect("count"), 1);
+}
+
+#[tokio::test]
+async fn provider_404_still_persists_the_resume() {
+    use std::time::Duration;
+
+    use jobs_search_lib::commands::profile::LlmProfileExtractor;
+    use jobs_search_lib::llm::gemini::GeminiProvider;
+    use jobs_search_lib::llm::provider::{LlmRouter, ProviderPlan};
+    use wiremock::matchers::{method, path as wire_path};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    let directory = tempfile::tempdir().expect("tempdir");
+    let state = app_state(directory.path());
+    let path = write_resume(directory.path());
+
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(wire_path("/v1beta/models/gemini-test:generateContent"))
+        .respond_with(ResponseTemplate::new(404))
+        .mount(&server)
+        .await;
+
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(5))
+        .build()
+        .expect("client");
+    let router = LlmRouter::from_plans(vec![ProviderPlan {
+        provider: Arc::new(GeminiProvider::new(
+            client,
+            server.uri(),
+            "gemini-test",
+            "invalid-key",
+            Duration::from_secs(5),
+        )),
+        attempts: 1,
+    }]);
+    let extractor = LlmProfileExtractor::new(router);
+
+    let outcome = upload_resume_with(&state, &path, &extractor)
+        .await
+        .expect("partial success");
+    assert!(outcome.warning.is_some());
+    assert!(outcome.profile.is_none());
+    assert_eq!(resume_count(&state.db).expect("count"), 1);
+    let resumes = list_resumes(&state.db).expect("resumes");
+    assert!(resumes[0].extracted_json.is_none());
+    assert!(std::path::Path::new(&resumes[0].local_path).exists());
 }

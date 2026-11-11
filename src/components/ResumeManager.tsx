@@ -24,8 +24,20 @@ export function ResumeManager() {
         filters: [{ name: 'PDF resume', extensions: ['pdf'] }],
       });
       if (typeof selected !== 'string') return;
-      await resumes.upload(selected);
-      feedback.notify('Resume processed and profile recalculated.', 'success');
+      const result = await resumes.upload(selected);
+      if (result.warning) {
+        feedback.notify(result.warning, 'warning', true);
+      } else if (result.duplicate) {
+        feedback.notify(
+          'This resume is already stored; the profile was not recalculated.',
+          'warning',
+          true,
+        );
+      } else if (!result.profile) {
+        feedback.notify('Resume stored, but the profile is not available yet.', 'warning', true);
+      } else {
+        feedback.notify('Resume processed and profile recalculated.', 'success');
+      }
     } catch (error) {
       feedback.notify(safeMessage(error), 'error', true);
     }
@@ -34,6 +46,14 @@ export function ResumeManager() {
   const handleDelete = async (fileId: string, filename: string) => {
     try {
       const profile = await resumes.remove(fileId);
+      if (!profile) {
+        feedback.notify(
+          'Resume removed. Upload and extract a new resume to rebuild the profile.',
+          'warning',
+          true,
+        );
+        return;
+      }
       feedback.notify(
         profile.extras &&
           (profile.extras as { resumes_available?: boolean }).resumes_available === false

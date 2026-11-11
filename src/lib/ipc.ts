@@ -17,6 +17,7 @@ import type {
   ResumeSummary,
   SearchFilters,
   SearchMetrics,
+  UploadResumeResult,
 } from '@/lib/types';
 
 async function call<T>(command: string, args?: Record<string, unknown>): Promise<T> {
@@ -39,11 +40,11 @@ export function listResumes(): Promise<ResumeSummary[]> {
   return call('cmd_list_resumes');
 }
 
-export function uploadResume(filePath: string): Promise<CandidateProfile> {
+export function uploadResume(filePath: string): Promise<UploadResumeResult> {
   return call('cmd_upload_resume', { filePath });
 }
 
-export function deleteResume(fileId: string): Promise<CandidateProfile> {
+export function deleteResume(fileId: string): Promise<CandidateProfile | null> {
   return call('cmd_delete_resume', { fileId });
 }
 

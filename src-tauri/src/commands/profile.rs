@@ -19,8 +19,29 @@ use crate::types::ResumeId;
 
 #[derive(Debug, Clone)]
 pub struct UploadOutcome {
-    pub profile: CandidateProfile,
+    pub resume_id: String,
+    pub profile: Option<CandidateProfile>,
     pub duplicate: bool,
+    pub warning: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct UploadResumeResult {
+    pub resume_id: String,
+    pub profile: Option<CandidateProfile>,
+    pub duplicate: bool,
+    pub warning: Option<String>,
+}
+
+impl From<UploadOutcome> for UploadResumeResult {
+    fn from(outcome: UploadOutcome) -> Self {
+        Self {
+            resume_id: outcome.resume_id,
+            profile: outcome.profile,
+            duplicate: outcome.duplicate,
+            warning: outcome.warning,
+        }
+    }
 }
 
 #[async_trait]
@@ -41,12 +62,19 @@ impl LlmProfileExtractor {
 #[async_trait]
 impl ProfileExtractor for LlmProfileExtractor {
     async fn extract(&self, resume_text: &str) -> Result<ExtractedProfile, AppError> {
-        let outcome = self
-            .router
-            .extract_profile(resume_text)
-            .await
-            .map_err(|error| AppError::Provider(error.message))?;
-        Ok(outcome.profile)
+        match self.router.extract_profile(resume_text).await {
+            Ok(outcome) => Ok(outcome.profile),
+            Err(error) => {
+                tracing::warn!(
+                    category = error.category.as_str(),
+                    provider = error.last_provider.as_deref().unwrap_or("none"),
+                    model = error.last_model.as_deref().unwrap_or("none"),
+                    message = %error.message,
+                    "profile extraction failed"
+                );
+                Err(AppError::Provider(error.message))
+            }
+        }
     }
 }
 
@@ -109,87 +137,214 @@ pub async fn upload_resume_with(
         .await
         .map_err(|_| AppError::Database("resume read task failed".to_string()))??;
 
-    if let Some(_existing) = db::profile::find_resume_by_hash(&state.db, &content_hash)? {
-        let profile =
-            db::profile::load_active_profile(&state.db)?.ok_or(AppError::ProfileRequired)?;
+    if let Some(existing) = db::profile::find_resume_by_hash(&state.db, &content_hash)? {
         return Ok(UploadOutcome {
-            profile,
+            resume_id: existing.id.as_str().to_string(),
+            warning: duplicate_warning(existing.extracted_json.as_deref()),
+            profile: db::profile::load_active_profile(&state.db)?,
             duplicate: true,
         });
     }
 
-    let write_bytes = bytes.clone();
-    let extract_bytes = bytes;
+    let extract_bytes = bytes.clone();
     let text = tokio::task::spawn_blocking(move || pdf::extract_text_from_mem(&extract_bytes))
         .await
         .map_err(|_| AppError::Database("resume extraction task failed".to_string()))??;
-    let extracted = extractor.extract(text.as_str()).await?;
-    drop(text);
-
-    let existing = db::profile::load_active_profile(&state.db)?;
-    let merged = merge_extracted(existing.as_ref(), &extracted, &content_hash)?;
 
     let app_data = state.config.app_data_dir.clone();
     let hash_for_path = content_hash.clone();
-    let local_path = tokio::task::spawn_blocking(move || {
-        write_resume_file(&app_data, &hash_for_path, &write_bytes)
-    })
-    .await
-    .map_err(|_| AppError::Database("resume write task failed".to_string()))??;
+    let local_path =
+        tokio::task::spawn_blocking(move || write_resume_file(&app_data, &hash_for_path, &bytes))
+            .await
+            .map_err(|_| AppError::Database("resume write task failed".to_string()))??;
 
-    let extracted_json = serde_json::to_string(&extracted)?;
-    let inserted = db::profile::insert_resume(
-        &state.db,
-        &filename,
-        &content_hash,
-        &local_path,
-        Some(&extracted_json),
-    )?;
+    let inserted =
+        match db::profile::insert_resume(&state.db, &filename, &content_hash, &local_path, None) {
+            Ok(inserted) => inserted,
+            Err(error) => {
+                let _ = std::fs::remove_file(&local_path);
+                return Err(error);
+            }
+        };
+
     if !inserted.inserted {
         return Ok(UploadOutcome {
-            profile: db::profile::load_active_profile(&state.db)?
-                .ok_or(AppError::ProfileRequired)?,
+            resume_id: inserted.resume.id.as_str().to_string(),
+            warning: duplicate_warning(inserted.resume.extracted_json.as_deref()),
+            profile: db::profile::load_active_profile(&state.db)?,
             duplicate: true,
         });
     }
 
+    let resume_id = inserted.resume.id.as_str().to_string();
+    let extracted = match extractor.extract(text.as_str()).await {
+        Ok(extracted) => extracted,
+        Err(error) => {
+            drop(text);
+            tracing::warn!(
+                resume_id = %resume_id,
+                code = error.code(),
+                message = %error.message(),
+                "resume saved but profile extraction failed"
+            );
+            return resume_outcome_with_warning(
+                state,
+                resume_id,
+                false,
+                format!(
+                    "Resume saved, but profile extraction failed: {}",
+                    error.message()
+                ),
+            );
+        }
+    };
+    drop(text);
+
+    let extracted_json = match serde_json::to_string(&extracted) {
+        Ok(value) => value,
+        Err(error) => {
+            tracing::warn!(
+                resume_id = %resume_id,
+                message = %error,
+                "resume saved but extraction serialization failed"
+            );
+            return resume_outcome_with_warning(
+                state,
+                resume_id,
+                false,
+                format!("Resume saved, but the extracted profile could not be stored: {error}"),
+            );
+        }
+    };
+
+    if let Err(error) =
+        db::profile::update_resume_extracted(&state.db, &inserted.resume.id, Some(&extracted_json))
+    {
+        tracing::warn!(
+            resume_id = %resume_id,
+            message = %error.message(),
+            "resume saved but extracted profile backfill failed"
+        );
+        return resume_outcome_with_warning(
+            state,
+            resume_id,
+            false,
+            format!(
+                "Resume saved, but the extracted profile could not be stored: {}",
+                error.message()
+            ),
+        );
+    }
+
+    let existing = db::profile::load_active_profile(&state.db)?;
+    let merged = match merge_extracted(existing.as_ref(), &extracted, &content_hash) {
+        Ok(merged) => merged,
+        Err(error) => {
+            tracing::warn!(
+                resume_id = %resume_id,
+                message = %error.message(),
+                "resume saved but profile merge failed"
+            );
+            return resume_outcome_with_warning(
+                state,
+                resume_id,
+                false,
+                format!(
+                    "Resume saved, but the profile could not be updated: {}",
+                    error.message()
+                ),
+            );
+        }
+    };
+
     match db::profile::save_profile(&state.db, merged) {
         Ok(profile) => Ok(UploadOutcome {
-            profile,
+            resume_id,
+            profile: Some(profile),
             duplicate: false,
+            warning: None,
         }),
         Err(error) => {
-            let _ = db::profile::delete_resume(&state.db, &inserted.resume.id);
-            let _ = std::fs::remove_file(&local_path);
-            Err(error)
+            tracing::warn!(
+                resume_id = %resume_id,
+                message = %error.message(),
+                "resume saved but profile save failed"
+            );
+            resume_outcome_with_warning(
+                state,
+                resume_id,
+                false,
+                format!(
+                    "Resume saved, but the profile could not be updated: {}",
+                    error.message()
+                ),
+            )
         }
     }
 }
 
-pub fn delete_resume_with(state: &AppState, file_id: &str) -> Result<CandidateProfile, AppError> {
+fn duplicate_warning(extracted_json: Option<&str>) -> Option<String> {
+    extracted_json.is_none().then(|| {
+        "This resume is already stored, but its profile extraction did not complete. Delete it and upload again after fixing the LLM configuration."
+            .to_string()
+    })
+}
+
+fn resume_outcome_with_warning(
+    state: &AppState,
+    resume_id: String,
+    duplicate: bool,
+    warning: String,
+) -> Result<UploadOutcome, AppError> {
+    Ok(UploadOutcome {
+        resume_id,
+        profile: db::profile::load_active_profile(&state.db)?,
+        duplicate,
+        warning: Some(warning),
+    })
+}
+
+pub fn delete_resume_with(
+    state: &AppState,
+    file_id: &str,
+) -> Result<Option<CandidateProfile>, AppError> {
     let resume_id = ResumeId::from(file_id);
     let deleted = db::profile::delete_resume(&state.db, &resume_id)?
         .ok_or_else(|| AppError::not_found("resume"))?;
     let _ = std::fs::remove_file(&deleted.local_path);
 
-    let existing = db::profile::load_active_profile(&state.db)?.ok_or(AppError::ProfileRequired)?;
+    let existing = db::profile::load_active_profile(&state.db)?;
     let remaining = db::profile::list_resumes(&state.db)?;
     if remaining.is_empty() {
-        let mut profile = existing;
-        profile.extras.resumes_available = false;
-        return db::profile::save_profile(&state.db, profile);
+        return match existing {
+            Some(mut profile) => {
+                profile.extras.resumes_available = false;
+                Ok(Some(db::profile::save_profile(&state.db, profile)?))
+            }
+            None => Ok(None),
+        };
     }
 
-    let mut base = reset_extracted(existing);
+    let mut merged = existing.map(reset_extracted);
     for resume in &remaining {
         let Some(json) = &resume.extracted_json else {
             continue;
         };
         let extracted: ExtractedProfile = serde_json::from_str(json)?;
-        base = merge_extracted(Some(&base), &extracted, &resume.content_hash)?;
+        merged = Some(merge_extracted(
+            merged.as_ref(),
+            &extracted,
+            &resume.content_hash,
+        )?);
     }
-    base.extras.resumes_available = !remaining.is_empty();
-    db::profile::save_profile(&state.db, base)
+
+    match merged {
+        Some(mut profile) => {
+            profile.extras.resumes_available = true;
+            Ok(Some(db::profile::save_profile(&state.db, profile)?))
+        }
+        None => Ok(None),
+    }
 }
 
 fn reset_extracted(mut profile: CandidateProfile) -> CandidateProfile {
@@ -278,12 +433,12 @@ pub fn list_resume_summaries(state: &AppState) -> Result<Vec<ResumeSummary>, App
 pub async fn cmd_upload_resume(
     state: State<'_, AppState>,
     file_path: String,
-) -> Result<CandidateProfile, ErrorPayload> {
+) -> Result<UploadResumeResult, ErrorPayload> {
     let router = crate::llm::router_from_config(&state.config, state.http.clone());
     let extractor = LlmProfileExtractor::new(router);
     upload_resume_with(&state, &file_path, &extractor)
         .await
-        .map(|outcome| outcome.profile)
+        .map(UploadResumeResult::from)
         .map_err(Into::into)
 }
 
@@ -291,7 +446,7 @@ pub async fn cmd_upload_resume(
 pub fn cmd_delete_resume(
     state: State<'_, AppState>,
     file_id: String,
-) -> Result<CandidateProfile, ErrorPayload> {
+) -> Result<Option<CandidateProfile>, ErrorPayload> {
     delete_resume_with(&state, &file_id).map_err(Into::into)
 }
 

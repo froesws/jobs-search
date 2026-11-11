@@ -120,6 +120,13 @@ export interface ResumeSummary {
   uploaded_at: string;
 }
 
+export interface UploadResumeResult {
+  resume_id: string;
+  profile: CandidateProfile | null;
+  duplicate: boolean;
+  warning: string | null;
+}
+
 export interface ActiveProvider {
   provider: string;
   model: string;

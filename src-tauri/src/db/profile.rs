@@ -145,6 +145,23 @@ pub fn insert_resume(
     })
 }
 
+pub fn update_resume_extracted(
+    db: &Db,
+    resume_id: &ResumeId,
+    extracted_json: Option<&str>,
+) -> Result<(), AppError> {
+    let updated = db.with_connection(|connection| {
+        Ok(connection.execute(
+            "UPDATE resumes SET extracted_json = ?1 WHERE id = ?2",
+            params![extracted_json, resume_id.as_str()],
+        )?)
+    })?;
+    if updated == 0 {
+        return Err(AppError::not_found("resume"));
+    }
+    Ok(())
+}
+
 pub fn list_resumes(db: &Db) -> Result<Vec<StoredResume>, AppError> {
     db.with_connection(|connection| {
         let mut statement = connection.prepare(
@@ -249,5 +266,35 @@ mod tests {
         invalid.target_roles.clear();
         assert!(save_profile(&db, invalid).is_err());
         assert!(load_active_profile(&db).expect("load").is_some());
+    }
+
+    #[test]
+    fn update_resume_extracted_sets_and_clears_json() {
+        let db = Db::open_in_memory().expect("db");
+        let inserted = insert_resume(&db, "a.pdf", "hash", "/tmp/a.pdf", None).expect("insert");
+
+        update_resume_extracted(&db, &inserted.resume.id, Some("{\"core_competencies\":[]}"))
+            .expect("set");
+        let stored = find_resume_by_hash(&db, "hash")
+            .expect("find")
+            .expect("resume");
+        assert_eq!(
+            stored.extracted_json.as_deref(),
+            Some("{\"core_competencies\":[]}")
+        );
+
+        update_resume_extracted(&db, &inserted.resume.id, None).expect("clear");
+        let stored = find_resume_by_hash(&db, "hash")
+            .expect("find")
+            .expect("resume");
+        assert!(stored.extracted_json.is_none());
+    }
+
+    #[test]
+    fn update_resume_extracted_rejects_unknown_id() {
+        let db = Db::open_in_memory().expect("db");
+        let error = update_resume_extracted(&db, &ResumeId::new("missing"), Some("{}"))
+            .expect_err("missing resume");
+        assert_eq!(error.code(), "NOT_FOUND");
     }
 }
