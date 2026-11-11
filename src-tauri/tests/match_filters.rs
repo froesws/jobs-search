@@ -1,5 +1,5 @@
 use jobs_search_lib::db::jobs::StoredJob;
-use jobs_search_lib::matching::filters::check;
+use jobs_search_lib::matching::filters::{SearchCriteria, check, check_with_criteria};
 use jobs_search_lib::profile::CandidateProfile;
 use jobs_search_lib::types::{Seniority, WorkModality};
 
@@ -129,6 +129,59 @@ fn senior_only_is_rejected_and_pleno_senior_range_is_accepted() {
                 WorkModality::Remote,
                 "Rust",
             ),
+        )
+        .passed
+    );
+}
+
+#[test]
+fn selected_seniorities_override_the_profile_and_allow_multiple_levels() {
+    let criteria = SearchCriteria {
+        seniorities: vec![Seniority::Trainee, Seniority::Junior, Seniority::Pleno],
+        ..SearchCriteria::default()
+    };
+
+    assert!(
+        check_with_criteria(
+            &profile(),
+            &job(
+                "Pleno/Sênior Rust Engineer",
+                "Remote - Brazil",
+                WorkModality::Remote,
+                "Rust",
+            ),
+            &criteria,
+        )
+        .passed
+    );
+    assert!(
+        !check_with_criteria(
+            &profile(),
+            &job(
+                "Senior Rust Engineer",
+                "Remote - Brazil",
+                WorkModality::Remote,
+                "Rust",
+            ),
+            &criteria,
+        )
+        .passed
+    );
+
+    let pleno_senior = SearchCriteria {
+        seniorities: vec![Seniority::Pleno, Seniority::Senior],
+        ..SearchCriteria::default()
+    };
+    assert!(
+        check_with_criteria(
+            &profile(),
+            &job(
+                "Senior Rust Engineer",
+                "Remote - Brazil",
+                WorkModality::Remote,
+                "Rust",
+            ),
+            &pleno_senior,
         )
         .passed
     );

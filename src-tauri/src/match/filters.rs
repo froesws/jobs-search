@@ -45,8 +45,13 @@ pub fn check(profile: &CandidateProfile, job: &StoredJob) -> HardFilterResult {
 pub fn check_with_criteria(
     profile: &CandidateProfile,
     job: &StoredJob,
-    _criteria: &SearchCriteria,
+    criteria: &SearchCriteria,
 ) -> HardFilterResult {
+    let accepted_seniorities = if criteria.seniorities.is_empty() {
+        profile.accepted_seniorities()
+    } else {
+        criteria.seniorities.clone()
+    };
     let mut rejections = Vec::new();
     let text = format!("{} {} {}", job.title, job.location, job.description_clean);
     let normalized_text = normalize_text(&text);
@@ -61,7 +66,7 @@ pub fn check_with_criteria(
     }
 
     if let Some(seniority) = seniority
-        && !profile.accepted_seniorities().contains(&seniority)
+        && !accepted_seniorities.contains(&seniority)
     {
         rejections.push(HardFilterRejection::new(
             "SENIORITY_NOT_ELIGIBLE",
