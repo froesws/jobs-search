@@ -156,6 +156,7 @@ async fn fixture_profile_evaluates_approved_pending_rejected_and_error_jobs() {
             threshold: 70,
             max_jobs: 100,
             concurrency: 2,
+            ..Default::default()
         },
     )
     .await
@@ -241,6 +242,7 @@ async fn stale_evaluations_are_picked_up_again() {
         threshold: 70,
         max_jobs: 100,
         concurrency: 2,
+        ..Default::default()
     };
     evaluate_run(&db, &run.run_id, &profile, &router, &settings)
         .await

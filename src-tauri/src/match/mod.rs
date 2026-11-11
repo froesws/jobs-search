@@ -21,6 +21,7 @@ pub struct EvaluationSettings {
     pub threshold: i64,
     pub max_jobs: usize,
     pub concurrency: usize,
+    pub criteria: filters::SearchCriteria,
 }
 
 impl Default for EvaluationSettings {
@@ -29,6 +30,7 @@ impl Default for EvaluationSettings {
             threshold: 70,
             max_jobs: 100,
             concurrency: 2,
+            criteria: filters::SearchCriteria::default(),
         }
     }
 }
@@ -67,17 +69,24 @@ pub async fn evaluate_run(
     let profile = profile.clone();
     let router = router.clone();
     let run_id = run_id.clone();
+    let criteria = settings.criteria.clone();
 
-    let outcomes = futures::stream::iter(jobs.into_iter().map(move |job| {
-        let db = db.clone();
-        let profile = profile.clone();
-        let router = router.clone();
-        let run_id = run_id.clone();
-        async move { evaluate_one(&db, &run_id, &profile, &router, job, threshold).await }
-    }))
-    .buffer_unordered(concurrency)
-    .collect::<Vec<_>>()
-    .await;
+    let outcomes =
+        futures::stream::iter(
+            jobs.into_iter().map(move |job| {
+                let db = db.clone();
+                let profile = profile.clone();
+                let router = router.clone();
+                let run_id = run_id.clone();
+                let criteria = criteria.clone();
+                async move {
+                    evaluate_one(&db, &run_id, &profile, &router, job, threshold, &criteria).await
+                }
+            }),
+        )
+        .buffer_unordered(concurrency)
+        .collect::<Vec<_>>()
+        .await;
 
     let mut summary = EvaluationSummary {
         evaluated: outcomes.len() as i64,
@@ -110,8 +119,9 @@ async fn evaluate_one(
     router: &LlmRouter,
     job: StoredJob,
     threshold: i64,
+    criteria: &filters::SearchCriteria,
 ) -> Result<JobOutcome, AppError> {
-    let hard_filters = filters::check(profile, &job);
+    let hard_filters = filters::check_with_criteria(profile, &job, criteria);
     let job_id = job.id.clone();
     let profile_version = profile.version as i64;
     if !hard_filters.passed {

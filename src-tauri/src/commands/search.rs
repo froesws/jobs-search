@@ -14,6 +14,7 @@ use crate::ingestion::{
     api::RemoteOkAdapter, ingest, linkedin_mcp::LinkedInMcpAdapter, mcp::McpAdapter, normalize,
 };
 use crate::llm;
+use crate::matching::filters::SearchCriteria;
 use crate::profile::CandidateProfile;
 use crate::state::AppState;
 use crate::types::{SearchTimeframe, Seniority, WorkModality};
@@ -57,6 +58,13 @@ impl SearchFilters {
         self
     }
 
+    pub fn criteria(&self) -> SearchCriteria {
+        SearchCriteria {
+            seniorities: self.seniorities.clone(),
+            modalities: self.modalities.clone(),
+        }
+    }
+
     pub fn ingestion_request(&self) -> IngestionRequest {
         IngestionRequest {
             query: self.titles.join(" OR "),
@@ -95,6 +103,7 @@ pub async fn trigger(state: &AppState, filters: SearchFilters) -> Result<SearchM
     crate::db::sources::deactivate_missing(&state.db, &active_ids)?;
 
     let filters = filters.resolve(&profile);
+    let criteria = filters.criteria();
     let search_config_json = serde_json::to_string(&filters)?;
     let run = crate::db::runs::start_run(&state.db, &search_config_json)?;
 
@@ -104,6 +113,7 @@ pub async fn trigger(state: &AppState, filters: SearchFilters) -> Result<SearchM
         threshold: state.config.match_threshold,
         max_jobs: state.config.max_evaluations,
         concurrency: state.config.max_concurrency,
+        criteria,
     };
     let summary =
         crate::matching::evaluate_run(&state.db, &run.run_id, &profile, &router, &settings).await?;
@@ -334,6 +344,20 @@ mod tests {
         assert!(request.query.contains("Rust Engineer"));
         assert_eq!(request.seniorities, filters.seniorities);
         assert_eq!(request.modalities, filters.modalities);
+    }
+
+    #[test]
+    fn criteria_mirrors_resolved_filters() {
+        let filters = SearchFilters {
+            seniorities: vec![Seniority::Trainee, Seniority::Pleno],
+            modalities: vec![WorkModality::Remote, WorkModality::Hybrid],
+            ..SearchFilters::default()
+        }
+        .resolve(&profile());
+
+        let criteria = filters.criteria();
+        assert_eq!(criteria.seniorities, filters.seniorities);
+        assert_eq!(criteria.modalities, filters.modalities);
     }
 
     #[test]
