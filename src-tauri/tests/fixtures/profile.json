@@ -1,0 +1,26 @@
+{
+  "profile_id": "fixture-profile-001",
+  "version": 1,
+  "updated_at": "2026-11-10T00:00:00Z",
+  "target_roles": ["Rust Engineer", "C++ Engineer", "C# Developer", "React Developer"],
+  "seniority_range": ["Trainee", "Junior", "Pleno"],
+  "work_modalities": ["Remote", "Hybrid", "Onsite"],
+  "accepted_cities": ["Porto Alegre", "Curitiba"],
+  "acceptable_technologies": [
+    "Rust",
+    "C++",
+    "C#",
+    ".NET",
+    "React",
+    "TypeScript",
+    "JavaScript",
+    "Node.js"
+  ],
+  "core_competencies": ["Rust", "C++", "C#", ".NET", "React", "TypeScript"],
+  "secondary_competencies": ["SQL", "Git", "Docker", "Linux"],
+  "domain_experience": ["software engineering", "systems programming", "web development"],
+  "dealbreakers": ["sales", "commission only", "unpaid"],
+  "work_authorization": "Authorized to work in Brazil",
+  "salary_threshold": null,
+  "source_documents": []
+}

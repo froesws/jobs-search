@@ -1,8 +1,15 @@
 use tauri::Manager;
 
 pub mod commands;
+pub mod config;
+pub mod db;
+pub mod dedup;
 pub mod error;
+pub mod llm;
+pub mod pdf;
+pub mod profile;
 pub mod telemetry;
+pub mod types;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
