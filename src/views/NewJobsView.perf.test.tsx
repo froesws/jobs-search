@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { getJobs } from '@/lib/ipc';
 import type { JobSummary } from '@/lib/types';
+import { FeedbackProvider } from '@/components/FeedbackProvider';
 import { NewJobsView } from '@/views/NewJobsView';
 
 vi.mock('@/lib/ipc', async () => {
@@ -44,7 +45,9 @@ describe('feed rendering budget', () => {
   it('renders the paginated page without blocking the UI thread', async () => {
     const started = performance.now();
     render(
-      <NewJobsView refreshToken={0} metrics={null} onSearch={() => {}} onOpenJob={() => {}} />,
+      <FeedbackProvider>
+        <NewJobsView refreshToken={0} metrics={null} onSearch={() => {}} onOpenJob={() => {}} />
+      </FeedbackProvider>,
     );
     await screen.findByText('Rust Engineer 0');
     const elapsed = performance.now() - started;

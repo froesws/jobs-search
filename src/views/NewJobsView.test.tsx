@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { getJobs } from '@/lib/ipc';
+import { FeedbackProvider } from '@/components/FeedbackProvider';
 import { NewJobsView } from '@/views/NewJobsView';
 import { jobFixture, searchMetricsFixture } from '@/test/fixtures';
 
@@ -29,7 +30,9 @@ describe('NewJobsView', () => {
     });
 
     render(
-      <NewJobsView refreshToken={1} metrics={metrics} onSearch={() => {}} onOpenJob={() => {}} />,
+      <FeedbackProvider>
+        <NewJobsView refreshToken={1} metrics={metrics} onSearch={() => {}} onOpenJob={() => {}} />
+      </FeedbackProvider>,
     );
 
     expect(await screen.findByText('Senior Rust Engineer')).toBeInTheDocument();
@@ -47,7 +50,9 @@ describe('NewJobsView', () => {
     });
 
     render(
-      <NewJobsView refreshToken={1} metrics={null} onSearch={() => {}} onOpenJob={() => {}} />,
+      <FeedbackProvider>
+        <NewJobsView refreshToken={1} metrics={null} onSearch={() => {}} onOpenJob={() => {}} />
+      </FeedbackProvider>,
     );
 
     expect(await screen.findByText('No approved jobs yet')).toBeInTheDocument();

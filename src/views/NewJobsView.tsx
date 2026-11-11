@@ -1,5 +1,6 @@
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
+import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
 import ToggleButton from '@mui/material/ToggleButton';
@@ -138,24 +139,28 @@ function RunSummary({ metrics, onAudit }: { metrics: SearchMetrics; onAudit: () 
   const hasFailures = metrics.source_failures.length > 0;
   const severity = metrics.status === 'FAILED' ? 'error' : hasFailures ? 'warning' : 'success';
   return (
-    <Alert severity={severity} variant="outlined" sx={{ alignItems: 'center' }}>
-      <Typography variant="body2" sx={{ fontWeight: 700 }}>
-        {metrics.status === 'FAILED' ? 'Search failed' : 'Search completed'} ·{' '}
-        {metrics.approved_count} approved, {metrics.pending_count} pending, {metrics.rejected_count}{' '}
-        rejected, {metrics.error_count} errors
-      </Typography>
-      <Typography variant="caption" color="text.secondary">
-        {metrics.total_ingested} ingested · {metrics.duplicates_merged} duplicates merged · run{' '}
-        {metrics.run_id.slice(0, 8)}
-      </Typography>
-      {hasFailures ? (
-        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-          Source failures: {metrics.source_failures.join(' · ')}
+    <Alert severity={severity} variant="outlined" sx={{ alignItems: 'flex-start' }}>
+      <Stack spacing={0.5}>
+        <Typography variant="body2" sx={{ fontWeight: 700 }}>
+          {metrics.status === 'FAILED' ? 'Search failed' : 'Search completed'} ·{' '}
+          {metrics.approved_count} approved, {metrics.pending_count} pending,{' '}
+          {metrics.rejected_count} rejected, {metrics.error_count} errors
         </Typography>
-      ) : null}
-      <Button size="small" variant="outlined" onClick={onAudit} sx={{ mt: 1 }}>
-        View audit
-      </Button>
+        <Typography variant="caption" color="text.secondary">
+          {metrics.total_ingested} ingested · {metrics.duplicates_merged} duplicates merged · run{' '}
+          {metrics.run_id.slice(0, 8)}
+        </Typography>
+        {hasFailures ? (
+          <Typography variant="caption" color="text.secondary">
+            Source failures: {metrics.source_failures.join(' · ')}
+          </Typography>
+        ) : null}
+        <Box sx={{ pt: 1.5 }}>
+          <Button size="small" variant="outlined" onClick={onAudit}>
+            View audit
+          </Button>
+        </Box>
+      </Stack>
     </Alert>
   );
 }

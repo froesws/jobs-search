@@ -16,6 +16,7 @@ import type {
   JobEvaluationView,
   JobTab,
   PaginatedJobs,
+  PaginatedRunJobs,
   ModelCatalogView,
   ProviderConfigInput,
   ProviderConfigView,
@@ -75,6 +76,18 @@ export function triggerSearch(filters: SearchFilters): Promise<SearchMetrics> {
 
 export function getJobs(tab: JobTab, limit: number, offset: number): Promise<PaginatedJobs> {
   return call('cmd_get_jobs', { tab, limit, offset });
+}
+
+export function getRunJobs(
+  runId: string,
+  limit: number,
+  offset: number,
+): Promise<PaginatedRunJobs> {
+  return call('cmd_get_run_jobs', { runId, limit, offset });
+}
+
+export function exportRunJobsCsv(runId: string, destination: string): Promise<ExportResult> {
+  return call('cmd_export_run_jobs_csv', { runId, destination });
 }
 
 export function getJob(jobId: string): Promise<JobDetail> {

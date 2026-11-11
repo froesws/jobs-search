@@ -71,6 +71,27 @@ export interface JobDetail extends JobSummary {
   error_category: string | null;
 }
 
+export interface RunJobRow {
+  jobId: string;
+  title: string;
+  company: string;
+  location: string;
+  workModality: string;
+  url: string;
+  evaluationStatus: string | null;
+  matchScore: number | null;
+  rejectionReason: string | null;
+  provider: string | null;
+  model: string | null;
+}
+
+export interface PaginatedRunJobs {
+  items: RunJobRow[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
 export interface PaginatedJobs {
   items: JobSummary[];
   total: number;

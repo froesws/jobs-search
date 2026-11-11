@@ -229,6 +229,19 @@ reliably implement HTML5 dropping inside a modal.
 
 ---
 
+## Phase 14: Run summary spacing and audit job export
+
+**Reported**: the "View audit" button sat too close to the run summary text, and the
+audit dialog should be more detailed with an export for the jobs a run produced.
+
+- [X] T063 Replace the inline alert layout with a stacked summary and a padded action area in `src/views/NewJobsView.tsx`.
+- [X] T064 [P] Add `list_run_jobs`/`run_job_rows` in `src-tauri/src/db/jobs.rs` returning the run's jobs with status, score, rejection reason, provider, and model, ordered by score.
+- [X] T065 [P] Add `cmd_get_run_jobs` and `cmd_export_run_jobs_csv` in `src-tauri/src/commands/jobs.rs`, register both in `src-tauri/src/lib.rs`, and add the typed wrappers in `src/lib/ipc.ts` with types in `src/lib/types.ts`.
+- [X] T066 Add a paginated "Jobs found" table and an "Export jobs CSV" action to `src/components/AuditDialog.tsx`.
+- [X] T067 [P] Add tests: `src-tauri/tests/run_jobs_contract.rs` for run scoping/ordering, unit tests for the CSV writer, and dialog tests for the jobs table and pagination.
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies

@@ -733,3 +733,126 @@ mod tests {
         assert_eq!(titles, ["Delta", "Gamma", "Alpha", "Beta"]);
     }
 }
+
+/// One job evaluated by a specific run.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RunJobRow {
+    pub job_id: JobId,
+    pub title: String,
+    pub company: String,
+    pub location: String,
+    pub work_modality: String,
+    pub url: String,
+    pub evaluation_status: Option<String>,
+    pub match_score: Option<i64>,
+    pub rejection_reason: Option<String>,
+    pub provider: Option<String>,
+    pub model: Option<String>,
+}
+
+/// Paginated jobs for a run.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PaginatedRunJobs {
+    pub items: Vec<RunJobRow>,
+    pub total: i64,
+    pub limit: u32,
+    pub offset: u32,
+}
+
+const RUN_JOB_COLUMNS: &str = "
+    j.id, j.title, j.company, j.location, j.work_modality, j.url,
+    e.evaluation_status, e.match_score, e.hard_filter_rejections_json,
+    e.provider, e.model
+";
+
+const RUN_JOB_FROM: &str = "job_postings j
+    JOIN job_evaluations e ON e.job_id = j.id
+    WHERE e.run_id = ?1";
+
+const RUN_JOB_ORDER: &str = "ORDER BY
+    e.match_score IS NULL,
+    e.match_score DESC,
+    j.title COLLATE NOCASE ASC,
+    j.id ASC";
+
+/// Jobs evaluated by one run, paginated.
+pub fn list_run_jobs(
+    db: &Db,
+    run_id: &str,
+    limit: u32,
+    offset: u32,
+) -> Result<PaginatedRunJobs, AppError> {
+    let limit = limit.clamp(1, 100);
+    db.with_connection(|connection| {
+        let total: i64 = connection.query_row(
+            "SELECT COUNT(*) FROM job_evaluations WHERE run_id = ?1",
+            params![run_id],
+            |row| row.get(0),
+        )?;
+        let query = format!(
+            "SELECT {RUN_JOB_COLUMNS} FROM {RUN_JOB_FROM} {RUN_JOB_ORDER} LIMIT ?2 OFFSET ?3"
+        );
+        let mut statement = connection.prepare(&query)?;
+        let rows = statement.query_map(
+            params![run_id, limit as i64, offset as i64],
+            run_job_from_row,
+        )?;
+        let mut items = Vec::new();
+        for row in rows {
+            items.push(row?);
+        }
+        Ok(PaginatedRunJobs {
+            items,
+            total,
+            limit,
+            offset,
+        })
+    })
+}
+
+/// Every job evaluated by one run, ordered for export.
+pub fn run_job_rows(db: &Db, run_id: &str) -> Result<Vec<RunJobRow>, AppError> {
+    db.with_connection(|connection| {
+        let query = format!("SELECT {RUN_JOB_COLUMNS} FROM {RUN_JOB_FROM} {RUN_JOB_ORDER}");
+        let mut statement = connection.prepare(&query)?;
+        let rows = statement.query_map(params![run_id], run_job_from_row)?;
+        let mut items = Vec::new();
+        for row in rows {
+            items.push(row?);
+        }
+        Ok(items)
+    })
+}
+
+fn run_job_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<RunJobRow> {
+    let rejections: String = row.get(8)?;
+    Ok(RunJobRow {
+        job_id: JobId::from(row.get::<_, String>(0)?),
+        title: row.get(1)?,
+        company: row.get(2)?,
+        location: row.get(3)?,
+        work_modality: row.get(4)?,
+        url: row.get(5)?,
+        evaluation_status: row.get(6)?,
+        match_score: row.get(7)?,
+        rejection_reason: rejection_summary(&rejections),
+        provider: row.get(9)?,
+        model: row.get(10)?,
+    })
+}
+
+fn rejection_summary(raw: &str) -> Option<String> {
+    let values: Vec<crate::types::HardFilterRejection> = serde_json::from_str(raw).ok()?;
+    if values.is_empty() {
+        return None;
+    }
+    Some(
+        values
+            .iter()
+            .map(|value| value.message.clone())
+            .collect::<Vec<_>>()
+            .join("; "),
+    )
+}

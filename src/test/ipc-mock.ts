@@ -10,6 +10,8 @@ export interface IpcMock {
   triggerSearch: Mock;
   getJobs: Mock;
   getJob: Mock;
+  getRunJobs: Mock;
+  exportRunJobsCsv: Mock;
   applyJob: Mock;
   ignoreJob: Mock;
   restoreJob: Mock;
@@ -37,6 +39,8 @@ export function createIpcMock(): IpcMock {
     triggerSearch: vi.fn(),
     getJobs: vi.fn(),
     getJob: vi.fn(),
+    getRunJobs: vi.fn(),
+    exportRunJobsCsv: vi.fn(),
     applyJob: vi.fn(),
     ignoreJob: vi.fn(),
     restoreJob: vi.fn(),

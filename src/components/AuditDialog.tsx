@@ -6,15 +6,26 @@ import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
 import Divider from '@mui/material/Divider';
+import Table from '@mui/material/Table';
+import TableBody from '@mui/material/TableBody';
+import TableCell from '@mui/material/TableCell';
+import TableContainer from '@mui/material/TableContainer';
+import TableHead from '@mui/material/TableHead';
+import TableRow from '@mui/material/TableRow';
 import Typography from '@mui/material/Typography';
-import { useEffect, useState } from 'react';
+import { save } from '@tauri-apps/plugin-dialog';
+import { useCallback, useEffect, useState } from 'react';
 
 import { safeMessage } from '@/lib/errors';
-import { getAudit } from '@/lib/ipc';
-import type { ExecutionAudit } from '@/lib/types';
+import { exportRunJobsCsv, getAudit, getRunJobs } from '@/lib/ipc';
+import type { ExecutionAudit, PaginatedRunJobs } from '@/lib/types';
 import { ErrorState } from '@/components/ErrorState';
+import { useFeedback } from '@/components/FeedbackProvider';
 import { Metric } from '@/components/Metric';
 import { LoadingState } from '@/components/LoadingState';
+
+const PAGE_SIZE = 10;
+const EMPTY_PAGE: PaginatedRunJobs = { items: [], total: 0, limit: PAGE_SIZE, offset: 0 };
 
 export function AuditDialog({
   runId,
@@ -25,14 +36,20 @@ export function AuditDialog({
   open: boolean;
   onClose: () => void;
 }) {
+  const feedback = useFeedback();
   const [audit, setAudit] = useState<ExecutionAudit | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [jobs, setJobs] = useState<PaginatedRunJobs>(EMPTY_PAGE);
+  const [page, setPage] = useState(0);
+  const [jobsError, setJobsError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     if (!open || !runId) return;
     let active = true;
     setAudit(null);
     setError(null);
+    setPage(0);
     getAudit(runId)
       .then((value) => {
         if (active) setAudit(value);
@@ -45,8 +62,48 @@ export function AuditDialog({
     };
   }, [open, runId]);
 
+  useEffect(() => {
+    if (!open || !runId) return;
+    let active = true;
+    setJobsError(null);
+    getRunJobs(runId, PAGE_SIZE, page * PAGE_SIZE)
+      .then((value) => {
+        if (active) setJobs(value);
+      })
+      .catch((cause) => {
+        if (active) setJobsError(safeMessage(cause));
+      });
+    return () => {
+      active = false;
+    };
+  }, [open, runId, page]);
+
+  const handleExport = useCallback(async () => {
+    if (!runId) return;
+    const stamp = new Date().toISOString().slice(0, 10);
+    try {
+      const selected = await save({
+        defaultPath: `jobs-search-run-${runId.slice(0, 8)}-${stamp}.csv`,
+        filters: [{ name: 'CSV', extensions: ['csv'] }],
+      });
+      if (!selected) return;
+      setExporting(true);
+      const result = await exportRunJobsCsv(runId, selected);
+      feedback.notify(
+        `Exported ${result.rows} job${result.rows === 1 ? '' : 's'} to ${result.path}.`,
+        'success',
+      );
+    } catch (cause) {
+      feedback.notify(safeMessage(cause), 'error', true);
+    } finally {
+      setExporting(false);
+    }
+  }, [runId, feedback]);
+
+  const pageCount = Math.max(1, Math.ceil(jobs.total / PAGE_SIZE));
+
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="lg">
       <DialogTitle>Execution audit</DialogTitle>
       <DialogContent dividers>
         {!audit && !error ? <LoadingState label="Loading the run audit…" /> : null}
@@ -104,11 +161,74 @@ export function AuditDialog({
                 ))}
               </Box>
             </Section>
+            <Divider />
+            <Section title={`Jobs found (${jobs.total})`}>
+              {jobsError ? <ErrorState message={jobsError} /> : null}
+              {!jobsError && jobs.items.length === 0 ? (
+                <Muted>No jobs were evaluated by this run.</Muted>
+              ) : null}
+              {jobs.items.length > 0 ? (
+                <>
+                  <TableContainer>
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>Title</TableCell>
+                          <TableCell>Company</TableCell>
+                          <TableCell>Location</TableCell>
+                          <TableCell>Status</TableCell>
+                          <TableCell align="right">Score</TableCell>
+                          <TableCell>Reason</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {jobs.items.map((job) => (
+                          <TableRow key={job.jobId}>
+                            <TableCell>{job.title}</TableCell>
+                            <TableCell>{job.company}</TableCell>
+                            <TableCell>{job.location}</TableCell>
+                            <TableCell>{job.evaluationStatus ?? '—'}</TableCell>
+                            <TableCell align="right">{job.matchScore ?? '—'}</TableCell>
+                            <TableCell>{job.rejectionReason ?? '—'}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+                    <Button
+                      size="small"
+                      disabled={page === 0}
+                      onClick={() => setPage((value) => Math.max(0, value - 1))}
+                    >
+                      Previous
+                    </Button>
+                    <Typography variant="caption" color="text.secondary">
+                      Page {page + 1} of {pageCount}
+                    </Typography>
+                    <Button
+                      size="small"
+                      disabled={page + 1 >= pageCount}
+                      onClick={() => setPage((value) => value + 1)}
+                    >
+                      Next
+                    </Button>
+                  </Box>
+                </>
+              ) : null}
+            </Section>
           </Box>
         ) : null}
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Close</Button>
+        <Button
+          variant="contained"
+          disabled={exporting || !runId}
+          onClick={() => void handleExport()}
+        >
+          Export jobs CSV
+        </Button>
       </DialogActions>
     </Dialog>
   );

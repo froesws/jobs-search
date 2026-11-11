@@ -194,6 +194,13 @@ New Jobs tab has Approved and Below threshold views; the drawer shows job detail
 requirements, hard-filter rejections, scoring evidence, and lifecycle actions.
 Analytics is read-only and never calls a provider or mutates job data.
 
+### Run audit export
+
+`cmd_get_run_jobs` lists the jobs a run evaluated (status, score, rejection reason,
+provider, model) and `cmd_export_run_jobs_csv` writes them to an operator-selected
+`.csv` path. The audit dialog shows a paginated table and owns the save picker; the
+file write stays in Rust.
+
 ### Provider settings
 
 `cmd_get_provider_config` returns the effective provider settings; credentials
