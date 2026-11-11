@@ -1,3 +1,4 @@
+pub mod applications;
 pub mod connection;
 pub mod evaluations;
 pub mod jobs;

@@ -48,6 +48,11 @@ pub fn run() {
             commands::search::cmd_trigger_search,
             commands::jobs::cmd_get_jobs,
             commands::jobs::cmd_get_job,
+            commands::jobs::cmd_apply_job,
+            commands::jobs::cmd_ignore_job,
+            commands::jobs::cmd_restore_job,
+            commands::jobs::cmd_approve_job,
+            commands::jobs::cmd_get_audit,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Jobs Search");

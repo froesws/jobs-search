@@ -2,7 +2,7 @@ use rusqlite::Connection;
 
 use crate::error::AppError;
 
-const SCHEMA_VERSION: i64 = 4;
+const SCHEMA_VERSION: i64 = 5;
 
 const SCHEMA_V1: &str = r#"
 CREATE TABLE resumes (
@@ -182,6 +182,14 @@ const SCHEMA_V4: &str = r#"
 ALTER TABLE resumes ADD COLUMN extracted_json TEXT;
 "#;
 
+/// V5 records whether an evaluation was approved automatically or by the
+/// operator. Manual approval must remain visible on the application snapshot.
+const SCHEMA_V5: &str = r#"
+ALTER TABLE job_evaluations
+    ADD COLUMN approval_source TEXT NOT NULL DEFAULT 'automatic'
+    CHECK (approval_source IN ('automatic', 'manual'));
+"#;
+
 pub fn apply(connection: &mut Connection) -> Result<(), AppError> {
     let current: i64 = connection.pragma_query_value(None, "user_version", |row| row.get(0))?;
     if current >= SCHEMA_VERSION {
@@ -200,6 +208,9 @@ pub fn apply(connection: &mut Connection) -> Result<(), AppError> {
     }
     if current < 4 {
         transaction.execute_batch(SCHEMA_V4)?;
+    }
+    if current < 5 {
+        transaction.execute_batch(SCHEMA_V5)?;
     }
     transaction.pragma_update(None, "user_version", SCHEMA_VERSION)?;
     transaction.commit()?;

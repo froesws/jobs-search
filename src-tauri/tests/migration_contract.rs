@@ -38,7 +38,7 @@ fn schema_has_no_raw_description_and_survives_reopen() {
             Ok(connection.pragma_query_value(None, "user_version", |row| row.get(0))?)
         })
         .expect("version");
-    assert_eq!(version, 4);
+    assert_eq!(version, 5);
 
     let resume_columns = columns(&db, "resumes");
     assert!(
@@ -46,6 +46,14 @@ fn schema_has_no_raw_description_and_survives_reopen() {
             .iter()
             .any(|column| column == "extracted_json"),
         "resumes must store the validated extraction for recalculation"
+    );
+
+    let approval_columns = columns(&db, "job_evaluations");
+    assert!(
+        approval_columns
+            .iter()
+            .any(|column| column == "approval_source"),
+        "job_evaluations must record manual approval"
     );
 
     let evaluation_columns = columns(&db, "job_evaluations");

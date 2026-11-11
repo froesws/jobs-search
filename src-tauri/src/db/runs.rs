@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use rusqlite::params;
+use rusqlite::{OptionalExtension, params};
 
 use crate::db::{Db, now_rfc3339};
 use crate::error::AppError;
@@ -24,6 +24,30 @@ pub struct SearchMetrics {
     pub started_at: String,
     pub finished_at: Option<String>,
     pub source_failures: Vec<String>,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct ExecutionAudit {
+    pub run_id: String,
+    pub status: String,
+    pub started_at: String,
+    pub finished_at: Option<String>,
+    pub search_config: serde_json::Value,
+    pub total_ingested: i64,
+    pub duplicates_merged: i64,
+    pub rejected_count: i64,
+    pub pending_count: i64,
+    pub approved_count: i64,
+    pub error_count: i64,
+    pub applied_count: i64,
+    pub ignored_count: i64,
+    pub approval_rate: f64,
+    pub application_rate: f64,
+    pub rejected_by_reason: std::collections::BTreeMap<String, i64>,
+    pub source_failures: Vec<String>,
+    pub score_distribution: std::collections::BTreeMap<String, i64>,
+    pub source_breakdown: std::collections::BTreeMap<String, i64>,
+    pub provider_breakdown: std::collections::BTreeMap<String, i64>,
 }
 
 pub struct RunFinish<'a> {
@@ -149,6 +173,64 @@ pub fn finish_run(db: &Db, finish: &RunFinish<'_>) -> Result<SearchMetrics, AppE
     })?;
 
     Ok(metrics)
+}
+
+pub fn get_audit(db: &Db, run_id: &str) -> Result<ExecutionAudit, AppError> {
+    db.with_connection(|connection| {
+        let audit = connection
+            .query_row(
+                "SELECT r.id, r.status, r.started_at, r.finished_at, r.search_config_json,
+                        r.total_ingested, r.duplicates_merged, r.rejected_count,
+                        r.pending_count, r.approved_count, r.error_count,
+                        r.source_failures_json,
+                        COALESCE(m.rejected_by_reason_json, '{}'),
+                        COALESCE(m.applied_count, 0),
+                        COALESCE(m.ignored_count, 0),
+                        COALESCE(m.approval_rate, 0),
+                        COALESCE(m.application_rate, 0),
+                        COALESCE(m.score_distribution_json, '{}'),
+                        COALESCE(m.source_breakdown_json, '{}'),
+                        COALESCE(m.provider_breakdown_json, '{}')
+                 FROM execution_runs r
+                 LEFT JOIN run_metrics m ON m.run_id = r.id
+                 WHERE r.id = ?1",
+                [run_id],
+                |row| {
+                    let search_config: String = row.get(4)?;
+                    let source_failures: String = row.get(11)?;
+                    Ok(ExecutionAudit {
+                        run_id: row.get(0)?,
+                        status: row.get(1)?,
+                        started_at: row.get(2)?,
+                        finished_at: row.get(3)?,
+                        search_config: serde_json::from_str(&search_config)
+                            .unwrap_or(serde_json::Value::Null),
+                        total_ingested: row.get(5)?,
+                        duplicates_merged: row.get(6)?,
+                        rejected_count: row.get(7)?,
+                        pending_count: row.get(8)?,
+                        approved_count: row.get(9)?,
+                        error_count: row.get(10)?,
+                        source_failures: serde_json::from_str(&source_failures).unwrap_or_default(),
+                        rejected_by_reason: parse_map(row.get(12)?),
+                        applied_count: row.get(13)?,
+                        ignored_count: row.get(14)?,
+                        approval_rate: row.get(15)?,
+                        application_rate: row.get(16)?,
+                        score_distribution: parse_map(row.get(17)?),
+                        source_breakdown: parse_map(row.get(18)?),
+                        provider_breakdown: parse_map(row.get(19)?),
+                    })
+                },
+            )
+            .optional()?;
+
+        audit.ok_or_else(|| AppError::not_found("run"))
+    })
+}
+
+fn parse_map(value: String) -> BTreeMap<String, i64> {
+    serde_json::from_str(&value).unwrap_or_default()
 }
 
 fn provider_breakdown_with_connection(

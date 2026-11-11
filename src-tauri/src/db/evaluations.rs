@@ -96,6 +96,27 @@ pub fn upsert_evaluation(db: &Db, record: &EvaluationRecord) -> Result<(), AppEr
             ],
         )?;
 
+        let decision_event = match record.status {
+            EvaluationStatus::Approved => Some("APPROVED"),
+            EvaluationStatus::Rejected => Some("REJECTED"),
+            _ => None,
+        };
+        if let Some(event_type) = decision_event {
+            transaction.execute(
+                "INSERT INTO job_status_events
+                 (id, job_id, event_type, old_value, new_value, reason, created_at)
+                 VALUES (?1, ?2, ?3, NULL, ?4, ?5, ?6)",
+                params![
+                    uuid::Uuid::new_v4().to_string(),
+                    record.job_id,
+                    event_type,
+                    record.status.as_str(),
+                    format!("{RULES_VERSION}; threshold {}", record.threshold),
+                    now,
+                ],
+            )?;
+        }
+
         transaction.commit()?;
         Ok(())
     })
