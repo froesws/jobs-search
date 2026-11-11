@@ -180,7 +180,7 @@ row uses top alignment so all filter groups start at the same height.
 
 ### Tests for User Story 3
 
-- [ ] T010 [P] [US3] Add tests in `src/components/TopBar.test.tsx`: both footer
+- [x] T010 [P] [US3] Add tests in `src/components/TopBar.test.tsx`: both footer
   slots are present with no selection; after selecting one seniority (and
   separately one modality) the caption is hidden but its slot remains
   (`aria-hidden`/`visibility: hidden`), and the filter row uses

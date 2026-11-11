@@ -62,6 +62,31 @@ describe('TopBar', () => {
     expect(onSearch).toHaveBeenCalledTimes(1);
   });
 
+  it('reserves the footer line when a filter is selected', () => {
+    render(
+      <FeedbackProvider>
+        <TopBar
+          filters={{ ...DEFAULT_FILTERS, seniorities: ['Trainee'] }}
+          onChange={() => {}}
+          onSearch={() => {}}
+          searching={false}
+          mode="dark"
+          onToggleMode={() => {}}
+        />
+      </FeedbackProvider>,
+    );
+
+    const seniorityFooter = screen.getByTestId('seniority-footer');
+    expect(seniorityFooter).toHaveAttribute('aria-hidden', 'true');
+    expect(seniorityFooter).toHaveStyle({ visibility: 'hidden' });
+    expect(screen.getByTestId('modality-footer')).toHaveStyle({
+      visibility: 'visible',
+    });
+    expect(screen.getByTestId('filter-row')).toHaveStyle({
+      alignItems: 'flex-start',
+    });
+  });
+
   it('allows three seniority levels at once and removes a selected level', () => {
     const onChange = vi.fn();
     const { rerender } = render(
