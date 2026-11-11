@@ -158,7 +158,7 @@ passes when no foreign region is named.
 - [x] T008 [US2] Update the "Search filters" section in `README.md` to state
   that Remote now accepts Brazil only and that unknown locations are kept only
   when nothing proves a foreign location.
-- [ ] T009 [US2] Run
+- [x] T009 [US2] Run
   `cargo test --manifest-path src-tauri/Cargo.toml --test match_filters` and the
   full `cargo test`; confirm no existing accepted-city behavior regressed
   (paths: `src-tauri/src/match/filters.rs`,
@@ -346,3 +346,4 @@ is `PENDING`; setting `MATCH_THRESHOLD=70` restores the old boundary.
 
 - **T001 baseline**: `./scripts/verify.sh` passed before the changes.
 - **T004**: `npm test -- src/components/JobDrawer.test.tsx` passed (6).
+- **T009**: `cargo test --test match_filters` passed (12).
