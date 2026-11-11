@@ -2,11 +2,19 @@ import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogTitle from '@mui/material/DialogTitle';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Typography from '@mui/material/Typography';
+import { save } from '@tauri-apps/plugin-dialog';
+import { useState } from 'react';
 
+import { safeMessage } from '../lib/errors';
 import type { AnalyticsScope } from '../lib/types';
+import { useFeedback } from '../components/FeedbackProvider';
 import { useAnalyticsViewModel } from '../viewmodels/useAnalyticsViewModel';
 import { EmptyState } from '../components/EmptyState';
 import { ErrorState } from '../components/ErrorState';
@@ -18,7 +26,33 @@ import { SkillGapList } from '../components/SkillGapList';
 
 export function AnalyticsView() {
   const analytics = useAnalyticsViewModel();
+  const feedback = useFeedback();
   const payload = analytics.payload;
+  const [exportPath, setExportPath] = useState<string | null>(null);
+
+  const chooseExport = async () => {
+    try {
+      const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
+      const selected = await save({
+        defaultPath: `jobs-search-analytics-${stamp}.csv`,
+        filters: [{ name: 'CSV', extensions: ['csv'] }],
+      });
+      if (selected) setExportPath(selected);
+    } catch (error) {
+      feedback.notify(safeMessage(error), 'error', true);
+    }
+  };
+
+  const confirmExport = async () => {
+    if (!exportPath) return;
+    try {
+      const result = await analytics.exportCsv(exportPath);
+      feedback.notify(`Exported ${result.rows} job rows to ${result.path}.`, 'success');
+      setExportPath(null);
+    } catch (error) {
+      feedback.notify(safeMessage(error), 'error', true);
+    }
+  };
 
   return (
     <Box sx={{ display: 'grid', gap: 2 }}>
@@ -43,6 +77,9 @@ export function AnalyticsView() {
         </ToggleButtonGroup>
         <Button variant="outlined" onClick={() => void analytics.refresh()}>
           Refresh
+        </Button>
+        <Button variant="outlined" onClick={() => void chooseExport()}>
+          Export CSV
         </Button>
       </Box>
 
@@ -108,6 +145,34 @@ export function AnalyticsView() {
           <LlmMetricsTable metrics={payload.llm_metrics} />
         </>
       ) : null}
+
+      <Dialog
+        open={exportPath !== null}
+        onClose={() => setExportPath(null)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Export sensitive analytics data?</DialogTitle>
+        <DialogContent>
+          <Alert severity="warning" variant="outlined" sx={{ mb: 2 }}>
+            This CSV contains job descriptions, URLs, scores, and keywords. It stays local and is
+            never uploaded. Store it only in a trusted location.
+          </Alert>
+          <Typography variant="body2" color="text.secondary">
+            Destination: {exportPath}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setExportPath(null)}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={() => void confirmExport()}
+            disabled={analytics.exporting}
+          >
+            {analytics.exporting ? 'Exporting…' : 'Export current view'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
