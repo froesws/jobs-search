@@ -2,7 +2,7 @@ use rusqlite::Connection;
 
 use crate::error::AppError;
 
-const SCHEMA_VERSION: i64 = 5;
+const SCHEMA_VERSION: i64 = 6;
 
 const SCHEMA_V1: &str = r#"
 CREATE TABLE resumes (
@@ -190,6 +190,16 @@ ALTER TABLE job_evaluations
     CHECK (approval_source IN ('automatic', 'manual'));
 "#;
 
+/// V6 supports analytics range and run filters without a full table scan.
+const SCHEMA_V6: &str = r#"
+CREATE INDEX idx_job_evaluations_run_status
+    ON job_evaluations(run_id, evaluation_status, evaluated_at);
+CREATE INDEX idx_job_evaluations_evaluated_status
+    ON job_evaluations(evaluated_at, evaluation_status);
+CREATE INDEX idx_llm_metrics_created_provider
+    ON llm_metrics(created_at, provider, model);
+"#;
+
 pub fn apply(connection: &mut Connection) -> Result<(), AppError> {
     let current: i64 = connection.pragma_query_value(None, "user_version", |row| row.get(0))?;
     if current >= SCHEMA_VERSION {
@@ -211,6 +221,9 @@ pub fn apply(connection: &mut Connection) -> Result<(), AppError> {
     }
     if current < 5 {
         transaction.execute_batch(SCHEMA_V5)?;
+    }
+    if current < 6 {
+        transaction.execute_batch(SCHEMA_V6)?;
     }
     transaction.pragma_update(None, "user_version", SCHEMA_VERSION)?;
     transaction.commit()?;

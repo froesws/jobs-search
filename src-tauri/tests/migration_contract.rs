@@ -38,7 +38,7 @@ fn schema_has_no_raw_description_and_survives_reopen() {
             Ok(connection.pragma_query_value(None, "user_version", |row| row.get(0))?)
         })
         .expect("version");
-    assert_eq!(version, 5);
+    assert_eq!(version, 6);
 
     let resume_columns = columns(&db, "resumes");
     assert!(
