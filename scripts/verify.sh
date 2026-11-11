@@ -89,6 +89,18 @@ else
   skip "pytest (no sidecar/jobspy_mcp/tests)"
 fi
 
+if [ -d sidecar/linkedin_scraper_mcp/tests ]; then
+  if [ -x .venv/bin/pytest ]; then
+    run .venv/bin/pytest sidecar/linkedin_scraper_mcp/tests
+  elif command -v pytest >/dev/null 2>&1; then
+    run pytest sidecar/linkedin_scraper_mcp/tests
+  else
+    skip "pytest linkedin scraper MCP (pytest not installed)"
+  fi
+else
+  skip "pytest linkedin scraper MCP (no sidecar/linkedin_scraper_mcp/tests)"
+fi
+
 if [ "${#skipped[@]}" -gt 0 ]; then
   echo
   echo "Skipped checks (not claimed as passing):"

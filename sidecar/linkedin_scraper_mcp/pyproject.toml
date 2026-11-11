@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "linkedin-scraper-mcp"
+version = "0.1.0"
+description = "MCP wrapper for joeyism/linkedin_scraper"
+requires-python = ">=3.10"
+dependencies = [
+  "linkedin-scraper==3.1.2",
+  "playwright>=1.40.0",
+]
+
+[project.scripts]
+linkedin-scraper-mcp = "linkedin_scraper_mcp.server:main"
+linkedin-scraper-login = "linkedin_scraper_mcp.login:main"
+
+[tool.setuptools.packages.find]
+include = ["linkedin_scraper_mcp*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q"
