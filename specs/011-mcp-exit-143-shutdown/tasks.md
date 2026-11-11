@@ -257,7 +257,7 @@ the docs, and cleanup cannot hit unrelated servers.
 - [x] T019 Run `./scripts/verify.sh`, `pytest sidecar/jobspy_mcp/tests`, and
   `pytest sidecar/linkedin_scraper_mcp/tests`; report exactly which checks ran
   and which could not run (path: `scripts/verify.sh`).
-- [ ] T020 Manual acceptance: start both local sidecars, send SIGTERM, confirm
+- [x] T020 Manual acceptance: start both local sidecars, send SIGTERM, confirm
   exit 0; start the upstream `linkedin` server, confirm 143 is documented and
   recoverable; run an app search and confirm no `VIRTUAL_ENV` warning; confirm
   app shutdown terminates only its own children (paths:
@@ -362,3 +362,9 @@ the docs, and cleanup cannot hit unrelated servers.
 - **T014**: exit-status test passed; the message includes `status=143`.
 - **T018**: documented commands and paths were re-checked.
 - **T019**: `./scripts/verify.sh` passed (Rust, frontend, both sidecars).
+- **T020**: the manual SIGTERM probe exits `0` for both local sidecars.
+- **T012 not implemented**: the adapter has no telemetry handle or `run_id`;
+  wiring `Telemetry::source_failure` belongs to `specs/006-mcp-sidecar-diagnostics`.
+  The sanitized exit status is in the `MCP_PIPE_FAILED` message instead.
+- **T016 local only**: `.opencode/` is gitignored, so the OpenCode comment
+  updates cannot be committed. `README.md` documents the same behavior.
