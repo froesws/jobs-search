@@ -214,6 +214,10 @@ fn funnel_and_csv_reconcile_with_seeded_records() {
     assert!(text.contains("Rust Engineer 0"));
     assert!(text.contains("Kubernetes"));
     assert!(!text.contains("description_raw"));
+    let lowered = text.to_lowercase();
+    assert!(!lowered.contains("api_key"));
+    assert!(!lowered.contains("bearer "));
+    assert!(!lowered.contains("session_cookie"));
 }
 
 #[test]
