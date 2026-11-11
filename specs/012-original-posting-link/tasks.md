@@ -95,7 +95,7 @@ installed; no behavior has changed.
 - [X] T004 Register `.plugin(tauri_plugin_opener::init())` in the
   `tauri::Builder` chain in `src-tauri/src/lib.rs`, next to
   `.plugin(tauri_plugin_dialog::init())` and before `.invoke_handler(...)`.
-- [ ] T005 Add `"opener:default"` to `permissions` in
+- [X] T005 Add `"opener:default"` to `permissions` in
   `src-tauri/capabilities/default.json`. That set grants `allow-open-url` plus
   `allow-default-urls` (`http`, `https`, `mailto`, `tel`). Do not add
   `opener:allow-open-path`; the app only opens web URLs.
