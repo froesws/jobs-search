@@ -103,4 +103,19 @@ describe('AnalyticsView trust and export', () => {
       }),
     );
   });
+
+  it('shows an error state instead of stale analytics', async () => {
+    vi.mocked(getAnalytics).mockRejectedValue({
+      code: 'DB_ERROR',
+      message: 'database unavailable',
+    });
+    render(
+      <FeedbackProvider>
+        <AnalyticsView />
+      </FeedbackProvider>,
+    );
+
+    expect(await screen.findByText(/database unavailable/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
+  });
 });
