@@ -19,6 +19,7 @@ const job: JobSummary = {
   total_requirements_count: 5,
   summary: 'Own the systems platform.',
   needs_review: false,
+  applied_at: null,
 };
 
 describe('JobCard', () => {
