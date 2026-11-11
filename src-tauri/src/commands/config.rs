@@ -115,7 +115,7 @@ fn label(provider: &str) -> &'static str {
     }
 }
 
-fn build_view(state: &AppState) -> Result<ProviderConfigView, AppError> {
+pub fn build_view(state: &AppState) -> Result<ProviderConfigView, AppError> {
     let config = state.config()?;
     let session = state.session_selection()?;
     let settings = ProviderSettings::resolve(&state.db, &config, session.as_ref())?;
