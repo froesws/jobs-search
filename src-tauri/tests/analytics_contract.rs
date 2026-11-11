@@ -142,6 +142,25 @@ fn excludes_rejected_and_error_and_keeps_lifecycle_neutral() {
     assert!(zero.skill_gap.is_empty());
 }
 
+#[test]
+fn stale_evaluations_are_reported_with_last_updated() {
+    let db = common::test_db();
+    common::analytics::seed_analytics(&db, 2, 1);
+    jobs_search_lib::db::evaluations::mark_stale(&db, "profile updated").expect("stale");
+
+    let payload = get_analytics(
+        &db,
+        AnalyticsRequest {
+            scope: AnalyticsScope::Last7Days,
+            run_id: None,
+        },
+    )
+    .expect("analytics");
+    assert!(payload.stale);
+    assert!(!payload.last_updated.is_empty());
+    assert_eq!(payload.denominator, 2);
+}
+
 fn set_missing(db: &jobs_search_lib::db::Db, values: &[&[&str]]) {
     let ids = db
         .with_connection(|connection| {
