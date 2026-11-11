@@ -93,6 +93,7 @@ export function ProviderConfigDialog({
   const [catalogs, setCatalogs] = useState<Record<string, ModelCatalogView>>({});
   const [showAll, setShowAll] = useState<Record<string, boolean>>({});
   const [dragging, setDragging] = useState<number | null>(null);
+  const [dragOver, setDragOver] = useState<number | null>(null);
 
   const providers = useMemo(() => state.config?.providers ?? [], [state.config]);
 
@@ -343,20 +344,38 @@ export function ProviderConfigDialog({
                   data-testid={`order-${providerId}`}
                   draggable
                   onDragStart={(event) => {
-                    if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
+                    if (event.dataTransfer) {
+                      event.dataTransfer.effectAllowed = 'move';
+                      // Use a compact ghost: the default drag image is the whole
+                      // full-width row, which looks enormous while dragging.
+                      const ghost = document.createElement('div');
+                      ghost.textContent = `${index + 1}. ${labelFor(providerId)}`;
+                      ghost.style.cssText =
+                        'position:absolute;top:-1000px;left:-1000px;padding:4px 10px;' +
+                        'border:1px solid #888;border-radius:6px;background:#fff;' +
+                        'color:#111;font:13px sans-serif;white-space:nowrap;';
+                      document.body.appendChild(ghost);
+                      event.dataTransfer.setDragImage(ghost, 8, 8);
+                      window.setTimeout(() => ghost.remove(), 0);
+                    }
                     setDragging(index);
                   }}
                   onDragOver={(event) => {
                     event.preventDefault();
-                    if (dragging === null || dragging === index) return;
-                    moveProvider(dragging, index);
-                    setDragging(index);
+                    if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+                    if (dragOver !== index) setDragOver(index);
                   }}
+                  onDragLeave={() => setDragOver((current) => (current === index ? null : current))}
                   onDrop={(event) => {
                     event.preventDefault();
+                    if (dragging !== null) moveProvider(dragging, index);
                     setDragging(null);
+                    setDragOver(null);
                   }}
-                  onDragEnd={() => setDragging(null)}
+                  onDragEnd={() => {
+                    setDragging(null);
+                    setDragOver(null);
+                  }}
                   sx={{
                     display: 'flex',
                     alignItems: 'center',
@@ -364,11 +383,16 @@ export function ProviderConfigDialog({
                     px: 1,
                     py: 0.5,
                     border: '1px solid',
-                    borderColor: dragging === index ? 'primary.main' : 'divider',
+                    borderColor:
+                      dragging === index
+                        ? 'primary.main'
+                        : dragOver === index
+                          ? 'primary.light'
+                          : 'divider',
                     borderRadius: 1,
-                    bgcolor: 'background.paper',
+                    bgcolor: dragOver === index ? 'action.hover' : 'background.paper',
                     cursor: 'grab',
-                    opacity: dragging === index ? 0.6 : 1,
+                    opacity: dragging === index ? 0.5 : 1,
                     '&:active': { cursor: 'grabbing' },
                   }}
                 >
@@ -413,7 +437,11 @@ export function ProviderConfigDialog({
                   disableGutters
                 >
                   <AccordionSummary expandIcon={<span aria-hidden>▾</span>}>
-                    <Stack direction="row" spacing={1} sx={{ width: '100%', alignItems: 'center' }}>
+                    <Stack
+                      direction="row"
+                      spacing={1}
+                      sx={{ width: '100%', alignItems: 'center', pr: 2 }}
+                    >
                       <Typography sx={{ flex: 1 }}>{provider.label}</Typography>
                       <Chip
                         size="small"

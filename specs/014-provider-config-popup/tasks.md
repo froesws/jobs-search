@@ -198,6 +198,17 @@ message instead of the grey screen seen when `ProviderConfigDialog` threw.
 
 ---
 
+## Phase 11: Drag-and-drop and accordion polish
+
+**Reported**: the dragged row grew enormous and dropping did not reorder; the
+accordion expand arrow sat too close to the status chip.
+
+- [X] T056 [US3] Reorder only on drop (not on every `dragover`), add a hover target, and use a compact custom drag image, in `src/components/ProviderConfigDialog.tsx`.
+- [X] T057 [P] [US3] Add right padding to the accordion summary so the expand arrow is separated from the status chip, in `src/components/ProviderConfigDialog.tsx`.
+- [X] T058 [P] [US3] Add a regression test proving `dragover` alone does not reorder, in `src/components/ProviderConfigDialog.test.tsx`.
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies

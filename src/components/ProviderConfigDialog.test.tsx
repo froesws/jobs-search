@@ -271,6 +271,17 @@ describe('ProviderConfigDialog', () => {
     expect(rows[1]).toHaveAttribute('data-testid', 'order-gemini');
   });
 
+  it('does not reorder while dragging over a row', () => {
+    render(<ProviderConfigDialog open onClose={() => {}} state={state()} />);
+
+    fireEvent.dragStart(screen.getByTestId('order-ollama'));
+    fireEvent.dragOver(screen.getByTestId('order-gemini'));
+
+    const rows = screen.getAllByTestId(/^order-/);
+    expect(rows[0]).toHaveAttribute('data-testid', 'order-gemini');
+    expect(rows[3]).toHaveAttribute('data-testid', 'order-ollama');
+  });
+
   it('saves per-provider attempts within bounds', async () => {
     const save = vi.fn().mockResolvedValue(configView());
     render(<ProviderConfigDialog open onClose={() => {}} state={state({ save })} />);
