@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use async_trait::async_trait;
+use serde::Serialize;
 use tauri::State;
 
 use crate::db;
@@ -228,6 +229,26 @@ fn dedupe(values: &[String]) -> Vec<String> {
     result
 }
 
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct ResumeSummary {
+    pub id: String,
+    pub filename: String,
+    pub content_hash: String,
+    pub uploaded_at: String,
+}
+
+pub fn list_resume_summaries(state: &AppState) -> Result<Vec<ResumeSummary>, AppError> {
+    Ok(db::profile::list_resumes(&state.db)?
+        .into_iter()
+        .map(|resume| ResumeSummary {
+            id: resume.id,
+            filename: resume.filename,
+            content_hash: resume.content_hash,
+            uploaded_at: resume.uploaded_at,
+        })
+        .collect())
+}
+
 #[tauri::command]
 pub async fn cmd_upload_resume(
     state: State<'_, AppState>,
@@ -247,6 +268,11 @@ pub fn cmd_delete_resume(
     file_id: String,
 ) -> Result<CandidateProfile, ErrorPayload> {
     delete_resume_with(&state, &file_id).map_err(Into::into)
+}
+
+#[tauri::command]
+pub fn cmd_list_resumes(state: State<'_, AppState>) -> Result<Vec<ResumeSummary>, ErrorPayload> {
+    list_resume_summaries(&state).map_err(Into::into)
 }
 
 #[tauri::command]

@@ -43,6 +43,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::telemetry::cmd_get_log_health,
             commands::profile::cmd_get_profile,
+            commands::profile::cmd_list_resumes,
             commands::profile::cmd_upload_resume,
             commands::profile::cmd_delete_resume,
             commands::profile::cmd_save_profile,
@@ -54,6 +55,7 @@ pub fn run() {
             commands::jobs::cmd_restore_job,
             commands::jobs::cmd_approve_job,
             commands::jobs::cmd_get_audit,
+            commands::config::cmd_get_active_provider,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Jobs Search");

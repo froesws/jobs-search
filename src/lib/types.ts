@@ -34,6 +34,7 @@ export interface JobSummary {
   total_requirements_count: number | null;
   summary: string;
   needs_review: boolean;
+  applied_at: string | null;
 }
 
 export interface Requirement {
@@ -95,6 +96,7 @@ export interface CandidateProfile {
   work_authorization: string | null;
   salary_threshold: number | null;
   source_documents: string[];
+  extras?: Record<string, unknown>;
 }
 
 export interface SearchMetrics {
@@ -109,6 +111,57 @@ export interface SearchMetrics {
   started_at: string;
   finished_at: string | null;
   source_failures: string[];
+}
+
+export interface ResumeSummary {
+  id: string;
+  filename: string;
+  content_hash: string;
+  uploaded_at: string;
+}
+
+export interface ActiveProvider {
+  provider: string;
+  model: string;
+  fallback_enabled: boolean;
+}
+
+export interface JobApplication {
+  job_id: string;
+  lifecycle_state: LifecycleState;
+  applied_at: string | null;
+  approval_source: 'automatic' | 'manual';
+  evaluation_snapshot_json: string;
+}
+
+export interface JobEvaluationView {
+  job_id: string;
+  evaluation_status: EvaluationStatus;
+  match_score: number | null;
+  approval_source: 'automatic' | 'manual';
+}
+
+export interface ExecutionAudit {
+  run_id: string;
+  status: string;
+  started_at: string;
+  finished_at: string | null;
+  search_config: Record<string, unknown>;
+  total_ingested: number;
+  duplicates_merged: number;
+  rejected_count: number;
+  pending_count: number;
+  approved_count: number;
+  error_count: number;
+  applied_count: number;
+  ignored_count: number;
+  approval_rate: number;
+  application_rate: number;
+  rejected_by_reason: Record<string, number>;
+  source_failures: string[];
+  score_distribution: Record<string, number>;
+  source_breakdown: Record<string, number>;
+  provider_breakdown: Record<string, number>;
 }
 
 export const DEFAULT_FILTERS: SearchFilters = {
