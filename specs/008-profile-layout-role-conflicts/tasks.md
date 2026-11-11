@@ -142,7 +142,7 @@ roles remain in `extras.work_history`, and a stored profile with a legacy
 - [X] T012 [US2] Remove `record_current_title_conflict` and its call from `merge_extracted`; update the merge doc comment so it no longer claims current-title values are recorded as conflicts, while keeping `ProfileConflict` available for future non-role conflicts (path: `src-tauri/src/profile/merge.rs`).
 - [X] T013 [US2] Replace the `profile.extras.work_history = extracted.work_history.clone()` assignment with a deduplicated union: latest-resume roles first, then older roles whose normalized title/company/start/end key is not already present (path: `src-tauri/src/profile/merge.rs`).
 - [X] T014 [US2] Filter legacy `current_title` conflicts when loading a profile and when merging, so existing profiles saved with the false conflict stop showing the warning; persist the cleaned profile on the next save (paths: `src-tauri/src/db/profile.rs`, `src-tauri/src/profile/merge.rs`).
-- [ ] T015 [US2] Run the focused suites (`cargo test --manifest-path src-tauri/Cargo.toml --lib profile::merge`, `cargo test --manifest-path src-tauri/Cargo.toml --test profile_pipeline`, and `npm test -- src/views/ProfileView.test.tsx`) and fix failures (paths: `src-tauri/tests/profile_pipeline.rs`, `src/views/ProfileView.test.tsx`).
+- [X] T015 [US2] Run the focused suites (`cargo test --manifest-path src-tauri/Cargo.toml --lib profile::merge`, `cargo test --manifest-path src-tauri/Cargo.toml --test profile_pipeline`, and `npm test -- src/views/ProfileView.test.tsx`) and fix failures (paths: `src-tauri/tests/profile_pipeline.rs`, `src/views/ProfileView.test.tsx`).
 
 **Checkpoint**: Multiple roles are preserved and never reported as a conflict;
 legacy current-title warnings disappear.
