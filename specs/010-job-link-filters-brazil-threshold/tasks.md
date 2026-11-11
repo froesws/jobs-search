@@ -149,7 +149,7 @@ passes when no foreign region is named.
 
 ### Implementation for User Story 2
 
-- [ ] T007 [US2] Implement the allowlist in `src-tauri/src/match/filters.rs`:
+- [x] T007 [US2] Implement the allowlist in `src-tauri/src/match/filters.rs`:
   remove `latam`, `latin america`, `south america`, `worldwide`, `anywhere`, and
   `global` from `mentions_brazil`; for Remote/Unknown require a Brazil marker
   when the location is known; replace the `mentions_restricted_region`

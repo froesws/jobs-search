@@ -191,20 +191,21 @@ fn location_eligible(
         .map(|city| normalize_text(city))
         .collect::<Vec<_>>();
 
+    let has_brazil = mentions_brazil(&location) || mentions_brazil(normalized_text);
+    let unknown_location = location.is_empty() || location == "unknown" || location == "remote";
+    // A missing location is a gap, not proof that the posting is abroad. Keep
+    // it only when nothing in the title or description names another region.
+    let unknown_but_clean = unknown_location && !mentions_foreign_region(normalized_text);
+
     match modality {
-        WorkModality::Remote => {
-            if mentions_brazil(&location) || mentions_brazil(normalized_text) {
-                return true;
-            }
-            // A truly global remote posting is acceptable; an explicit
-            // non-Brazil region is not.
-            !mentions_restricted_region(&location)
-        }
+        WorkModality::Remote => has_brazil || unknown_but_clean,
         WorkModality::Hybrid | WorkModality::Onsite => {
             accepted_cities.iter().any(|city| location.contains(city))
         }
         WorkModality::Unknown => {
-            accepted_cities.iter().any(|city| location.contains(city)) || mentions_brazil(&location)
+            accepted_cities.iter().any(|city| location.contains(city))
+                || has_brazil
+                || unknown_but_clean
         }
     }
 }
@@ -214,19 +215,14 @@ fn mentions_brazil(value: &str) -> bool {
         || contains_word(value, "brasil")
         || contains_word(value, "brazilian")
         || contains_word(value, "br")
-        || value.contains("latam")
-        || value.contains("latin america")
-        || value.contains("south america")
-        || value.contains("worldwide")
-        || value.contains("anywhere")
-        || value.contains("global")
 }
 
-fn mentions_restricted_region(value: &str) -> bool {
+fn mentions_foreign_region(value: &str) -> bool {
     [
         "usa",
         "united states",
         "us only",
+        "us-based",
         "canada",
         "europe",
         "emea",
@@ -238,7 +234,24 @@ fn mentions_restricted_region(value: &str) -> bool {
         "singapore",
         "japan",
         "uk",
-        "us",
+        "portugal",
+        "spain",
+        "mexico",
+        "argentina",
+        "colombia",
+        "chile",
+        "peru",
+        "uruguay",
+        "paraguay",
+        "bolivia",
+        "venezuela",
+        "ecuador",
+        "worldwide",
+        "global",
+        "anywhere",
+        "latam",
+        "latin america",
+        "south america",
     ]
     .iter()
     .any(|region| contains_word(value, region))
