@@ -1,0 +1,30 @@
+# Local job sources. This file contains no credentials: keys live in `.env`
+# and sources reference them through `credential_ref` only.
+sources:
+  - id: jobspy
+    name: jobspy
+    source_type: mcp
+    enabled: true
+    config:
+      command: python3
+      args: ['-m', 'jobspy_mcp_server.server']
+      sites: ['linkedin', 'indeed']
+      results_wanted: 50
+    rate_limit:
+      requests_per_minute: 20
+      max_retries: 2
+      backoff_ms: 500
+      timeout_seconds: 60
+
+  - id: remoteok
+    name: remoteok
+    source_type: api
+    enabled: true
+    config:
+      base_url: 'https://remoteok.com/api'
+      results_wanted: 50
+    rate_limit:
+      requests_per_minute: 10
+      max_retries: 2
+      backoff_ms: 500
+      timeout_seconds: 15

@@ -5,9 +5,11 @@ pub mod config;
 pub mod db;
 pub mod dedup;
 pub mod error;
+pub mod ingestion;
 pub mod llm;
 pub mod pdf;
 pub mod profile;
+pub mod state;
 pub mod telemetry;
 pub mod types;
 
@@ -15,7 +17,8 @@ pub mod types;
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
-            let log_dir = app.path().app_data_dir()?.join("logs");
+            let app_data_dir = app.path().app_data_dir()?;
+            let log_dir = app_data_dir.join("logs");
             let (config, warning) = telemetry::TelemetryConfig::from_env(log_dir);
             let runtime = match telemetry::init(config) {
                 Ok(runtime) => runtime,
@@ -28,10 +31,17 @@ pub fn run() {
 
             app.manage(runtime.health.clone());
             app.manage(runtime.guard);
+
+            let config = config::AppConfig::from_env(app_data_dir)?;
+            let state = state::AppState::new(config)?;
+            app.manage(state);
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            commands::telemetry::cmd_get_log_health
+            commands::telemetry::cmd_get_log_health,
+            commands::profile::cmd_get_profile,
+            commands::jobs::cmd_get_jobs,
+            commands::jobs::cmd_get_job,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Jobs Search");
