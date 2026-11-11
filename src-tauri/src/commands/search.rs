@@ -436,6 +436,40 @@ mod tests {
     }
 
     #[test]
+    fn is_remote_is_true_only_for_remote_only_selections() {
+        let remote = SearchFilters {
+            seniorities: vec![Seniority::Pleno],
+            modalities: vec![WorkModality::Remote],
+            ..SearchFilters::default()
+        }
+        .resolve(&profile());
+        assert!(remote.ingestion_request().is_remote);
+
+        let mixed = SearchFilters {
+            seniorities: vec![Seniority::Pleno],
+            modalities: vec![WorkModality::Remote, WorkModality::Hybrid],
+            ..SearchFilters::default()
+        }
+        .resolve(&profile());
+        assert!(!mixed.ingestion_request().is_remote);
+
+        let onsite = SearchFilters {
+            seniorities: vec![Seniority::Pleno],
+            modalities: vec![WorkModality::Onsite],
+            ..SearchFilters::default()
+        }
+        .resolve(&profile());
+        let request = onsite.ingestion_request();
+        assert!(!request.is_remote);
+        assert!(
+            request
+                .queries
+                .iter()
+                .all(|query| query.contains("presencial"))
+        );
+    }
+
+    #[test]
     fn appends_portuguese_work_type_terms_only_for_a_subset() {
         let mixed = SearchFilters {
             titles: vec!["Rust Engineer".into()],
