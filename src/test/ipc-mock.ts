@@ -18,6 +18,7 @@ export interface IpcMock {
   getActiveProvider: Mock;
   getAnalytics: Mock;
   exportAnalyticsCsv: Mock;
+  openExternalUrl: Mock;
 }
 
 /** Deterministic IPC doubles for component and ViewModel tests. */
@@ -39,5 +40,6 @@ export function createIpcMock(): IpcMock {
     getActiveProvider: vi.fn(),
     getAnalytics: vi.fn(),
     exportAnalyticsCsv: vi.fn(),
+    openExternalUrl: vi.fn(),
   };
 }

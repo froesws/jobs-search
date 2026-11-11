@@ -132,7 +132,7 @@ default browser opens it.
   `@tauri-apps/plugin-opener`, assert `openExternalUrl('https://example.com/jobs/1')`
   calls `openUrl` exactly once with the normalized URL, and assert a plugin
   rejection is rethrown as an `AppError` (`src/lib/errors.ts`).
-- [ ] T009 [P] [US1] Update `src/components/JobDrawer.test.tsx`: mock
+- [X] T009 [P] [US1] Update `src/components/JobDrawer.test.tsx`: mock
   `@/lib/ipc`, drop the `target="_blank"` assertion, keep the `href`,
   text-content, and `wordBreak`/`userSelect` assertions, and assert that
   `fireEvent.click(link)` calls `openExternalUrl` once with `job.url`

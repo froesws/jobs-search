@@ -1,9 +1,13 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { JobDetail } from '@/lib/types';
 import { JobDrawer } from '@/components/JobDrawer';
 import { jobDetailFixture } from '@/test/fixtures';
+
+const { openExternalUrl } = vi.hoisted(() => ({ openExternalUrl: vi.fn() }));
+
+vi.mock('@/lib/ipc', () => ({ openExternalUrl }));
 
 const job: JobDetail = jobDetailFixture;
 
@@ -29,6 +33,11 @@ function renderDrawer(overrides: Partial<JobDetail> = {}, callbacks: DrawerCallb
 }
 
 describe('JobDrawer', () => {
+  beforeEach(() => {
+    openExternalUrl.mockReset();
+    openExternalUrl.mockResolvedValue(undefined);
+  });
+
   it('shows the description, requirements, and matched/missing skills', () => {
     renderDrawer();
     expect(screen.getByText('Senior Rust Engineer')).toBeInTheDocument();
@@ -56,15 +65,20 @@ describe('JobDrawer', () => {
     expect(onApprove).toHaveBeenCalledWith(job.job_id);
   });
 
-  it('shows the original posting URL as selectable link text', () => {
+  it('opens the original posting URL through the IPC wrapper', () => {
     renderDrawer();
     const link = screen.getByTestId('original-posting-url');
 
     expect(link).toHaveTextContent(job.url);
     expect(link).toHaveAttribute('href', job.url);
-    expect(link).toHaveAttribute('target', '_blank');
+    expect(link).not.toHaveAttribute('target');
     expect(link).toHaveStyle({ wordBreak: 'break-all', userSelect: 'text' });
     expect(screen.queryByRole('button', { name: 'Open original posting' })).not.toBeInTheDocument();
+
+    fireEvent.click(link);
+
+    expect(openExternalUrl).toHaveBeenCalledTimes(1);
+    expect(openExternalUrl).toHaveBeenCalledWith(job.url);
   });
 
   it('shows the no-requirements state and warns on invalid URLs', () => {
