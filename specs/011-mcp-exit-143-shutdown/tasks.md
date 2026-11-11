@@ -234,7 +234,7 @@ reported servers, and know that the `VIRTUAL_ENV` warning is benign.
   is an orderly shutdown (supervisor, config reload, or manual cleanup), the
   FastMCP banner/`uv` install output is startup noise, and an app restart or
   OpenCode reload reconnects the server (path: `README.md`).
-- [ ] T016 [US4] Document the `.opencode/opencode.jsonc` entries for `linkedin`
+- [x] T016 [US4] Document the `.opencode/opencode.jsonc` entries for `linkedin`
   and `linkedin-scraper`: they are independent from `sources.yaml`, the
   `linkedin` one is third-party and cannot trap signals, and either can be
   disabled if duplicate servers are undesirable (path:
