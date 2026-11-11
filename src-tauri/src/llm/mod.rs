@@ -62,7 +62,7 @@ pub fn router_from_config(config: &AppConfig, client: Client) -> LlmRouter {
                         provider: Arc::new(DeepSeekProvider::new(
                             client.clone(),
                             config.deepseek_base_url.clone(),
-                            "deepseek-chat",
+                            config.deepseek_model.clone(),
                             key.clone(),
                             timeout,
                         )),

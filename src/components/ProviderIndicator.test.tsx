@@ -17,12 +17,12 @@ describe('ProviderIndicator', () => {
   it('shows the active provider and model without credentials', async () => {
     vi.mocked(getActiveProvider).mockResolvedValue({
       provider: 'deepseek',
-      model: 'deepseek-chat',
+      model: 'deepseek-flash',
       fallback_enabled: false,
     });
     render(<ProviderIndicator />);
 
-    expect(await screen.findByText('deepseek · deepseek-chat')).toBeInTheDocument();
+    expect(await screen.findByText('deepseek · deepseek-flash')).toBeInTheDocument();
     expect(screen.queryByText(/secret|key/i)).not.toBeInTheDocument();
     await waitFor(() => expect(getActiveProvider).toHaveBeenCalledTimes(1));
   });

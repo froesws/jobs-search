@@ -38,6 +38,19 @@ impl GeminiProvider {
     }
 }
 
+fn generate_content_url(base_url: &str, model: &str) -> String {
+    let base = base_url.trim_end_matches('/');
+    let base = match reqwest::Url::parse(base) {
+        Ok(url) if url.path() == "/" || url.path().is_empty() => format!("{base}/v1beta"),
+        _ => base.to_string(),
+    };
+    let base = base.trim_end_matches('/');
+    let base = base.strip_suffix("/models").unwrap_or(base);
+    let model = model.trim().trim_start_matches('/');
+    let model = model.strip_prefix("models/").unwrap_or(model);
+    format!("{base}/models/{model}:generateContent")
+}
+
 #[async_trait]
 impl LlmProvider for GeminiProvider {
     fn provider(&self) -> &'static str {
@@ -53,7 +66,7 @@ impl LlmProvider for GeminiProvider {
         input: &EvaluationInput,
         _attempt: u32,
     ) -> Result<EvaluationEvidence, LlmError> {
-        let url = format!("{}/models/{}:generateContent", self.base_url, self.model);
+        let url = generate_content_url(&self.base_url, &self.model);
         let headers = api_key_headers("x-goog-api-key", &self.api_key)?;
         let body = serde_json::json!({
             "systemInstruction": {
@@ -64,7 +77,6 @@ impl LlmProvider for GeminiProvider {
                 "parts": [{ "text": user_prompt(input) }]
             }],
             "generationConfig": {
-                "temperature": 0,
                 "responseMimeType": "application/json"
             }
         });
@@ -79,7 +91,7 @@ impl LlmProvider for GeminiProvider {
         resume_text: &str,
         _attempt: u32,
     ) -> Result<ExtractedProfile, LlmError> {
-        let url = format!("{}/models/{}:generateContent", self.base_url, self.model);
+        let url = generate_content_url(&self.base_url, &self.model);
         let headers = api_key_headers("x-goog-api-key", &self.api_key)?;
         let body = serde_json::json!({
             "systemInstruction": {
@@ -90,7 +102,6 @@ impl LlmProvider for GeminiProvider {
                 "parts": [{ "text": profile_user_prompt(resume_text) }]
             }],
             "generationConfig": {
-                "temperature": 0,
                 "responseMimeType": "application/json"
             }
         });
@@ -98,5 +109,51 @@ impl LlmProvider for GeminiProvider {
         let response = post_json(&self.client, &url, headers, &body, self.timeout).await?;
         let text = gemini_content(&response)?;
         parse_extracted_profile(&text).map_err(|error| LlmError::parse(error.message()))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn builds_generate_content_url_for_bare_hosts() {
+        assert_eq!(
+            generate_content_url(
+                "https://generativelanguage.googleapis.com",
+                "gemini-3.5-flash-lite"
+            ),
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent"
+        );
+    }
+
+    #[test]
+    fn builds_generate_content_url_for_versioned_bases() {
+        assert_eq!(
+            generate_content_url(
+                "https://generativelanguage.googleapis.com/v1beta/",
+                "gemini-3.5-flash-lite"
+            ),
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent"
+        );
+    }
+
+    #[test]
+    fn strips_model_prefixes_and_model_suffixes() {
+        assert_eq!(
+            generate_content_url(
+                "https://generativelanguage.googleapis.com/v1beta/models",
+                "models/gemini-3.5-flash-lite"
+            ),
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent"
+        );
+    }
+
+    #[test]
+    fn keeps_custom_base_paths() {
+        assert_eq!(
+            generate_content_url("https://example.test/custom/v1", "gemini-test"),
+            "https://example.test/custom/v1/models/gemini-test:generateContent"
+        );
     }
 }

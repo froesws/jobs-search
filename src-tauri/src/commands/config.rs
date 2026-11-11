@@ -18,6 +18,15 @@ pub struct ActiveProvider {
 /// Return the first configured provider in `LLM_PROVIDER_ORDER` that has a key.
 /// Never returns a key or any connection secret.
 pub fn active_provider(config: &AppConfig) -> Result<ActiveProvider, AppError> {
+    if let Some(requested) = config.llm_provider.as_deref()
+        && !config.has_key(requested)
+    {
+        return Err(AppError::Config(format!(
+            "LLM_PROVIDER={requested} requires {} in the local .env",
+            provider_key_env(requested)
+        )));
+    }
+
     for provider in config.provider_order() {
         if !config.has_key(provider) {
             continue;
@@ -29,7 +38,7 @@ pub fn active_provider(config: &AppConfig) -> Result<ActiveProvider, AppError> {
                 .first()
                 .cloned()
                 .unwrap_or_else(|| "openrouter/auto".to_string()),
-            "deepseek" => "deepseek-chat".to_string(),
+            "deepseek" => config.deepseek_model.clone(),
             _ => continue,
         };
         return Ok(ActiveProvider {
@@ -40,8 +49,18 @@ pub fn active_provider(config: &AppConfig) -> Result<ActiveProvider, AppError> {
     }
 
     Err(AppError::Config(
-        "no LLM provider key is configured; set it in the local .env".to_string(),
+        "no LLM provider key is configured; set GEMINI_API_KEY, OPENROUTER_API_KEY, or DEEPSEEK_API_KEY in the local .env"
+            .to_string(),
     ))
+}
+
+fn provider_key_env(provider: &str) -> &'static str {
+    match provider {
+        "gemini" => "GEMINI_API_KEY",
+        "openrouter" => "OPENROUTER_API_KEY",
+        "deepseek" => "DEEPSEEK_API_KEY",
+        _ => "API_KEY",
+    }
 }
 
 #[tauri::command]
@@ -75,14 +94,50 @@ mod tests {
         ]);
         let active = active_provider(&config).expect("active");
         assert_eq!(active.provider, "deepseek");
-        assert_eq!(active.model, "deepseek-chat");
+        assert_eq!(active.model, "deepseek-flash");
         assert!(active.fallback_enabled);
         assert!(!format!("{active:?}").contains("secret"));
     }
 
     #[test]
+    fn respects_the_selected_provider() {
+        let config = config(&[
+            ("LLM_PROVIDER", "openrouter"),
+            ("OPENROUTER_API_KEY", "openrouter-secret"),
+            ("GEMINI_API_KEY", "gemini-secret"),
+        ]);
+        let active = active_provider(&config).expect("active");
+        assert_eq!(active.provider, "openrouter");
+        assert_eq!(active.model, "openrouter/free");
+    }
+
+    #[test]
+    fn uses_the_configured_deepseek_model() {
+        let config = config(&[
+            ("LLM_PROVIDER", "deepseek"),
+            ("DEEPSEEK_API_KEY", "secret"),
+            ("DEEPSEEK_MODEL", "deepseek-v4-pro"),
+        ]);
+        let active = active_provider(&config).expect("active");
+        assert_eq!(active.provider, "deepseek");
+        assert_eq!(active.model, "deepseek-v4-pro");
+    }
+
+    #[test]
+    fn missing_key_for_selected_provider_names_the_variable() {
+        let config = config(&[("LLM_PROVIDER", "gemini")]);
+        let error = active_provider(&config).expect_err("missing key");
+        assert!(error.message().contains("GEMINI_API_KEY"));
+        assert!(!error.message().contains("secret"));
+    }
+
+    #[test]
     fn missing_keys_are_a_configuration_error() {
         let config = config(&[]);
-        assert!(active_provider(&config).is_err());
+        let error = active_provider(&config).expect_err("missing keys");
+        let message = error.message();
+        assert!(message.contains("GEMINI_API_KEY"));
+        assert!(message.contains("OPENROUTER_API_KEY"));
+        assert!(message.contains("DEEPSEEK_API_KEY"));
     }
 }

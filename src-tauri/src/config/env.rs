@@ -16,9 +16,11 @@ pub struct AppConfig {
     pub database_path: PathBuf,
     pub sources_path: PathBuf,
     pub fixture_profile_path: Option<PathBuf>,
+    pub llm_provider: Option<String>,
     pub provider_order: Vec<String>,
     pub openrouter_free_models: Vec<String>,
     pub gemini_model: String,
+    pub deepseek_model: String,
     pub openrouter_base_url: String,
     pub deepseek_base_url: String,
     pub gemini_base_url: String,
@@ -41,9 +43,11 @@ impl std::fmt::Debug for AppConfig {
             .field("database_path", &self.database_path)
             .field("sources_path", &self.sources_path)
             .field("fixture_profile_path", &self.fixture_profile_path)
+            .field("llm_provider", &self.llm_provider)
             .field("provider_order", &self.provider_order)
             .field("openrouter_free_models", &self.openrouter_free_models)
             .field("gemini_model", &self.gemini_model)
+            .field("deepseek_model", &self.deepseek_model)
             .field("llm_timeout_seconds", &self.llm_timeout_seconds)
             .field("allow_fallback", &self.allow_fallback)
             .field("match_threshold", &self.match_threshold)
@@ -95,11 +99,22 @@ impl AppConfig {
             .filter(|value| !value.is_empty())
             .map(|value| resolve(working_dir, &value));
 
-        let provider_order = parse_provider_order(
+        let llm_provider = read("LLM_PROVIDER")
+            .filter(|value| !value.is_empty())
+            .map(|value| value.to_ascii_lowercase());
+        if let Some(provider) = llm_provider.as_deref() {
+            validate_provider(provider, "LLM_PROVIDER")?;
+        }
+
+        let mut provider_order = parse_provider_order(
             read("LLM_PROVIDER_ORDER")
                 .filter(|value| !value.is_empty())
                 .unwrap_or_else(|| "gemini,openrouter,deepseek".to_string()),
         )?;
+        if let Some(provider) = &llm_provider {
+            provider_order.retain(|existing| existing != provider);
+            provider_order.insert(0, provider.clone());
+        }
 
         let openrouter_free_models = parse_list(
             read("OPENROUTER_FREE_MODELS")
@@ -114,7 +129,10 @@ impl AppConfig {
 
         let gemini_model = read("GEMINI_MODEL")
             .filter(|value| !value.is_empty())
-            .unwrap_or_else(|| "gemini-2.5-flash".to_string());
+            .unwrap_or_else(|| "gemini-3.5-flash-lite".to_string());
+        let deepseek_model = read("DEEPSEEK_MODEL")
+            .filter(|value| !value.is_empty())
+            .unwrap_or_else(|| "deepseek-flash".to_string());
         let gemini_base_url = read("GEMINI_BASE_URL")
             .filter(|value| !value.is_empty())
             .unwrap_or_else(|| "https://generativelanguage.googleapis.com/v1beta".to_string());
@@ -123,7 +141,7 @@ impl AppConfig {
             .unwrap_or_else(|| "https://openrouter.ai/api/v1".to_string());
         let deepseek_base_url = read("DEEPSEEK_BASE_URL")
             .filter(|value| !value.is_empty())
-            .unwrap_or_else(|| "https://api.deepseek.com/v1".to_string());
+            .unwrap_or_else(|| "https://api.deepseek.com".to_string());
 
         let gemini_api_key = non_empty(read("GEMINI_API_KEY"));
         let openrouter_api_key = non_empty(read("OPENROUTER_API_KEY"));
@@ -140,9 +158,11 @@ impl AppConfig {
             database_path,
             sources_path,
             fixture_profile_path,
+            llm_provider,
             provider_order,
             openrouter_free_models,
             gemini_model,
+            deepseek_model,
             openrouter_base_url,
             deepseek_base_url,
             gemini_base_url,
@@ -221,23 +241,23 @@ fn parse_list(value: String) -> Vec<String> {
 }
 
 fn default_openrouter_models() -> String {
-    [
-        "deepseek/deepseek-chat-v3-0324:free",
-        "meta-llama/llama-3.3-70b-instruct:free",
-        "qwen/qwen-2.5-72b-instruct:free",
-    ]
-    .join(",")
+    "openrouter/free".to_string()
+}
+
+fn validate_provider(provider: &str, source: &str) -> Result<(), AppError> {
+    if matches!(provider, "gemini" | "openrouter" | "deepseek") {
+        return Ok(());
+    }
+    Err(AppError::Config(format!(
+        "unknown LLM provider in {source}: {provider}"
+    )))
 }
 
 fn parse_provider_order(value: String) -> Result<Vec<String>, AppError> {
     let mut order = Vec::new();
     for provider in parse_list(value) {
         let provider = provider.to_ascii_lowercase();
-        if !matches!(provider.as_str(), "gemini" | "openrouter" | "deepseek") {
-            return Err(AppError::Config(format!(
-                "unknown LLM provider in LLM_PROVIDER_ORDER: {provider}"
-            )));
-        }
+        validate_provider(&provider, "LLM_PROVIDER_ORDER")?;
         if !order.contains(&provider) {
             order.push(provider);
         }
@@ -326,6 +346,68 @@ mod tests {
         assert!(!config.allow_fallback);
         assert_eq!(config.provider_order, ["gemini", "openrouter", "deepseek"]);
         assert!(!format!("{config:?}").contains("api_key"));
+    }
+
+    #[test]
+    fn provider_defaults_are_current() {
+        let config = config(&[]).expect("valid config");
+        assert_eq!(config.gemini_model, "gemini-3.5-flash-lite");
+        assert_eq!(config.openrouter_free_models, ["openrouter/free"]);
+        assert_eq!(config.deepseek_model, "deepseek-flash");
+        assert_eq!(config.deepseek_base_url, "https://api.deepseek.com");
+        assert_eq!(
+            config.gemini_base_url,
+            "https://generativelanguage.googleapis.com/v1beta"
+        );
+        assert_eq!(config.openrouter_base_url, "https://openrouter.ai/api/v1");
+        assert_eq!(config.llm_provider, None);
+    }
+
+    #[test]
+    fn llm_provider_takes_precedence_over_the_order() {
+        let config = config(&[
+            ("LLM_PROVIDER", "deepseek"),
+            ("LLM_PROVIDER_ORDER", "gemini,openrouter"),
+        ])
+        .expect("valid config");
+
+        assert_eq!(config.llm_provider.as_deref(), Some("deepseek"));
+        assert_eq!(config.provider_order, ["deepseek", "gemini", "openrouter"]);
+    }
+
+    #[test]
+    fn llm_provider_is_normalized_and_deduplicated() {
+        let config = config(&[
+            ("LLM_PROVIDER", " OpenRouter "),
+            ("LLM_PROVIDER_ORDER", "gemini,openrouter,deepseek"),
+        ])
+        .expect("valid config");
+
+        assert_eq!(config.provider_order, ["openrouter", "gemini", "deepseek"]);
+    }
+
+    #[test]
+    fn unknown_llm_provider_is_rejected() {
+        let error = config(&[("LLM_PROVIDER", "openai")]).expect_err("invalid");
+        assert!(matches!(error, AppError::Config(_)));
+        assert!(error.message().contains("LLM_PROVIDER"));
+    }
+
+    #[test]
+    fn provider_models_can_be_overridden() {
+        let config = config(&[
+            ("GEMINI_MODEL", "gemini-custom"),
+            ("DEEPSEEK_MODEL", "deepseek-custom"),
+            ("OPENROUTER_FREE_MODELS", "openrouter/auto,free/model:free"),
+        ])
+        .expect("valid config");
+
+        assert_eq!(config.gemini_model, "gemini-custom");
+        assert_eq!(config.deepseek_model, "deepseek-custom");
+        assert_eq!(
+            config.openrouter_free_models,
+            ["openrouter/auto", "free/model:free"]
+        );
     }
 
     #[test]

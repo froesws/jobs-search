@@ -56,18 +56,33 @@ Create a local `.env` in the repository root for development. It is ignored by
 Git and must have restricted permissions (`chmod 600`).
 
 ```dotenv
-GEMINI_API_KEY=
-OPENROUTER_API_KEY=
-DEEPSEEK_API_KEY=
+LLM_PROVIDER=
 LLM_PROVIDER_ORDER=gemini,openrouter,deepseek
-LLM_ALLOW_FALLBACK=false
+GEMINI_API_KEY=
+GEMINI_MODEL=gemini-3.5-flash-lite
+OPENROUTER_API_KEY=
+OPENROUTER_FREE_MODELS=openrouter/free
+DEEPSEEK_API_KEY=
+DEEPSEEK_MODEL=deepseek-flash
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+LLM_ALLOW_FALLBACK=true
 LLM_TIMEOUT_SECONDS=45
 MATCH_THRESHOLD=70
 JOBS_SEARCH_MAX_EVALUATIONS=100
 JOBS_SEARCH_LLM_CONCURRENCY=2
-OPENROUTER_FREE_MODELS=
 RUST_LOG=info
 ```
+
+`LLM_PROVIDER` selects the preferred provider (`gemini`, `openrouter`, or
+`deepseek`) and moves it to the front of `LLM_PROVIDER_ORDER`; the remaining
+providers stay available as fallbacks. Leave it empty to use the order as-is.
+The current defaults are `gemini-3.5-flash-lite` (the documented replacement
+for the retired `gemini-2.5-flash`; `gemini-3.8-flash` is a higher-quality
+override), `openrouter/free`, and `deepseek-flash` at
+`https://api.deepseek.com`. Override them with `GEMINI_MODEL`,
+`OPENROUTER_FREE_MODELS`, and `DEEPSEEK_MODEL` without changing code. The
+example enables fallback; set `LLM_ALLOW_FALLBACK=false` to pin a single
+provider.
 
 In production, the app reads `.env` from the application data directory first,
 falls back to the current directory, and lets OS environment variables take

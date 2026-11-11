@@ -46,6 +46,11 @@ pub async fn post_json(
 pub fn classify_status(status: StatusCode) -> LlmError {
     match status.as_u16() {
         401 | 403 => LlmError::auth("provider authentication failed"),
+        404 => LlmError::new(
+            ErrorCategory::Config,
+            true,
+            "provider endpoint or model not found; check the model ID and base URL",
+        ),
         408 => LlmError::timeout("provider request timed out"),
         429 => LlmError::rate_limit("provider rate limit reached"),
         500..=599 => LlmError::network("provider is temporarily unavailable"),
@@ -146,5 +151,14 @@ mod tests {
         assert!(classify_status(StatusCode::INTERNAL_SERVER_ERROR).retryable);
         assert!(!classify_status(StatusCode::UNAUTHORIZED).retryable);
         assert!(!classify_status(StatusCode::BAD_REQUEST).retryable);
+    }
+
+    #[test]
+    fn not_found_is_a_retryable_configuration_error() {
+        let error = classify_status(StatusCode::NOT_FOUND);
+        assert_eq!(error.category, ErrorCategory::Config);
+        assert!(error.retryable);
+        assert!(error.message.contains("model"));
+        assert!(error.message.contains("endpoint"));
     }
 }

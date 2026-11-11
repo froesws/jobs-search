@@ -97,7 +97,7 @@ export const jobDetailFixture: JobDetail = {
   ],
   score_breakdown: null,
   provider: 'deepseek',
-  model: 'deepseek-chat',
+  model: 'deepseek-flash',
   error_category: null,
 };
 
@@ -118,7 +118,7 @@ export const errorJobDetailFixture: JobDetail = {
 
 export const providerFixture: ActiveProvider = {
   provider: 'deepseek',
-  model: 'deepseek-chat',
+  model: 'deepseek-flash',
   fallback_enabled: false,
 };
 
@@ -156,7 +156,7 @@ export const auditFixture: ExecutionAudit = {
   source_failures: ['jobspy: timeout'],
   score_distribution: { '80-89': 2 },
   source_breakdown: { jobspy: 5 },
-  provider_breakdown: { 'deepseek/deepseek-chat': 4 },
+  provider_breakdown: { 'deepseek/deepseek-flash': 4 },
 };
 
 export const analyticsPayloadFixture: AnalyticsPayload = {

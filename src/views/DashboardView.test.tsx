@@ -17,7 +17,7 @@ describe('dashboard application flow', () => {
   beforeEach(() => {
     vi.mocked(getActiveProvider).mockResolvedValue({
       provider: 'deepseek',
-      model: 'deepseek-chat',
+      model: 'deepseek-flash',
       fallback_enabled: false,
     });
     vi.mocked(listResumes).mockResolvedValue([]);
