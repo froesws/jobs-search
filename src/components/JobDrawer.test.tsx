@@ -114,4 +114,16 @@ describe('JobDrawer', () => {
     expect(screen.getByText('No requirements')).toBeInTheDocument();
     expect(screen.getByText(/original URL is missing or invalid/)).toBeInTheDocument();
   });
+
+  it('shows hard-filter reasons for a rejected evaluation', () => {
+    renderDrawer({
+      evaluation_status: 'REJECTED',
+      match_score: null,
+      hard_filter_rejections: [
+        { code: 'SENIORITY_NOT_ELIGIBLE', message: 'seniority Executive is outside the range' },
+      ],
+    });
+    expect(screen.getByText(/seniority Executive/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'I Applied' })).not.toBeInTheDocument();
+  });
 });
