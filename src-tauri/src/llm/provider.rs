@@ -590,4 +590,35 @@ mod tests {
         assert!(error.fatal);
         assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 1);
     }
+
+    #[tokio::test]
+    async fn a_fatal_error_never_advances_the_chain_even_with_fallback() {
+        let calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let router = LlmRouter::from_plans(vec![
+            ProviderPlan {
+                provider: Arc::new(Fake {
+                    name: "first",
+                    fail: true,
+                    fatal: true,
+                    calls: calls.clone(),
+                }),
+                attempts: 4,
+            },
+            ProviderPlan {
+                provider: Arc::new(Fake {
+                    name: "second",
+                    fail: false,
+                    fatal: false,
+                    calls: calls.clone(),
+                }),
+                attempts: 2,
+            },
+        ]);
+
+        let error = router.evaluate(&input()).await.expect_err("fatal");
+        assert!(error.fatal);
+        assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 1);
+        assert_eq!(error.attempts.len(), 1);
+        assert_eq!(error.last_provider.as_deref(), Some("first"));
+    }
 }
