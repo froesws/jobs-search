@@ -77,7 +77,7 @@ change behavior yet.
 - [X] T002 Add `tauri-plugin-opener = "2"` to `[dependencies]` in
   `src-tauri/Cargo.toml` (`npm run tauri add opener` is the equivalent one-shot
   command and also edits this file).
-- [ ] T003 [P] Add `@tauri-apps/plugin-opener` (v2) to `dependencies` in
+- [X] T003 [P] Add `@tauri-apps/plugin-opener` (v2) to `dependencies` in
   `package.json` and run `npm install`; commit the updated
   `package-lock.json`.
 
