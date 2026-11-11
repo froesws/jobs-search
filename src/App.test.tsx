@@ -74,4 +74,20 @@ describe('dashboard shell', () => {
 
     await waitFor(() => expect(getJobs).toHaveBeenCalled());
   });
+
+  it('exposes accessible navigation and controls', async () => {
+    render(<App />);
+    const tabs = screen.getAllByRole('tab');
+    expect(tabs.map((tab) => tab.textContent)).toEqual([
+      'New Jobs',
+      'My Applications',
+      'My Profile',
+      'Analytics',
+    ]);
+    expect(screen.getByRole('button', { name: 'Toggle color theme' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Timeframe')).toBeInTheDocument();
+    expect(screen.getByLabelText('Seniority')).toBeInTheDocument();
+    expect(screen.getByLabelText('Stack or language')).toBeInTheDocument();
+    await waitFor(() => expect(getJobs).toHaveBeenCalled());
+  });
 });
