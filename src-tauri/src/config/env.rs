@@ -24,6 +24,8 @@ pub struct AppConfig {
     pub openrouter_base_url: String,
     pub deepseek_base_url: String,
     pub gemini_base_url: String,
+    pub ollama_base_url: String,
+    pub ollama_model: String,
     pub gemini_api_key: Option<String>,
     pub openrouter_api_key: Option<String>,
     pub deepseek_api_key: Option<String>,
@@ -48,6 +50,8 @@ impl std::fmt::Debug for AppConfig {
             .field("openrouter_free_models", &self.openrouter_free_models)
             .field("gemini_model", &self.gemini_model)
             .field("deepseek_model", &self.deepseek_model)
+            .field("ollama_base_url", &self.ollama_base_url)
+            .field("ollama_model", &self.ollama_model)
             .field("llm_timeout_seconds", &self.llm_timeout_seconds)
             .field("allow_fallback", &self.allow_fallback)
             .field("match_threshold", &self.match_threshold)
@@ -142,6 +146,10 @@ impl AppConfig {
         let deepseek_base_url = read("DEEPSEEK_BASE_URL")
             .filter(|value| !value.is_empty())
             .unwrap_or_else(|| "https://api.deepseek.com".to_string());
+        let ollama_base_url = read("OLLAMA_BASE_URL")
+            .filter(|value| !value.is_empty())
+            .unwrap_or_else(|| "http://localhost:11434".to_string());
+        let ollama_model = read("OLLAMA_MODEL").unwrap_or_default();
 
         let gemini_api_key = non_empty(read("GEMINI_API_KEY"));
         let openrouter_api_key = non_empty(read("OPENROUTER_API_KEY"));
@@ -166,6 +174,8 @@ impl AppConfig {
             openrouter_base_url,
             deepseek_base_url,
             gemini_base_url,
+            ollama_base_url,
+            ollama_model,
             gemini_api_key,
             openrouter_api_key,
             deepseek_api_key,
@@ -259,7 +269,7 @@ fn default_openrouter_models() -> String {
 }
 
 fn validate_provider(provider: &str, source: &str) -> Result<(), AppError> {
-    if matches!(provider, "gemini" | "openrouter" | "deepseek") {
+    if matches!(provider, "gemini" | "openrouter" | "deepseek" | "ollama") {
         return Ok(());
     }
     Err(AppError::Config(format!(
@@ -467,6 +477,28 @@ mod tests {
         let error = config(&[("LLM_PROVIDER", "openai")]).expect_err("invalid");
         assert!(matches!(error, AppError::Config(_)));
         assert!(error.message().contains("LLM_PROVIDER"));
+    }
+
+    #[test]
+    fn ollama_is_a_valid_provider_with_defaults() {
+        let config = config(&[("LLM_PROVIDER", "ollama")]).expect("valid");
+        assert_eq!(
+            config.provider_order().first().map(String::as_str),
+            Some("ollama")
+        );
+        assert_eq!(config.ollama_base_url, "http://localhost:11434");
+        assert_eq!(config.ollama_model, "");
+    }
+
+    #[test]
+    fn ollama_settings_can_be_overridden() {
+        let config = config(&[
+            ("OLLAMA_BASE_URL", "http://127.0.0.1:9999"),
+            ("OLLAMA_MODEL", "qwen2.5-coder"),
+        ])
+        .expect("valid");
+        assert_eq!(config.ollama_base_url, "http://127.0.0.1:9999");
+        assert_eq!(config.ollama_model, "qwen2.5-coder");
     }
 
     #[test]
