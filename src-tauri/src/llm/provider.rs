@@ -6,6 +6,7 @@ use serde::Serialize;
 
 use crate::llm::schemas::EvaluationEvidence;
 use crate::profile::CandidateProfile;
+use crate::profile::schema::ExtractedProfile;
 use crate::types::WorkModality;
 
 #[derive(Debug, Clone)]
@@ -100,6 +101,18 @@ pub trait LlmProvider: Send + Sync {
         input: &EvaluationInput,
         attempt: u32,
     ) -> Result<EvaluationEvidence, LlmError>;
+
+    /// Extract a structured profile from resume text. Providers that do not
+    /// implement extraction fail explicitly instead of returning partial data.
+    async fn extract_profile(
+        &self,
+        _resume_text: &str,
+        _attempt: u32,
+    ) -> Result<ExtractedProfile, LlmError> {
+        Err(LlmError::config(
+            "this provider does not support profile extraction",
+        ))
+    }
 }
 
 #[derive(Clone)]
@@ -131,6 +144,14 @@ pub struct ProviderAttempt {
 #[derive(Debug, Clone)]
 pub struct EvaluationOutcome {
     pub evidence: EvaluationEvidence,
+    pub provider: String,
+    pub model: String,
+    pub attempts: Vec<ProviderAttempt>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ProfileExtractionOutcome {
+    pub profile: ExtractedProfile,
     pub provider: String,
     pub model: String,
     pub attempts: Vec<ProviderAttempt>,
@@ -282,6 +303,105 @@ impl LlmRouter {
             last_model,
         })
     }
+
+    pub async fn extract_profile(
+        &self,
+        resume_text: &str,
+    ) -> Result<ProfileExtractionOutcome, RouterError> {
+        if self.plans.is_empty() {
+            return Err(RouterError {
+                category: ErrorCategory::Config,
+                message: "no LLM provider is configured".to_string(),
+                fatal: true,
+                attempts: Vec::new(),
+                last_provider: None,
+                last_model: None,
+            });
+        }
+
+        let mut attempts = Vec::new();
+        let mut fallback_from: Option<String> = None;
+        let mut last_provider = None;
+        let mut last_model = None;
+
+        for plan in &self.plans {
+            let provider_name = plan.provider.provider().to_string();
+            for attempt in 1..=plan.attempts.max(1) {
+                let model = plan.provider.model_for_attempt(attempt);
+                let started = Instant::now();
+                let result = tokio::time::timeout(
+                    self.timeout,
+                    plan.provider.extract_profile(resume_text, attempt),
+                )
+                .await;
+                let latency_ms = started.elapsed().as_millis() as i64;
+
+                match result {
+                    Ok(Ok(profile)) => {
+                        attempts.push(ProviderAttempt {
+                            provider: provider_name.clone(),
+                            model: model.clone(),
+                            latency_ms,
+                            outcome: "SUCCESS".to_string(),
+                            error_category: None,
+                            fallback_from,
+                        });
+                        return Ok(ProfileExtractionOutcome {
+                            profile,
+                            provider: provider_name,
+                            model,
+                            attempts,
+                        });
+                    }
+                    Ok(Err(error)) => {
+                        attempts.push(ProviderAttempt {
+                            provider: provider_name.clone(),
+                            model: model.clone(),
+                            latency_ms,
+                            outcome: "ERROR".to_string(),
+                            error_category: Some(error.category.as_str().to_string()),
+                            fallback_from: fallback_from.clone(),
+                        });
+                        last_provider = Some(provider_name.clone());
+                        last_model = Some(model.clone());
+                        fallback_from = Some(format!("{provider_name}/{model}"));
+                        if !error.retryable {
+                            return Err(RouterError {
+                                category: error.category,
+                                message: error.message,
+                                fatal: true,
+                                attempts,
+                                last_provider,
+                                last_model,
+                            });
+                        }
+                    }
+                    Err(_) => {
+                        attempts.push(ProviderAttempt {
+                            provider: provider_name.clone(),
+                            model: model.clone(),
+                            latency_ms,
+                            outcome: "ERROR".to_string(),
+                            error_category: Some(ErrorCategory::Timeout.as_str().to_string()),
+                            fallback_from: fallback_from.clone(),
+                        });
+                        last_provider = Some(provider_name.clone());
+                        last_model = Some(model.clone());
+                        fallback_from = Some(format!("{provider_name}/{model}"));
+                    }
+                }
+            }
+        }
+
+        Err(RouterError {
+            category: ErrorCategory::Unknown,
+            message: "all configured LLM providers were exhausted".to_string(),
+            fatal: false,
+            attempts,
+            last_provider,
+            last_model,
+        })
+    }
 }
 
 #[cfg(test)]
@@ -339,6 +459,32 @@ mod tests {
                 }
             } else {
                 Ok(evidence())
+            }
+        }
+
+        async fn extract_profile(
+            &self,
+            _resume_text: &str,
+            _attempt: u32,
+        ) -> Result<ExtractedProfile, LlmError> {
+            self.calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            if self.fail {
+                if self.fatal {
+                    Err(LlmError::auth("bad key"))
+                } else {
+                    Err(LlmError::rate_limit("429"))
+                }
+            } else {
+                Ok(ExtractedProfile {
+                    core_competencies: vec!["Rust".into()],
+                    secondary_competencies: vec![],
+                    inferred_competencies: vec![],
+                    domain_experience: vec![],
+                    work_history: vec![],
+                    education: vec![],
+                    certifications: vec![],
+                    source_evidence: vec![],
+                })
             }
         }
     }
@@ -433,6 +579,39 @@ mod tests {
         assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 1);
         assert_eq!(error.attempts.len(), 1);
         assert_eq!(error.last_provider.as_deref(), Some("first"));
+    }
+
+    #[tokio::test]
+    async fn profile_extraction_uses_the_same_fallback_policy() {
+        let calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let router = LlmRouter::from_plans(vec![
+            ProviderPlan {
+                provider: Arc::new(Fake {
+                    name: "first",
+                    fail: true,
+                    fatal: false,
+                    calls: calls.clone(),
+                }),
+                attempts: 2,
+            },
+            ProviderPlan {
+                provider: Arc::new(Fake {
+                    name: "second",
+                    fail: false,
+                    fatal: false,
+                    calls: calls.clone(),
+                }),
+                attempts: 1,
+            },
+        ]);
+
+        let outcome = router
+            .extract_profile("Rust resume")
+            .await
+            .expect("profile fallback");
+        assert_eq!(outcome.provider, "second");
+        assert_eq!(outcome.profile.core_competencies, ["Rust"]);
+        assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 3);
     }
 
     #[tokio::test]

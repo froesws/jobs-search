@@ -3,10 +3,11 @@ use std::time::Duration;
 use async_trait::async_trait;
 use reqwest::Client;
 
-use crate::llm::prompt::{SYSTEM_PROMPT, user_prompt};
+use crate::llm::prompt::{PROFILE_SYSTEM_PROMPT, SYSTEM_PROMPT, profile_user_prompt, user_prompt};
 use crate::llm::provider::{EvaluationInput, LlmError, LlmProvider};
-use crate::llm::schemas::{EvaluationEvidence, parse_llm_json};
+use crate::llm::schemas::{EvaluationEvidence, parse_extracted_profile, parse_llm_json};
 use crate::llm::transport::{bearer_headers, chat_content, post_json};
+use crate::profile::schema::ExtractedProfile;
 
 pub struct DeepSeekProvider {
     client: Client,
@@ -64,5 +65,27 @@ impl LlmProvider for DeepSeekProvider {
         let response = post_json(&self.client, &url, headers, &body, self.timeout).await?;
         let text = chat_content(&response)?;
         parse_llm_json(&text).map_err(|error| LlmError::parse(error.message()))
+    }
+
+    async fn extract_profile(
+        &self,
+        resume_text: &str,
+        _attempt: u32,
+    ) -> Result<ExtractedProfile, LlmError> {
+        let url = format!("{}/chat/completions", self.base_url);
+        let headers = bearer_headers(&self.api_key)?;
+        let body = serde_json::json!({
+            "model": self.model,
+            "messages": [
+                { "role": "system", "content": PROFILE_SYSTEM_PROMPT },
+                { "role": "user", "content": profile_user_prompt(resume_text) }
+            ],
+            "temperature": 0,
+            "response_format": { "type": "json_object" }
+        });
+
+        let response = post_json(&self.client, &url, headers, &body, self.timeout).await?;
+        let text = chat_content(&response)?;
+        parse_extracted_profile(&text).map_err(|error| LlmError::parse(error.message()))
     }
 }

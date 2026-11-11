@@ -3,6 +3,7 @@ use std::collections::HashSet;
 use serde::{Deserialize, Serialize};
 
 use crate::error::AppError;
+use crate::profile::schema::ExtractedProfile;
 use crate::types::WorkModality;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -212,6 +213,23 @@ pub fn parse_llm_json(text: &str) -> Result<EvaluationEvidence, AppError> {
     let evidence: EvaluationEvidence = serde_json::from_str(&text[start..=end])?;
     evidence.validate()?;
     Ok(evidence)
+}
+
+pub fn parse_extracted_profile(text: &str) -> Result<ExtractedProfile, AppError> {
+    let start = text
+        .find('{')
+        .ok_or_else(|| AppError::validation("LLM response did not contain a JSON object"))?;
+    let end = text
+        .rfind('}')
+        .ok_or_else(|| AppError::validation("LLM response did not contain a JSON object"))?;
+    if end <= start {
+        return Err(AppError::validation(
+            "LLM response contained an invalid JSON object",
+        ));
+    }
+    let profile: ExtractedProfile = serde_json::from_str(&text[start..=end])?;
+    profile.validate()?;
+    Ok(profile)
 }
 
 #[cfg(test)]

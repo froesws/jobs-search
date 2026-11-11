@@ -3,10 +3,11 @@ use std::time::Duration;
 use async_trait::async_trait;
 use reqwest::Client;
 
-use crate::llm::prompt::{SYSTEM_PROMPT, user_prompt};
+use crate::llm::prompt::{PROFILE_SYSTEM_PROMPT, SYSTEM_PROMPT, profile_user_prompt, user_prompt};
 use crate::llm::provider::{EvaluationInput, LlmError, LlmProvider};
-use crate::llm::schemas::{EvaluationEvidence, parse_llm_json};
+use crate::llm::schemas::{EvaluationEvidence, parse_extracted_profile, parse_llm_json};
 use crate::llm::transport::{api_key_headers, gemini_content, post_json};
+use crate::profile::schema::ExtractedProfile;
 
 pub struct GeminiProvider {
     client: Client,
@@ -68,5 +69,31 @@ impl LlmProvider for GeminiProvider {
         let response = post_json(&self.client, &url, headers, &body, self.timeout).await?;
         let text = gemini_content(&response)?;
         parse_llm_json(&text).map_err(|error| LlmError::parse(error.message()))
+    }
+
+    async fn extract_profile(
+        &self,
+        resume_text: &str,
+        _attempt: u32,
+    ) -> Result<ExtractedProfile, LlmError> {
+        let url = format!("{}/models/{}:generateContent", self.base_url, self.model);
+        let headers = api_key_headers("x-goog-api-key", &self.api_key)?;
+        let body = serde_json::json!({
+            "systemInstruction": {
+                "parts": [{ "text": PROFILE_SYSTEM_PROMPT }]
+            },
+            "contents": [{
+                "role": "user",
+                "parts": [{ "text": profile_user_prompt(resume_text) }]
+            }],
+            "generationConfig": {
+                "temperature": 0,
+                "responseMimeType": "application/json"
+            }
+        });
+
+        let response = post_json(&self.client, &url, headers, &body, self.timeout).await?;
+        let text = gemini_content(&response)?;
+        parse_extracted_profile(&text).map_err(|error| LlmError::parse(error.message()))
     }
 }
