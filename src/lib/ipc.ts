@@ -128,6 +128,13 @@ export function removeProviderCredential(
   return call('cmd_remove_provider_credential', { provider, removeEnvEntry });
 }
 
+export function setSessionSelection(
+  provider: ProviderId,
+  models: string[],
+): Promise<ProviderConfigView> {
+  return call('cmd_set_session_selection', { provider, models });
+}
+
 export function refreshProviderModels(
   provider: ProviderId,
   includePaid = false,
