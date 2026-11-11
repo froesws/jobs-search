@@ -1,13 +1,19 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { JobDetail } from '@/lib/types';
 import { JobDrawer } from '@/components/JobDrawer';
 import { jobDetailFixture } from '@/test/fixtures';
 
-const { openExternalUrl } = vi.hoisted(() => ({ openExternalUrl: vi.fn() }));
+const { openExternalUrl, notify } = vi.hoisted(() => ({
+  openExternalUrl: vi.fn(),
+  notify: vi.fn(),
+}));
 
 vi.mock('@/lib/ipc', () => ({ openExternalUrl }));
+vi.mock('@/components/FeedbackProvider', () => ({
+  useFeedback: () => ({ notify }),
+}));
 
 const job: JobDetail = jobDetailFixture;
 
@@ -36,6 +42,7 @@ describe('JobDrawer', () => {
   beforeEach(() => {
     openExternalUrl.mockReset();
     openExternalUrl.mockResolvedValue(undefined);
+    notify.mockReset();
   });
 
   it('shows the description, requirements, and matched/missing skills', () => {
@@ -79,6 +86,18 @@ describe('JobDrawer', () => {
 
     expect(openExternalUrl).toHaveBeenCalledTimes(1);
     expect(openExternalUrl).toHaveBeenCalledWith(job.url);
+  });
+
+  it('reports an open failure and keeps the drawer usable', async () => {
+    openExternalUrl.mockRejectedValue(new Error('no browser handler'));
+    renderDrawer();
+
+    fireEvent.click(screen.getByTestId('original-posting-url'));
+
+    await waitFor(() => expect(notify).toHaveBeenCalledTimes(1));
+    expect(notify).toHaveBeenCalledWith(expect.stringContaining(job.url), 'error');
+    expect(screen.getByTestId('original-posting-url')).toHaveTextContent(job.url);
+    expect(screen.getByText('Senior Rust Engineer')).toBeInTheDocument();
   });
 
   it('shows the no-requirements state and warns on invalid URLs', () => {

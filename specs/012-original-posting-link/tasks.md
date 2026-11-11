@@ -193,7 +193,7 @@ the URL; pressing Enter on the focused link opens the browser.
 
 ### Tests for User Story 3
 
-- [ ] T015 [P] [US3] Extend `src/components/JobDrawer.test.tsx`: when
+- [X] T015 [P] [US3] Extend `src/components/JobDrawer.test.tsx`: when
   `openExternalUrl` rejects, `notify` (from `useFeedback`) is called with
   severity `'error'` and a message containing the URL, and the drawer remains
   open (`src/components/FeedbackProvider.tsx`).
