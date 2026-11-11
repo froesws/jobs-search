@@ -9,6 +9,7 @@ import { useState } from 'react';
 
 import type { JobSummary, SearchMetrics } from '../lib/types';
 import { useJobsViewModel } from '../viewmodels/useJobsViewModel';
+import { AuditDialog } from '../components/AuditDialog';
 import { EmptyState } from '../components/EmptyState';
 import { ErrorState } from '../components/ErrorState';
 import { JobCard } from '../components/JobCard';
@@ -26,6 +27,7 @@ export function NewJobsView({
   onOpenJob: (job: JobSummary) => void;
 }) {
   const [tab, setTab] = useState<'NEW_JOBS' | 'BELOW_THRESHOLD'>('NEW_JOBS');
+  const [auditRunId, setAuditRunId] = useState<string | null>(null);
   const jobs = useJobsViewModel(tab, refreshToken);
 
   return (
@@ -60,7 +62,9 @@ export function NewJobsView({
         </ToggleButtonGroup>
       </Box>
 
-      {metrics ? <RunSummary metrics={metrics} /> : null}
+      {metrics ? (
+        <RunSummary metrics={metrics} onAudit={() => setAuditRunId(metrics.run_id)} />
+      ) : null}
 
       {jobs.status === 'loading' ? <LoadingState label="Fetching your ranked matches…" /> : null}
       {jobs.status === 'error' ? (
@@ -120,11 +124,17 @@ export function NewJobsView({
           </Box>
         </>
       ) : null}
+
+      <AuditDialog
+        runId={auditRunId}
+        open={auditRunId !== null}
+        onClose={() => setAuditRunId(null)}
+      />
     </Box>
   );
 }
 
-function RunSummary({ metrics }: { metrics: SearchMetrics }) {
+function RunSummary({ metrics, onAudit }: { metrics: SearchMetrics; onAudit: () => void }) {
   const hasFailures = metrics.source_failures.length > 0;
   const severity = metrics.status === 'FAILED' ? 'error' : hasFailures ? 'warning' : 'success';
   return (
@@ -143,6 +153,9 @@ function RunSummary({ metrics }: { metrics: SearchMetrics }) {
           Source failures: {metrics.source_failures.join(' · ')}
         </Typography>
       ) : null}
+      <Button size="small" variant="outlined" onClick={onAudit} sx={{ mt: 1 }}>
+        View audit
+      </Button>
     </Alert>
   );
 }
