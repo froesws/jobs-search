@@ -8,6 +8,7 @@ pub mod jobs;
 pub mod migrations;
 pub mod profile;
 pub mod runs;
+pub mod settings;
 pub mod sources;
 
 pub use connection::Db;
