@@ -173,6 +173,7 @@ pub fn detect_seniority(text: &str) -> Option<Seniority> {
     {
         Some(Seniority::Intern)
     } else if contains_word(normalized, "pleno")
+        || contains_word(normalized, "mid")
         || normalized.contains("mid-level")
         || normalized.contains("mid level")
     {
@@ -277,6 +278,27 @@ mod tests {
         assert_eq!(
             detect_seniority("Desenvolvedor Pleno/Sênior"),
             Some(Seniority::Pleno)
+        );
+        assert_eq!(
+            detect_seniority("Mid Rust Engineer"),
+            Some(Seniority::Pleno)
+        );
+        assert_eq!(
+            detect_seniority("Mid-level Rust Engineer"),
+            Some(Seniority::Pleno)
+        );
+        assert_eq!(detect_seniority("middle"), None);
+        assert_eq!(
+            detect_seniority("Trainee Rust Engineer"),
+            Some(Seniority::Trainee)
+        );
+        assert_eq!(
+            detect_seniority("Jr Rust Engineer"),
+            Some(Seniority::Junior)
+        );
+        assert_eq!(
+            detect_seniority("Sênior Rust Engineer"),
+            Some(Seniority::Senior)
         );
         assert_eq!(
             detect_seniority("Senior Rust Engineer"),
