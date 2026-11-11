@@ -222,7 +222,7 @@ async fn fixture_profile_evaluates_approved_pending_rejected_and_error_jobs() {
 #[test]
 fn evaluation_defaults_are_bounded() {
     let settings = jobs_search_lib::matching::EvaluationSettings::default();
-    assert_eq!(settings.threshold, 70);
+    assert_eq!(settings.threshold, 50);
     assert_eq!(settings.max_jobs, 100);
     assert_eq!(settings.concurrency, 2);
 }

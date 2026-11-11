@@ -74,8 +74,8 @@ fn missing_dimension_contributes_zero_and_n_plus_missing_equals_m() {
 }
 
 #[test]
-fn threshold_is_inclusive_at_70() {
-    assert_eq!(status_for(70, 70), EvaluationStatus::Approved);
-    assert_eq!(status_for(69, 70), EvaluationStatus::Pending);
-    assert_eq!(status_for(85, 70), EvaluationStatus::Approved);
+fn threshold_is_inclusive_at_50() {
+    assert_eq!(status_for(50, 50), EvaluationStatus::Approved);
+    assert_eq!(status_for(49, 50), EvaluationStatus::Pending);
+    assert_eq!(status_for(85, 50), EvaluationStatus::Approved);
 }

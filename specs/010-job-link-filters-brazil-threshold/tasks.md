@@ -211,7 +211,7 @@ is `PENDING`; setting `MATCH_THRESHOLD=70` restores the old boundary.
 
 ### Tests for User Story 4
 
-- [ ] T013 [P] [US4] Update the default-threshold assertions in
+- [x] T013 [P] [US4] Update the default-threshold assertions in
   `src-tauri/src/config/env.rs` (70 -> 50) and
   `src-tauri/tests/fixture_match.rs` (`EvaluationSettings::default`), and change
   the boundary test in `src-tauri/tests/score_contract.rs` to assert 50 is

@@ -416,7 +416,7 @@ mod tests {
     #[test]
     fn defaults_are_bounded_and_redacted() {
         let config = config(&[]).expect("valid config");
-        assert_eq!(config.match_threshold, 70);
+        assert_eq!(config.match_threshold, 50);
         assert_eq!(config.max_evaluations, 100);
         assert_eq!(config.max_concurrency, 2);
         assert!(!config.allow_fallback);
