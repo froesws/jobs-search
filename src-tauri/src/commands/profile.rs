@@ -81,20 +81,29 @@ pub async fn upload_resume_with(
     file_path: &str,
     extractor: &dyn ProfileExtractor,
 ) -> Result<UploadOutcome, AppError> {
-    let path = Path::new(file_path);
-    validate_pdf_extension(path)?;
+    let path = Path::new(file_path).to_path_buf();
+    validate_pdf_extension(&path)?;
     let filename = path
         .file_name()
         .and_then(|value| value.to_str())
         .ok_or_else(|| AppError::validation("the resume filename is invalid"))?
         .to_string();
 
-    let bytes = std::fs::read(path)
-        .map_err(|_| AppError::validation("the resume file could not be read"))?;
-    if bytes.len() as u64 > pdf::MAX_PDF_BYTES {
-        return Err(AppError::validation("the resume PDF is larger than 20 MB"));
-    }
-    let content_hash = crate::dedup::identity::sha256_bytes(&bytes);
+    // File I/O and hashing are CPU/disk bound; keep them off the async
+    // executor so a large PDF cannot freeze the UI.
+    let read_path = path.clone();
+    let (bytes, content_hash) =
+        tokio::task::spawn_blocking(move || -> Result<(Vec<u8>, String), AppError> {
+            let bytes = std::fs::read(&read_path)
+                .map_err(|_| AppError::validation("the resume file could not be read"))?;
+            if bytes.len() as u64 > pdf::MAX_PDF_BYTES {
+                return Err(AppError::validation("the resume PDF is larger than 20 MB"));
+            }
+            let content_hash = crate::dedup::identity::sha256_bytes(&bytes);
+            Ok((bytes, content_hash))
+        })
+        .await
+        .map_err(|_| AppError::Database("resume read task failed".to_string()))??;
 
     if let Some(_existing) = db::profile::find_resume_by_hash(&state.db, &content_hash)? {
         let profile =
@@ -105,14 +114,25 @@ pub async fn upload_resume_with(
         });
     }
 
-    let text = pdf::extract_text_from_mem(&bytes)?;
+    let write_bytes = bytes.clone();
+    let extract_bytes = bytes;
+    let text = tokio::task::spawn_blocking(move || pdf::extract_text_from_mem(&extract_bytes))
+        .await
+        .map_err(|_| AppError::Database("resume extraction task failed".to_string()))??;
     let extracted = extractor.extract(text.as_str()).await?;
     drop(text);
 
     let existing = db::profile::load_active_profile(&state.db)?;
     let merged = merge_extracted(existing.as_ref(), &extracted, &content_hash)?;
 
-    let local_path = write_resume_file(&state.config.app_data_dir, &content_hash, &bytes)?;
+    let app_data = state.config.app_data_dir.clone();
+    let hash_for_path = content_hash.clone();
+    let local_path = tokio::task::spawn_blocking(move || {
+        write_resume_file(&app_data, &hash_for_path, &write_bytes)
+    })
+    .await
+    .map_err(|_| AppError::Database("resume write task failed".to_string()))??;
+
     let extracted_json = serde_json::to_string(&extracted)?;
     let inserted = db::profile::insert_resume(
         &state.db,
