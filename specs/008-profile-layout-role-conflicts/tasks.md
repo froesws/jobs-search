@@ -111,7 +111,7 @@ desktop and narrow widths.
 - [X] T005 [US1] Fix Autocomplete tag overflow for target roles, seniorities, accepted cities, acceptable technologies, and dealbreakers: use `sx`/`renderTags` so each tag is capped at the field width and its label wraps onto multiple lines (path: `src/views/ProfileView.tsx`).
 - [X] T006 [US1] Fix read-only Chip overflow in `ReadOnlyCard`: allow chip labels to wrap, set `maxWidth: '100%'`, and keep the chip height auto so long competencies and certifications stay inside the card (path: `src/views/ProfileView.tsx`).
 - [X] T007 [US1] Make the "Work authorization / visa notes" field multiline (`minRows={2}`) and ensure the conflicts alert text wraps instead of overflowing the page (path: `src/views/ProfileView.tsx`).
-- [ ] T008 [US1] Run `npm test -- src/views/ProfileView.test.tsx` and inspect the page at 1024/768/480 px widths with the long-value fixture (path: `src/views/ProfileView.test.tsx`).
+- [X] T008 [US1] Run `npm test -- src/views/ProfileView.test.tsx` and inspect the page at 1024/768/480 px widths with the long-value fixture (path: `src/views/ProfileView.test.tsx`).
 
 **Checkpoint**: Profile cards wrap long text without invading adjacent cards.
 
