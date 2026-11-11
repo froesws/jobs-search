@@ -131,7 +131,75 @@ export interface ActiveProvider {
   provider: string;
   model: string;
   fallback_enabled: boolean;
+  session_only?: boolean;
 }
+
+export type ProviderId = 'gemini' | 'openrouter' | 'deepseek' | 'ollama';
+
+export type CredentialSource = 'credential_store' | 'env' | 'none';
+
+export interface ProviderSettingView {
+  id: ProviderId;
+  label: string;
+  requiresApiKey: boolean;
+  hasCredential: boolean;
+  credentialSource: CredentialSource;
+  model: string | null;
+  models: string[] | null;
+  baseUrl: string | null;
+  attempts: number;
+  enabled: boolean;
+}
+
+export interface SessionSelection {
+  provider: ProviderId;
+  models: string[];
+}
+
+export interface ProviderConfigView {
+  providers: ProviderSettingView[];
+  order: ProviderId[];
+  fallbackEnabled: boolean;
+  sessionOverride: SessionSelection | null;
+}
+
+export interface ProviderSettingInput {
+  id: ProviderId;
+  model?: string;
+  models?: string[];
+  baseUrl?: string;
+  attempts?: number;
+  enabled?: boolean;
+}
+
+export interface ProviderConfigInput {
+  order: ProviderId[];
+  fallbackEnabled: boolean;
+  providers: ProviderSettingInput[];
+}
+
+export interface ModelOption {
+  id: string;
+  price: string | null;
+}
+
+export interface ModelCatalogView {
+  provider: ProviderId;
+  models: ModelOption[];
+  source: 'cache' | 'builtin';
+  fetchedAt: string | null;
+  degraded: boolean;
+  message: string | null;
+}
+
+export interface ProviderTestResult {
+  ok: boolean;
+  latencyMs: number;
+  message: string;
+}
+
+export type ProviderSettingField =
+  'model' | 'models' | 'baseUrl' | 'attempts' | 'enabled' | 'order' | 'fallbackEnabled';
 
 export interface JobApplication {
   job_id: string;
