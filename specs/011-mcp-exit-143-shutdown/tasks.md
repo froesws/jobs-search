@@ -116,7 +116,7 @@ one shutdown diagnostic on stderr.
 
 ### Tests for User Story 1
 
-- [ ] T002 [P] [US1] Create
+- [x] T002 [P] [US1] Create
   `sidecar/jobspy_mcp/tests/test_signals.py`: spawn `jobspy-mcp-server`, read the
   `initialize` response, send `SIGTERM`, and assert exit code 0, no `Traceback`
   in stderr, stdout contains only JSON-RPC lines, and a shutdown line reaches
