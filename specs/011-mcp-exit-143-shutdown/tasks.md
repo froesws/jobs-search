@@ -137,7 +137,7 @@ one shutdown diagnostic on stderr.
   `sidecar/linkedin_scraper_mcp/linkedin_scraper_mcp/server.py`, including
   cancelling an in-flight `asyncio` search without writing an error frame after
   the process starts shutting down.
-- [ ] T006 [US1] Run `pytest sidecar/jobspy_mcp/tests` and
+- [x] T006 [US1] Run `pytest sidecar/jobspy_mcp/tests` and
   `pytest sidecar/linkedin_scraper_mcp/tests`, then repeat the T001 SIGTERM probe
   and confirm `0` instead of `143` (paths:
   `sidecar/jobspy_mcp/jobspy_mcp_server/server.py`,
@@ -357,3 +357,4 @@ the docs, and cleanup cannot hit unrelated servers.
 - **T001 baseline**: both sidecars answered `initialize` and exited with
   signal 15 (shell code `143`) on `SIGTERM`. After the handlers they exit `0`
   with `shutting down on SIGTERM` on stderr.
+- **T006**: signal contract suites passed (jobspy 14, linkedin-scraper 11).
