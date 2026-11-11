@@ -194,7 +194,7 @@ crash without exposing stderr.
 
 ### Tests for User Story 3
 
-- [ ] T011 [P] [US3] Add a contract test in
+- [x] T011 [P] [US3] Add a contract test in
   `src-tauri/tests/mcp_client_contract.rs` where a fake sidecar exits with code
   `143` before responding; assert the error keeps `MCP_PIPE_FAILED` and includes
   `code=143`/`SIGTERM` without raw stderr.
