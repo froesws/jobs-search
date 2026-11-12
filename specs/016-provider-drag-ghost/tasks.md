@@ -102,7 +102,7 @@ implementable and testable.
 ### Implementation for User Story 3
 
 - [X] T012 [US3] In `src/components/ProviderConfigDialog.tsx`, snapshot the order on drag start, restore it on Escape and `pointercancel`, commit on `pointerup`, and clear the drag when `open` becomes false or the component unmounts.
-- [ ] T013 [US3] In `src/components/ProviderConfigDialog.tsx`, add a visually hidden `aria-live="polite"` status that announces `"<Provider> moved to position <n> of <total>"` after each pointer or keyboard reorder.
+- [X] T013 [US3] In `src/components/ProviderConfigDialog.tsx`, add a visually hidden `aria-live="polite"` status that announces `"<Provider> moved to position <n> of <total>"` after each pointer or keyboard reorder.
 
 **Checkpoint**: All three stories work independently.
 

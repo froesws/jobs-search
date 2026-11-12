@@ -99,6 +99,7 @@ export function ProviderConfigDialog({
   const [catalogs, setCatalogs] = useState<Record<string, ModelCatalogView>>({});
   const [showAll, setShowAll] = useState<Record<string, boolean>>({});
   const [draggingId, setDraggingId] = useState<ProviderId | null>(null);
+  const [dragAnnouncement, setDragAnnouncement] = useState('');
   const orderList = useRef<HTMLDivElement | null>(null);
   const dragGhost = useRef<HTMLDivElement | null>(null);
   const dragPoint = useRef<DragPoint>({ x: 0, y: 0 });
@@ -171,8 +172,11 @@ export function ProviderConfigDialog({
     };
   }, [open, providers]);
 
-  const labelFor = (providerId: ProviderId) =>
-    state.config?.providers.find((provider) => provider.id === providerId)?.label ?? providerId;
+  const labelFor = useCallback(
+    (providerId: ProviderId) =>
+      state.config?.providers.find((provider) => provider.id === providerId)?.label ?? providerId,
+    [state.config?.providers],
+  );
 
   const startDrag = (event: ReactPointerEvent<HTMLElement>, providerId: ProviderId) => {
     event.preventDefault();
@@ -191,10 +195,12 @@ export function ProviderConfigDialog({
   useLayoutEffect(() => {
     if (draggingId === null || !dragGhost.current) return;
     dragGhost.current.style.transform = ghostTransform(dragPoint.current);
-  }, [draggingId]);
+  }, [draggingId, labelFor]);
 
   const moveProvider = (from: number, to: number) => {
     if (from === to) return;
+    const moved = draft.order[from];
+    if (!moved || to < 0 || to >= draft.order.length) return;
     setDraft((current) => {
       if (to < 0 || to >= current.order.length) return current;
       const order = [...current.order];
@@ -203,6 +209,7 @@ export function ProviderConfigDialog({
       order.splice(to, 0, entry);
       return { ...current, order };
     });
+    setDragAnnouncement(`${labelFor(moved)} moved to position ${to + 1} of ${draft.order.length}`);
   };
 
   // Pointer-based dragging: WebKitGTK (the Tauri Linux webview) does not deliver
@@ -234,6 +241,8 @@ export function ProviderConfigDialog({
         order.splice(target, 0, entry);
         return { ...current, order };
       });
+      const total = orderList.current?.querySelectorAll('[data-drag-row]').length ?? 0;
+      setDragAnnouncement(`${labelFor(draggingId)} moved to position ${target + 1} of ${total}`);
     };
 
     const handleMove = (event: PointerEvent) => {
@@ -286,7 +295,7 @@ export function ProviderConfigDialog({
       window.removeEventListener('pointercancel', handleCancel);
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [draggingId]);
+  }, [draggingId, labelFor]);
 
   const updateProvider = (id: string, patch: Partial<ProviderDraft>) => {
     setDraft((current) => ({
@@ -566,6 +575,20 @@ export function ProviderConfigDialog({
                 </Box>
               ))}
             </Stack>
+            <Box
+              role="status"
+              aria-live="polite"
+              sx={{
+                position: 'absolute',
+                width: 1,
+                height: 1,
+                overflow: 'hidden',
+                clip: 'rect(0 0 0 0)',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {dragAnnouncement}
+            </Box>
           </Stack>
 
           <Stack spacing={1.5}>
