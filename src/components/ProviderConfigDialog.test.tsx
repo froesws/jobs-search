@@ -65,16 +65,22 @@ function state(overrides: Partial<ProviderConfigState> = {}): ProviderConfigStat
 
 function stubRowRects() {
   const rows = screen.getAllByTestId(/^order-/);
+  stubRowBounds(rows.map((_, index) => [index * 40, index * 40 + 40] as const));
+}
+
+function stubRowBounds(bounds: ReadonlyArray<readonly [number, number]>) {
+  const rows = screen.getAllByTestId(/^order-/);
   rows.forEach((row, index) => {
+    const [top, bottom] = bounds[index] ?? [0, 0];
     vi.spyOn(row, 'getBoundingClientRect').mockReturnValue({
-      top: index * 40,
-      bottom: index * 40 + 40,
-      height: 40,
+      top,
+      bottom,
+      height: bottom - top,
       left: 0,
       right: 200,
       width: 200,
       x: 0,
-      y: index * 40,
+      y: top,
       toJSON: () => ({}),
     } as DOMRect);
   });
@@ -389,5 +395,98 @@ describe('ProviderConfigDialog', () => {
     expect(ghost.style.transform).toBe('translate(134px, 62px)');
     expect(ghost.parentElement).toBe(document.body);
     expect(Number(window.getComputedStyle(ghost).zIndex)).toBeGreaterThan(1300);
+  });
+
+  it('moves the dragged provider across several rows in one motion', () => {
+    render(<ProviderConfigDialog open onClose={() => {}} state={state()} />);
+    stubRowRects();
+
+    fireEvent.pointerDown(screen.getByTestId('handle-gemini'), { pointerId: 1 });
+    fireEvent.pointerMove(window, { pointerId: 1, clientY: 130, clientX: 10 });
+    fireEvent.pointerUp(window, { pointerId: 1 });
+
+    const rows = screen.getAllByTestId(/^order-/);
+    expect(rows.map((row) => row.getAttribute('data-testid'))).toEqual([
+      'order-openrouter',
+      'order-deepseek',
+      'order-ollama',
+      'order-gemini',
+    ]);
+  });
+
+  it('uses the nearest row when the pointer is in a gap', () => {
+    render(<ProviderConfigDialog open onClose={() => {}} state={state()} />);
+    stubRowBounds([
+      [0, 40],
+      [50, 90],
+      [100, 140],
+      [150, 190],
+    ]);
+
+    fireEvent.pointerDown(screen.getByTestId('handle-gemini'), { pointerId: 1 });
+    fireEvent.pointerMove(window, { pointerId: 1, clientY: 46, clientX: 10 });
+    fireEvent.pointerUp(window, { pointerId: 1 });
+
+    const rows = screen.getAllByTestId(/^order-/);
+    expect(rows.map((row) => row.getAttribute('data-testid'))).toEqual([
+      'order-openrouter',
+      'order-gemini',
+      'order-deepseek',
+      'order-ollama',
+    ]);
+  });
+
+  it('clamps a drop above or below the list to the ends', () => {
+    render(<ProviderConfigDialog open onClose={() => {}} state={state()} />);
+    stubRowRects();
+
+    fireEvent.pointerDown(screen.getByTestId('handle-ollama'), { pointerId: 1 });
+    fireEvent.pointerMove(window, { pointerId: 1, clientY: -100, clientX: 10 });
+    fireEvent.pointerUp(window, { pointerId: 1 });
+
+    let rows = screen.getAllByTestId(/^order-/);
+    expect(rows[0]).toHaveAttribute('data-testid', 'order-ollama');
+
+    stubRowRects();
+    fireEvent.pointerDown(screen.getByTestId('handle-gemini'), { pointerId: 2 });
+    fireEvent.pointerMove(window, { pointerId: 2, clientY: 9_999, clientX: 10 });
+    fireEvent.pointerUp(window, { pointerId: 2 });
+
+    rows = screen.getAllByTestId(/^order-/);
+    expect(rows[3]).toHaveAttribute('data-testid', 'order-gemini');
+  });
+
+  it('ignores pointers other than the one that started the drag', () => {
+    render(<ProviderConfigDialog open onClose={() => {}} state={state()} />);
+    stubRowRects();
+
+    fireEvent.pointerDown(screen.getByTestId('handle-ollama'), {
+      pointerId: 1,
+      clientX: 10,
+      clientY: 10,
+    });
+    fireEvent.pointerMove(window, { pointerId: 2, clientY: 10 });
+    fireEvent.pointerUp(window, { pointerId: 2 });
+
+    const rows = screen.getAllByTestId(/^order-/);
+    expect(rows[3]).toHaveAttribute('data-testid', 'order-ollama');
+    expect(screen.getByTestId('drag-ghost')).toBeInTheDocument();
+
+    fireEvent.pointerUp(window, { pointerId: 1 });
+    expect(screen.queryByTestId('drag-ghost')).not.toBeInTheDocument();
+  });
+
+  it('keeps hit-testing after the dialog re-renders mid-drag', () => {
+    const { rerender } = render(<ProviderConfigDialog open onClose={() => {}} state={state()} />);
+    stubRowRects();
+
+    fireEvent.pointerDown(screen.getByTestId('handle-ollama'), { pointerId: 1 });
+    rerender(<ProviderConfigDialog open onClose={() => {}} state={state()} />);
+    stubRowRects();
+    fireEvent.pointerMove(window, { pointerId: 1, clientY: 10, clientX: 10 });
+    fireEvent.pointerUp(window, { pointerId: 1 });
+
+    const rows = screen.getAllByTestId(/^order-/);
+    expect(rows[0]).toHaveAttribute('data-testid', 'order-ollama');
   });
 });

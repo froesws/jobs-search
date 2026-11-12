@@ -77,7 +77,7 @@ implementable and testable.
 
 ### Tests for User Story 2
 
-- [ ] T007 [US2] In `src/components/ProviderConfigDialog.test.tsx`, add cases for a single pointer move that crosses several rows, a `clientY` that falls in the gap between two stubbed rects, a `clientY` above the first and below the last rect, a second `pointerId` that must not reorder or end the drag, and a re-render during the drag that must not break hit-testing.
+- [X] T007 [US2] In `src/components/ProviderConfigDialog.test.tsx`, add cases for a single pointer move that crosses several rows, a `clientY` that falls in the gap between two stubbed rects, a `clientY` above the first and below the last rect, a second `pointerId` that must not reorder or end the drag, and a re-render during the drag that must not break hit-testing.
 
 ### Implementation for User Story 2
 
