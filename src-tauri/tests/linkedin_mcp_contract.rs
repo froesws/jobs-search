@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use jobs_search_lib::ingestion::adapter::{IngestionRequest, SourceAdapter};
+use jobs_search_lib::ingestion::adapter::{IngestionRequest, KnownPosting, SourceAdapter};
 use jobs_search_lib::ingestion::linkedin_mcp::LinkedInMcpAdapter;
 
 fn request() -> IngestionRequest {
@@ -85,7 +85,7 @@ async fn linkedin_mcp_adapter_reads_search_and_details() {
         Duration::from_secs(5),
     );
 
-    let jobs = adapter.fetch(&request()).await.expect("jobs");
+    let jobs = adapter.fetch(&request()).await.expect("jobs").jobs;
     assert_eq!(jobs.len(), 1);
     assert_eq!(jobs[0].title, "Rust Engineer");
     assert_eq!(jobs[0].company, "Acme");
@@ -184,7 +184,7 @@ for raw in sys.stdin:
         ..IngestionRequest::default()
     };
 
-    let jobs = adapter.fetch(&request).await.expect("jobs");
+    let jobs = adapter.fetch(&request).await.expect("jobs").jobs;
     assert_eq!(jobs.len(), 2);
     let written = std::fs::read_to_string(log).expect("log");
     assert_eq!(
@@ -269,4 +269,93 @@ for raw in sys.stdin:
 
     adapter.fetch(&request()).await.expect("jobs");
     assert_eq!(std::fs::read_to_string(&log).expect("env log"), "unset");
+}
+
+#[tokio::test]
+async fn known_ids_skip_get_job_details() {
+    let directory = tempfile::tempdir().expect("tempdir");
+    let script = directory.path().join("count_details.py");
+    let log = directory.path().join("details.log");
+    let source = format!(
+        r#"
+import json
+import sys
+
+log = {log:?}
+
+for raw in sys.stdin:
+    request = json.loads(raw)
+    if "id" not in request:
+        continue
+    request_id = request["id"]
+    if request["method"] == "initialize":
+        print(json.dumps({{"jsonrpc": "2.0", "id": request_id, "result": {{
+            "protocolVersion": "2024-11-05",
+            "capabilities": {{}},
+            "serverInfo": {{"name": "fake-linkedin", "version": "0"}},
+        }}}}), flush=True)
+    elif request["method"] == "tools/call":
+        name = (request.get("params") or {{}}).get("name")
+        if name == "search_jobs":
+            payload = {{"job_ids": ["123", "456"]}}
+            print(json.dumps({{"jsonrpc": "2.0", "id": request_id, "result": {{
+                "content": [{{"type": "text", "text": json.dumps(payload)}}],
+                "isError": False,
+            }}}}), flush=True)
+        elif name == "get_job_details":
+            job_id = (request["params"].get("arguments") or {{}}).get("job_id")
+            with open(log, "a", encoding="utf-8") as handle:
+                handle.write(str(job_id) + "\n")
+            body = (
+                "Acme\nRust Engineer\nPorto Alegre, Brasil\nPresencial\n"
+                "Sobre a vaga\nWe need Rust and Linux.\n"
+            )
+            print(json.dumps({{"jsonrpc": "2.0", "id": request_id, "result": {{
+                "structuredContent": {{
+                    "url": "https://www.linkedin.com/jobs/view/" + str(job_id) + "/",
+                    "sections": {{"job_posting": body}},
+                }},
+                "isError": False,
+            }}}}, ensure_ascii=False), flush=True)
+"#,
+    );
+    std::fs::write(&script, source).expect("script");
+    let adapter = LinkedInMcpAdapter::new(
+        "linkedin",
+        "linkedin",
+        "python3",
+        vec![script.display().to_string()],
+        10,
+        1,
+        Duration::from_secs(5),
+    );
+
+    let known = IngestionRequest {
+        known_postings: vec![KnownPosting {
+            external_id: "linkedin-123".to_string(),
+            job_id: "job-1".to_string(),
+            url: "https://www.linkedin.com/jobs/view/123/".to_string(),
+        }],
+        ..request()
+    };
+    let outcome = adapter.fetch(&known).await.expect("known fetch");
+    assert_eq!(outcome.listed, 2);
+    assert_eq!(outcome.jobs.len(), 1);
+    assert_eq!(outcome.known_skipped, vec!["linkedin-123"]);
+    let calls = std::fs::read_to_string(&log).expect("log");
+    assert_eq!(
+        calls.lines().collect::<Vec<_>>(),
+        ["456"],
+        "the known ID must not request details"
+    );
+
+    let unknown = IngestionRequest {
+        known_postings: Vec::new(),
+        ..request()
+    };
+    let outcome = adapter.fetch(&unknown).await.expect("unknown fetch");
+    assert_eq!(outcome.jobs.len(), 2);
+    assert!(outcome.known_skipped.is_empty());
+    let calls = std::fs::read_to_string(&log).expect("log");
+    assert_eq!(calls.lines().collect::<Vec<_>>(), ["456", "123", "456"]);
 }

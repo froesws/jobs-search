@@ -163,7 +163,7 @@ impl AppConfig {
         let allow_fallback = parse_bool(read("LLM_ALLOW_FALLBACK"), false)?;
         let match_threshold = parse_i64(read("MATCH_THRESHOLD"), 50, 0, 100)?;
         let max_evaluations = parse_usize(read("JOBS_SEARCH_MAX_EVALUATIONS"), 100, 1, 1_000)?;
-        let max_concurrency = parse_usize(read("JOBS_SEARCH_LLM_CONCURRENCY"), 2, 1, 4)?;
+        let max_concurrency = parse_usize(read("JOBS_SEARCH_LLM_CONCURRENCY"), 4, 1, 8)?;
 
         Ok(Self {
             app_data_dir,
@@ -433,7 +433,7 @@ mod tests {
         let config = config(&[]).expect("valid config");
         assert_eq!(config.match_threshold, 50);
         assert_eq!(config.max_evaluations, 100);
-        assert_eq!(config.max_concurrency, 2);
+        assert_eq!(config.max_concurrency, 4);
         assert!(!config.allow_fallback);
         assert_eq!(config.provider_order, ["gemini", "openrouter", "deepseek"]);
         assert!(!format!("{config:?}").contains("api_key"));
@@ -561,6 +561,18 @@ mod tests {
     fn explicit_threshold_overrides_the_default() {
         let config = config(&[("MATCH_THRESHOLD", "70")]).expect("valid");
         assert_eq!(config.match_threshold, 70);
+    }
+
+    #[test]
+    fn evaluation_concurrency_is_bounded_between_one_and_eight() {
+        let low = config(&[("JOBS_SEARCH_LLM_CONCURRENCY", "0")]).expect("valid");
+        assert_eq!(low.max_concurrency, 1);
+
+        let high = config(&[("JOBS_SEARCH_LLM_CONCURRENCY", "99")]).expect("valid");
+        assert_eq!(high.max_concurrency, 8);
+
+        let explicit = config(&[("JOBS_SEARCH_LLM_CONCURRENCY", "6")]).expect("valid");
+        assert_eq!(explicit.max_concurrency, 6);
     }
 
     #[test]

@@ -79,6 +79,7 @@ pub struct ProviderConfigView {
     pub order: Vec<String>,
     pub fallback_enabled: bool,
     pub session_override: Option<SessionSelectionView>,
+    pub evaluation_concurrency: usize,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -103,6 +104,12 @@ pub struct ProviderConfigInput {
     pub order: Vec<String>,
     pub fallback_enabled: bool,
     pub providers: Vec<ProviderSettingInput>,
+    #[serde(default = "default_evaluation_concurrency")]
+    pub evaluation_concurrency: usize,
+}
+
+fn default_evaluation_concurrency() -> usize {
+    4
 }
 
 fn label(provider: &str) -> &'static str {
@@ -153,6 +160,7 @@ pub fn build_view(state: &AppState) -> Result<ProviderConfigView, AppError> {
             provider: selection.provider,
             models: selection.models,
         }),
+        evaluation_concurrency: settings.evaluation_concurrency,
     })
 }
 
@@ -204,6 +212,11 @@ fn validate_base_url(value: &str) -> Result<(), AppError> {
 
 fn validate_input(input: &ProviderConfigInput) -> Result<(), AppError> {
     validate_order(&input.order)?;
+    if !(1..=8).contains(&input.evaluation_concurrency) {
+        return Err(AppError::validation(
+            "the evaluation concurrency must be between 1 and 8",
+        ));
+    }
     for provider in &input.providers {
         validate_provider_id(&provider.id)?;
         if provider.model.is_some() && provider.models.is_some() {
@@ -262,6 +275,11 @@ fn persist_input(state: &AppState, input: &ProviderConfigInput) -> Result<(), Ap
         } else {
             "false"
         },
+    )?;
+    settings::put(
+        &state.db,
+        "evaluation.concurrency",
+        &input.evaluation_concurrency.clamp(1, 8).to_string(),
     )?;
 
     for provider in &input.providers {
@@ -920,6 +938,7 @@ mod tests {
             ],
             fallback_enabled: true,
             providers: Vec::new(),
+            evaluation_concurrency: 4,
         };
         save_config(&state, &input).expect("save");
 
@@ -1004,6 +1023,7 @@ mod tests {
             order: vec!["gemini".to_string()],
             fallback_enabled: false,
             providers: Vec::new(),
+            evaluation_concurrency: 4,
         };
         assert!(validate_input(&base).is_ok());
 
@@ -1057,5 +1077,35 @@ mod tests {
             ..base
         };
         assert!(validate_input(&bad_url).is_err());
+    }
+
+    #[test]
+    fn evaluation_concurrency_round_trips_and_rejects_out_of_range() {
+        let (state, _dir) = state_for(&[("GEMINI_API_KEY", "secret")]);
+        let input = ProviderConfigInput {
+            order: vec!["gemini".to_string(), "ollama".to_string()],
+            fallback_enabled: false,
+            providers: Vec::new(),
+            evaluation_concurrency: 6,
+        };
+
+        let view = save_config(&state, &input).expect("save");
+        assert_eq!(view.evaluation_concurrency, 6);
+        assert_eq!(
+            settings::get(&state.db, "evaluation.concurrency").expect("get"),
+            Some("6".to_string())
+        );
+
+        let too_low = ProviderConfigInput {
+            evaluation_concurrency: 0,
+            ..input.clone()
+        };
+        assert!(validate_input(&too_low).is_err());
+
+        let too_high = ProviderConfigInput {
+            evaluation_concurrency: 9,
+            ..input
+        };
+        assert!(validate_input(&too_high).is_err());
     }
 }

@@ -15,7 +15,9 @@ use zeroize::Zeroizing;
 use crate::config::SourceConfig;
 use crate::error::AppError;
 use crate::ingestion::SourcePacer;
-use crate::ingestion::adapter::{IngestionRequest, RawJob, SourceAdapter, SourceError};
+use crate::ingestion::adapter::{
+    FetchOutcome, IngestionRequest, RawJob, SourceAdapter, SourceError,
+};
 use crate::types::{Seniority, WorkModality};
 
 const PROTOCOL_VERSION: &str = "2024-11-05";
@@ -31,6 +33,9 @@ pub struct LinkedInMcpAdapter {
     max_pages: u32,
     timeout: Duration,
     pacer: SourcePacer,
+    fallback_for: Option<String>,
+    fallback_min_results: u32,
+    budget_seconds: u64,
 }
 
 impl LinkedInMcpAdapter {
@@ -57,6 +62,9 @@ impl LinkedInMcpAdapter {
             max_pages: source.config_u32("max_pages", 1).clamp(1, 3),
             timeout: Duration::from_secs(source.rate_limit.timeout_seconds.clamp(1, 600)),
             pacer: SourcePacer::new(source.rate_limit.requests_per_minute),
+            fallback_for: source.fallback_for.clone(),
+            fallback_min_results: source.fallback_min_results(),
+            budget_seconds: source.budget_seconds(),
         })
     }
 
@@ -79,6 +87,9 @@ impl LinkedInMcpAdapter {
             max_pages: max_pages.clamp(1, 3),
             timeout,
             pacer: SourcePacer::new(60_000),
+            fallback_for: None,
+            fallback_min_results: 1,
+            budget_seconds: 180,
         }
     }
 
@@ -87,7 +98,7 @@ impl LinkedInMcpAdapter {
         request: &IngestionRequest,
         stdin: ChildStdin,
         stdout: ChildStdout,
-    ) -> Result<Vec<RawJob>, SourceError> {
+    ) -> Result<FetchOutcome, SourceError> {
         let mut client = McpClient {
             stdin,
             reader: BufReader::new(stdout),
@@ -108,7 +119,15 @@ impl LinkedInMcpAdapter {
         };
         let per_query = (total_limit / queries.len().max(1) as u32).max(1);
 
+        let known: HashSet<&str> = request
+            .known_postings
+            .iter()
+            .map(|posting| posting.external_id.as_str())
+            .collect();
         let mut jobs = Vec::new();
+        let mut listed = 0_u32;
+        let mut known_skipped = Vec::new();
+        let mut seen = HashSet::new();
         let mut detail_failures = 0_u32;
         for query in queries {
             let mut arguments = json!({
@@ -138,6 +157,17 @@ impl LinkedInMcpAdapter {
                 let Some(id) = job_id_value(id) else {
                     continue;
                 };
+                let external_id = format!("linkedin-{id}");
+                if !seen.insert(external_id.clone()) {
+                    continue;
+                }
+                listed += 1;
+                // A known posting is already stored with a description; a
+                // repeat detail request would redo work the app already did.
+                if known.contains(external_id.as_str()) {
+                    known_skipped.push(external_id);
+                    continue;
+                }
                 let detail = match client
                     .call_tool("get_job_details", &json!({ "job_id": id }))
                     .await
@@ -177,16 +207,20 @@ impl LinkedInMcpAdapter {
             }
         }
 
-        if jobs.is_empty() && detail_failures > 0 {
+        if jobs.is_empty() && known_skipped.is_empty() && detail_failures > 0 {
             return Err(SourceError::transient(
                 "LINKEDIN_DETAILS_FAILED",
                 "LinkedIn did not return readable job details",
             ));
         }
 
-        let mut seen = HashSet::new();
-        jobs.retain(|job| seen.insert(job.external_id.clone()));
-        Ok(jobs)
+        let mut seen_jobs = HashSet::new();
+        jobs.retain(|job| seen_jobs.insert(job.external_id.clone()));
+        Ok(FetchOutcome {
+            jobs,
+            listed,
+            known_skipped,
+        })
     }
 }
 
@@ -204,7 +238,19 @@ impl SourceAdapter for LinkedInMcpAdapter {
         "mcp"
     }
 
-    async fn fetch(&self, request: &IngestionRequest) -> Result<Vec<RawJob>, SourceError> {
+    fn fallback_for(&self) -> Option<&str> {
+        self.fallback_for.as_deref()
+    }
+
+    fn fallback_min_results(&self) -> u32 {
+        self.fallback_min_results
+    }
+
+    fn budget_seconds(&self) -> u64 {
+        self.budget_seconds
+    }
+
+    async fn fetch(&self, request: &IngestionRequest) -> Result<FetchOutcome, SourceError> {
         self.pacer.wait().await;
         let mut command = Command::new(&self.command);
         command

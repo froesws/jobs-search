@@ -11,7 +11,9 @@ use zeroize::Zeroizing;
 use crate::config::SourceConfig;
 use crate::error::AppError;
 use crate::ingestion::SourcePacer;
-use crate::ingestion::adapter::{IngestionRequest, RawJob, SourceAdapter, SourceError};
+use crate::ingestion::adapter::{
+    FetchOutcome, IngestionRequest, RawJob, SourceAdapter, SourceError,
+};
 
 pub struct RemoteOkAdapter {
     id: String,
@@ -23,6 +25,9 @@ pub struct RemoteOkAdapter {
     backoff: Duration,
     results_wanted: u32,
     pacer: SourcePacer,
+    fallback_for: Option<String>,
+    fallback_min_results: u32,
+    budget_seconds: u64,
 }
 
 impl RemoteOkAdapter {
@@ -51,6 +56,9 @@ impl RemoteOkAdapter {
             backoff: Duration::from_millis(source.rate_limit.backoff_ms.clamp(10, 5_000)),
             results_wanted: source.config_u32("results_wanted", 50).clamp(1, 200),
             pacer: SourcePacer::new(source.rate_limit.requests_per_minute),
+            fallback_for: source.fallback_for.clone(),
+            fallback_min_results: source.fallback_min_results(),
+            budget_seconds: source.budget_seconds(),
         })
     }
 
@@ -78,6 +86,9 @@ impl RemoteOkAdapter {
             backoff,
             results_wanted,
             pacer: SourcePacer::new(60_000),
+            fallback_for: None,
+            fallback_min_results: 1,
+            budget_seconds: 180,
         })
     }
 }
@@ -96,13 +107,25 @@ impl SourceAdapter for RemoteOkAdapter {
         "api"
     }
 
-    async fn fetch(&self, request: &IngestionRequest) -> Result<Vec<RawJob>, SourceError> {
+    fn fallback_for(&self) -> Option<&str> {
+        self.fallback_for.as_deref()
+    }
+
+    fn fallback_min_results(&self) -> u32 {
+        self.fallback_min_results
+    }
+
+    fn budget_seconds(&self) -> u64 {
+        self.budget_seconds
+    }
+
+    async fn fetch(&self, request: &IngestionRequest) -> Result<FetchOutcome, SourceError> {
         if !request.modalities.is_empty()
             && !request
                 .modalities
                 .contains(&crate::types::WorkModality::Remote)
         {
-            return Ok(Vec::new());
+            return Ok(FetchOutcome::default());
         }
 
         let mut last_error =
@@ -213,7 +236,7 @@ impl SourceAdapter for RemoteOkAdapter {
                 }
             }
 
-            return Ok(jobs);
+            return Ok(FetchOutcome::from_jobs(jobs));
         }
 
         Err(last_error)

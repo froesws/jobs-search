@@ -63,7 +63,7 @@ async fn fetches_and_filters_remoteok_jobs() {
     )
     .expect("adapter");
 
-    let jobs = adapter.fetch(&request("Rust")).await.expect("jobs");
+    let jobs = adapter.fetch(&request("Rust")).await.expect("jobs").jobs;
     assert_eq!(jobs.len(), 1);
     assert_eq!(jobs[0].title, "Rust Engineer");
     assert_eq!(jobs[0].company, "Acme");
@@ -72,7 +72,7 @@ async fn fetches_and_filters_remoteok_jobs() {
 
     let mut sales_request = request("Kubernetes");
     sales_request.stack_keyword = String::new();
-    let jobs = adapter.fetch(&sales_request).await.expect("jobs");
+    let jobs = adapter.fetch(&sales_request).await.expect("jobs").jobs;
     assert!(jobs.is_empty());
 }
 
@@ -102,7 +102,7 @@ async fn retries_transient_statuses() {
     )
     .expect("adapter");
 
-    let jobs = adapter.fetch(&request("Rust")).await.expect("jobs");
+    let jobs = adapter.fetch(&request("Rust")).await.expect("jobs").jobs;
     assert_eq!(jobs.len(), 1);
 }
 
@@ -157,7 +157,7 @@ async fn retries_rate_limits() {
     )
     .expect("adapter");
 
-    let jobs = adapter.fetch(&request("Rust")).await.expect("jobs");
+    let jobs = adapter.fetch(&request("Rust")).await.expect("jobs").jobs;
     assert_eq!(jobs.len(), 1);
 }
 
@@ -250,7 +250,7 @@ async fn skips_remoteok_when_remote_is_not_selected() {
         ..IngestionRequest::default()
     };
 
-    let jobs = adapter.fetch(&request).await.expect("jobs");
+    let jobs = adapter.fetch(&request).await.expect("jobs").jobs;
     assert!(jobs.is_empty());
     server.verify().await;
 }
@@ -283,7 +283,7 @@ async fn uses_title_terms_instead_of_full_query_variants() {
         ..IngestionRequest::default()
     };
 
-    let jobs = adapter.fetch(&request).await.expect("jobs");
+    let jobs = adapter.fetch(&request).await.expect("jobs").jobs;
     assert_eq!(jobs.len(), 1);
     assert_eq!(jobs[0].title, "Rust Engineer");
 }

@@ -26,7 +26,7 @@ async fn stdio_client_initializes_and_reads_tool_result() {
         Duration::from_secs(5),
     );
 
-    let jobs = adapter.fetch(&request()).await.expect("jobs");
+    let jobs = adapter.fetch(&request()).await.expect("jobs").jobs;
     assert_eq!(jobs.len(), 1);
     assert_eq!(jobs[0].title, "Rust Engineer");
     assert_eq!(jobs[0].company, "Acme");
@@ -69,7 +69,7 @@ for raw in sys.stdin:
         Vec::new(),
         Duration::from_secs(5),
     );
-    let jobs = default_adapter.fetch(&request()).await.expect("jobs");
+    let jobs = default_adapter.fetch(&request()).await.expect("jobs").jobs;
     assert_eq!(jobs[0].title, "fetch=True");
 
     let source: SourceConfig = serde_yaml::from_str(&format!(
@@ -86,7 +86,7 @@ config:
     ))
     .expect("source");
     let disabled_adapter = McpAdapter::from_config(&source, Path::new("/tmp")).expect("adapter");
-    let jobs = disabled_adapter.fetch(&request()).await.expect("jobs");
+    let jobs = disabled_adapter.fetch(&request()).await.expect("jobs").jobs;
     assert_eq!(jobs[0].title, "fetch=False");
 }
 
@@ -315,7 +315,7 @@ for raw in sys.stdin:
         ..IngestionRequest::default()
     };
 
-    let jobs = adapter.fetch(&request).await.expect("jobs");
+    let jobs = adapter.fetch(&request).await.expect("jobs").jobs;
     assert_eq!(jobs.len(), 3);
     let written = std::fs::read_to_string(log).expect("log");
     assert_eq!(

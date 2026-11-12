@@ -59,6 +59,8 @@ pub struct ProviderSettings {
     pub fallback_enabled: bool,
     /// Per-provider settings.
     pub providers: BTreeMap<String, ProviderSetting>,
+    /// Number of evaluations in flight at once, clamped to `1..=8`.
+    pub evaluation_concurrency: usize,
 }
 
 impl ProviderSettings {
@@ -70,6 +72,7 @@ impl ProviderSettings {
     ) -> Result<Self, AppError> {
         let order = resolve_order(db, config)?;
         let fallback_enabled = resolve_fallback(db, config)?;
+        let evaluation_concurrency = resolve_evaluation_concurrency(db, config)?;
 
         let mut providers = BTreeMap::new();
         for provider in PROVIDERS {
@@ -83,6 +86,7 @@ impl ProviderSettings {
             order,
             fallback_enabled,
             providers,
+            evaluation_concurrency,
         };
         settings.apply_session(session);
         Ok(settings)
@@ -174,6 +178,17 @@ fn resolve_fallback(db: &Db, config: &AppConfig) -> Result<bool, AppError> {
         return Ok(raw == "true");
     }
     Ok(config.allow_fallback)
+}
+
+/// Persisted concurrency → environment default → built-in default, clamped to
+/// the supported range. A stored value that cannot be parsed is ignored.
+fn resolve_evaluation_concurrency(db: &Db, config: &AppConfig) -> Result<usize, AppError> {
+    if let Some(raw) = settings::get(db, "evaluation.concurrency")?
+        && let Ok(value) = raw.trim().parse::<usize>()
+    {
+        return Ok(value.clamp(1, 8));
+    }
+    Ok(config.max_concurrency.clamp(1, 8))
 }
 
 fn resolve_provider(
@@ -442,5 +457,40 @@ mod tests {
         settings::put(&db, "provider.ollama.model", "qwen").expect("put");
         let settings = ProviderSettings::resolve(&db, &config, None).expect("resolve");
         assert!(settings.eligible(&config).contains(&"ollama".to_string()));
+    }
+
+    #[test]
+    fn evaluation_concurrency_prefers_the_stored_value() {
+        let db = Db::open_in_memory().expect("db");
+        settings::put(&db, "evaluation.concurrency", "6").expect("put");
+        let config = config(&[("JOBS_SEARCH_LLM_CONCURRENCY", "3")]);
+        let settings = ProviderSettings::resolve(&db, &config, None).expect("resolve");
+        assert_eq!(settings.evaluation_concurrency, 6);
+    }
+
+    #[test]
+    fn evaluation_concurrency_falls_back_to_the_environment() {
+        let db = Db::open_in_memory().expect("db");
+        let config = config(&[("JOBS_SEARCH_LLM_CONCURRENCY", "3")]);
+        let settings = ProviderSettings::resolve(&db, &config, None).expect("resolve");
+        assert_eq!(settings.evaluation_concurrency, 3);
+    }
+
+    #[test]
+    fn evaluation_concurrency_clamps_and_ignores_invalid_values() {
+        let db = Db::open_in_memory().expect("db");
+        let config = config(&[("JOBS_SEARCH_LLM_CONCURRENCY", "2")]);
+
+        settings::put(&db, "evaluation.concurrency", "99").expect("put");
+        let settings = ProviderSettings::resolve(&db, &config, None).expect("resolve");
+        assert_eq!(settings.evaluation_concurrency, 8);
+
+        settings::put(&db, "evaluation.concurrency", "0").expect("put");
+        let settings = ProviderSettings::resolve(&db, &config, None).expect("resolve");
+        assert_eq!(settings.evaluation_concurrency, 1);
+
+        settings::put(&db, "evaluation.concurrency", "not-a-number").expect("put");
+        let settings = ProviderSettings::resolve(&db, &config, None).expect("resolve");
+        assert_eq!(settings.evaluation_concurrency, 2);
     }
 }

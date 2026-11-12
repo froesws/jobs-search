@@ -8,6 +8,7 @@ use rusqlite::{OptionalExtension, params};
 use crate::db::Db;
 use crate::db::now_rfc3339;
 use crate::error::AppError;
+use crate::ingestion::adapter::KnownPosting;
 use crate::types::{EvaluationStatus, HardFilterRejection, JobId, JobTab, WorkModality};
 
 const FROM_JOBS: &str = "job_postings j
@@ -273,6 +274,65 @@ pub fn add_lineage(
     })
 }
 
+/// Postings already stored with a non-empty description that a source may
+/// skip re-fetching. The lookup is global across sources and deduplicated by
+/// `external_id`.
+pub fn known_postings(db: &Db) -> Result<Vec<KnownPosting>, AppError> {
+    db.with_connection(|connection| {
+        let mut statement = connection.prepare(
+            "SELECT l.external_id, l.job_id, l.url
+             FROM job_posting_sources l
+             JOIN job_postings j ON j.id = l.job_id
+             WHERE l.external_id LIKE 'linkedin-%'
+               AND TRIM(j.description_clean) <> ''
+             GROUP BY l.external_id
+             ORDER BY l.external_id ASC",
+        )?;
+        let rows = statement.query_map([], |row| {
+            Ok(KnownPosting {
+                external_id: row.get(0)?,
+                job_id: row.get(1)?,
+                url: row.get(2)?,
+            })
+        })?;
+        let mut values = Vec::new();
+        for row in rows {
+            values.push(row?);
+        }
+        Ok(values)
+    })
+}
+
+/// Records that a known posting was seen again without changing its stored
+/// URL. Creates the lineage row when the posting was stored under another
+/// source.
+pub fn touch_source_lineage(
+    db: &Db,
+    job_id: &JobId,
+    source_id: &str,
+    external_id: &str,
+    url: &str,
+) -> Result<(), AppError> {
+    db.with_connection(|connection| {
+        connection.execute(
+            "INSERT INTO job_posting_sources
+             (id, job_id, source_id, external_id, url, ingested_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+             ON CONFLICT(job_id, source_id, external_id)
+             DO UPDATE SET ingested_at = excluded.ingested_at",
+            params![
+                uuid::Uuid::new_v4().to_string(),
+                job_id.as_str(),
+                source_id,
+                external_id,
+                url,
+                now_rfc3339(),
+            ],
+        )?;
+        Ok(())
+    })
+}
+
 pub fn lineage(db: &Db, job_id: &JobId) -> Result<Vec<SourceLineage>, AppError> {
     db.with_connection(|connection| lineage_with_connection(connection, job_id))
 }
@@ -373,6 +433,25 @@ pub fn list_for_evaluation(db: &Db, limit: usize) -> Result<Vec<StoredJob>, AppE
             values.push(row?);
         }
         Ok(values)
+    })
+}
+
+/// Number of postings `list_for_evaluation` would return for the same limit.
+pub fn count_for_evaluation(db: &Db, limit: usize) -> Result<i64, AppError> {
+    db.with_connection(|connection| {
+        let count = connection.query_row(
+            "SELECT COUNT(*) FROM (
+                 SELECT j.id
+                 FROM job_postings j
+                 LEFT JOIN job_evaluations e ON e.job_id = j.id
+                 WHERE e.job_id IS NULL OR e.stale = 1
+                 ORDER BY j.updated_at DESC, j.id ASC
+                 LIMIT ?1
+             )",
+            [limit as i64],
+            |row| row.get(0),
+        )?;
+        Ok(count)
     })
 }
 
@@ -640,6 +719,7 @@ mod tests {
                 config: serde_yaml::from_str("command: python3").expect("config"),
                 rate_limit: crate::config::RateLimitConfig::default(),
                 credential_ref: None,
+                fallback_for: None,
             },
         )
         .expect("source");
@@ -666,6 +746,113 @@ mod tests {
         assert!(detail.summary.needs_review);
     }
 
+    fn seed_source(db: &Db, id: &str) {
+        crate::db::sources::upsert_source(
+            db,
+            &crate::config::SourceConfig {
+                id: id.to_string(),
+                name: id.to_string(),
+                source_type: crate::config::SourceType::Mcp,
+                enabled: true,
+                config: serde_yaml::from_str("command: python3").expect("config"),
+                rate_limit: crate::config::RateLimitConfig::default(),
+                credential_ref: None,
+                fallback_for: None,
+            },
+        )
+        .expect("source");
+    }
+
+    #[test]
+    fn known_postings_filters_prefix_and_empty_descriptions() {
+        let db = Db::open_in_memory().expect("db");
+        seed_source(&db, "jobspy");
+        seed_source(&db, "linkedin");
+
+        let with_description = upsert_job(&db, &test_job("With description")).expect("job");
+        add_lineage(
+            &db,
+            &with_description.job_id,
+            "jobspy",
+            "linkedin-1",
+            "https://example.com/1",
+        )
+        .expect("lineage");
+        // The same external id under a second source must not duplicate.
+        add_lineage(
+            &db,
+            &with_description.job_id,
+            "linkedin",
+            "linkedin-1",
+            "https://example.com/1",
+        )
+        .expect("lineage");
+
+        let mut empty = test_job("Empty description");
+        empty.description_clean = String::new();
+        let empty = upsert_job(&db, &empty).expect("job");
+        add_lineage(
+            &db,
+            &empty.job_id,
+            "linkedin",
+            "linkedin-2",
+            "https://example.com/2",
+        )
+        .expect("lineage");
+
+        let other = upsert_job(&db, &test_job("Other prefix")).expect("job");
+        add_lineage(
+            &db,
+            &other.job_id,
+            "jobspy",
+            "indeed-3",
+            "https://example.com/3",
+        )
+        .expect("lineage");
+
+        let known = known_postings(&db).expect("known");
+        assert_eq!(known.len(), 1);
+        assert_eq!(known[0].external_id, "linkedin-1");
+        assert_eq!(known[0].job_id, with_description.job_id.as_str());
+    }
+
+    #[test]
+    fn touch_source_lineage_advances_the_timestamp_without_duplicating() {
+        let db = Db::open_in_memory().expect("db");
+        seed_source(&db, "linkedin");
+        let job = upsert_job(&db, &test_job("Touched")).expect("job");
+        add_lineage(
+            &db,
+            &job.job_id,
+            "linkedin",
+            "linkedin-1",
+            "https://example.com/1",
+        )
+        .expect("lineage");
+        db.with_connection(|connection| {
+            connection.execute(
+                "UPDATE job_posting_sources SET ingested_at = '2000-01-01T00:00:00Z'",
+                [],
+            )?;
+            Ok(())
+        })
+        .expect("backdate");
+
+        touch_source_lineage(
+            &db,
+            &job.job_id,
+            "linkedin",
+            "linkedin-1",
+            "https://example.com/changed",
+        )
+        .expect("touch");
+
+        let rows = lineage(&db, &job.job_id).expect("lineage");
+        assert_eq!(rows.len(), 1);
+        assert_ne!(rows[0].ingested_at, "2000-01-01T00:00:00Z");
+        assert_eq!(rows[0].url, "https://example.com/1");
+    }
+
     #[test]
     fn approved_feed_uses_documented_tie_breaker() {
         let db = Db::open_in_memory().expect("db");
@@ -679,6 +866,7 @@ mod tests {
                 config: serde_yaml::from_str("base_url: https://example.com").expect("config"),
                 rate_limit: crate::config::RateLimitConfig::default(),
                 credential_ref: None,
+                fallback_for: None,
             },
         )
         .expect("source");

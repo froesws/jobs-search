@@ -159,6 +159,7 @@ async fn fixture_profile_evaluates_approved_pending_rejected_and_error_jobs() {
             concurrency: 2,
             ..Default::default()
         },
+        None,
     )
     .await
     .expect("evaluation");
@@ -245,7 +246,7 @@ async fn stale_evaluations_are_picked_up_again() {
         concurrency: 2,
         ..Default::default()
     };
-    evaluate_run(&db, &run.run_id, &profile, &router, &settings)
+    evaluate_run(&db, &run.run_id, &profile, &router, &settings, None)
         .await
         .expect("first");
 
@@ -263,7 +264,7 @@ async fn stale_evaluations_are_picked_up_again() {
         0
     );
     let run = start_run(&db, "{}").expect("run");
-    let summary = evaluate_run(&db, &run.run_id, &profile, &router, &settings)
+    let summary = evaluate_run(&db, &run.run_id, &profile, &router, &settings, None)
         .await
         .expect("second");
     assert_eq!(summary.evaluated, 6);
@@ -343,6 +344,7 @@ async fn selected_panels_drive_query_plan_and_hard_filters() {
             criteria: filters.criteria(),
             ..Default::default()
         },
+        None,
     )
     .await
     .expect("evaluation");

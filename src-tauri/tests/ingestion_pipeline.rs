@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use jobs_search_lib::db::runs::{RunFinish, finish_run, start_run};
-use jobs_search_lib::ingestion::adapter::{IngestionRequest, RawJob, SourceAdapter};
+use jobs_search_lib::ingestion::adapter::{FetchOutcome, IngestionRequest, SourceAdapter};
 use jobs_search_lib::ingestion::api::RemoteOkAdapter;
 use jobs_search_lib::ingestion::ingest;
 use jobs_search_lib::ingestion::mcp::McpAdapter;
@@ -31,7 +31,7 @@ impl SourceAdapter for FailingAdapter {
     async fn fetch(
         &self,
         _request: &IngestionRequest,
-    ) -> Result<Vec<RawJob>, jobs_search_lib::ingestion::adapter::SourceError> {
+    ) -> Result<FetchOutcome, jobs_search_lib::ingestion::adapter::SourceError> {
         Err(jobs_search_lib::ingestion::adapter::SourceError::permanent(
             "API_ERROR",
             "source is unavailable",

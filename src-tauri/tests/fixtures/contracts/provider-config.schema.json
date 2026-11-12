@@ -5,7 +5,7 @@
   "description": "Provider settings returned to the frontend. Never contains a credential value.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["providers", "order", "fallbackEnabled", "sessionOverride"],
+  "required": ["providers", "order", "fallbackEnabled", "sessionOverride", "evaluationConcurrency"],
   "properties": {
     "providers": {
       "type": "array",
@@ -49,6 +49,7 @@
       "items": { "enum": ["gemini", "openrouter", "deepseek", "ollama"] }
     },
     "fallbackEnabled": { "type": "boolean" },
+    "evaluationConcurrency": { "type": "integer", "minimum": 1, "maximum": 8 },
     "sessionOverride": {
       "oneOf": [
         { "type": "null" },

@@ -28,6 +28,8 @@ sources:
       max_retries: 2
       backoff_ms: 500
       timeout_seconds: 180
+      # Whole-source time budget; a slower run is reported as SOURCE_TIMEOUT.
+      budget_seconds: 300
 
   # Authenticated LinkedIn sources. They are optional; disable either entry
   # if you do not want to use a saved LinkedIn browser session.
@@ -46,22 +48,28 @@ sources:
       max_retries: 1
       backoff_ms: 1000
       timeout_seconds: 300
+      budget_seconds: 180
 
+  # Runs only when `linkedin` fails or delivers fewer than fallback_min_results
+  # postings, so a healthy primary does not pay for two LinkedIn collections.
   - id: linkedin_scraper
     name: linkedin_scraper
     source_type: mcp
     enabled: true
+    fallback_for: linkedin
     config:
       command: uv
       args: ['run', '--project', 'sidecar/linkedin_scraper_mcp', 'linkedin-scraper-mcp']
       cwd: '.'
       sites: ['linkedin']
       results_wanted: 10
+      fallback_min_results: 1
     rate_limit:
       requests_per_minute: 4
       max_retries: 1
       backoff_ms: 1000
       timeout_seconds: 300
+      budget_seconds: 180
 
   - id: remoteok
     name: remoteok
@@ -76,3 +84,4 @@ sources:
       max_retries: 2
       backoff_ms: 500
       timeout_seconds: 15
+      budget_seconds: 30

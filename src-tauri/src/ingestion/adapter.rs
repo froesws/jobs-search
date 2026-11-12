@@ -55,6 +55,36 @@ pub struct SourceFailure {
     pub message: String,
 }
 
+/// A posting already stored with a description. The LinkedIn adapter uses the
+/// set to skip detail requests; ingestion uses it to touch lineage.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct KnownPosting {
+    pub external_id: String,
+    pub job_id: String,
+    pub url: String,
+}
+
+/// What one adapter fetch produced.
+#[derive(Debug, Clone, Default)]
+pub struct FetchOutcome {
+    pub jobs: Vec<RawJob>,
+    /// Number of postings the source listed, including known ones whose detail
+    /// request was skipped.
+    pub listed: u32,
+    /// Known external IDs whose detail request was skipped.
+    pub known_skipped: Vec<String>,
+}
+
+impl FetchOutcome {
+    pub fn from_jobs(jobs: Vec<RawJob>) -> Self {
+        Self {
+            listed: jobs.len() as u32,
+            jobs,
+            known_skipped: Vec::new(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct IngestionRequest {
     pub query: String,
@@ -69,6 +99,7 @@ pub struct IngestionRequest {
     pub offset: u32,
     pub seniorities: Vec<Seniority>,
     pub modalities: Vec<WorkModality>,
+    pub known_postings: Vec<KnownPosting>,
 }
 
 impl Default for IngestionRequest {
@@ -86,6 +117,7 @@ impl Default for IngestionRequest {
             offset: 0,
             seniorities: Vec::new(),
             modalities: Vec::new(),
+            known_postings: Vec::new(),
         }
     }
 }
@@ -114,5 +146,20 @@ pub trait SourceAdapter: Send + Sync {
     fn name(&self) -> &str;
     fn source_type(&self) -> &'static str;
 
-    async fn fetch(&self, request: &IngestionRequest) -> Result<Vec<RawJob>, SourceError>;
+    /// Primary source this adapter falls back for, when configured.
+    fn fallback_for(&self) -> Option<&str> {
+        None
+    }
+
+    /// Minimum delivered postings before this fallback stays idle.
+    fn fallback_min_results(&self) -> u32 {
+        1
+    }
+
+    /// Maximum time this source may consume in one run.
+    fn budget_seconds(&self) -> u64 {
+        180
+    }
+
+    async fn fetch(&self, request: &IngestionRequest) -> Result<FetchOutcome, SourceError>;
 }

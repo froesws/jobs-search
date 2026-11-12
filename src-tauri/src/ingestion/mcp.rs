@@ -15,7 +15,9 @@ use zeroize::Zeroizing;
 use crate::config::SourceConfig;
 use crate::error::AppError;
 use crate::ingestion::SourcePacer;
-use crate::ingestion::adapter::{IngestionRequest, RawJob, SourceAdapter, SourceError};
+use crate::ingestion::adapter::{
+    FetchOutcome, IngestionRequest, RawJob, SourceAdapter, SourceError,
+};
 
 const PROTOCOL_VERSION: &str = "2024-11-05";
 const MAX_RESPONSE_LINES: usize = 20;
@@ -31,6 +33,9 @@ pub struct McpAdapter {
     fetch_descriptions: bool,
     timeout: Duration,
     pacer: SourcePacer,
+    fallback_for: Option<String>,
+    fallback_min_results: u32,
+    budget_seconds: u64,
 }
 
 impl McpAdapter {
@@ -64,6 +69,9 @@ impl McpAdapter {
             fetch_descriptions: source.config_bool("fetch_descriptions", true),
             timeout: Duration::from_secs(source.rate_limit.timeout_seconds.clamp(1, 300)),
             pacer: SourcePacer::new(source.rate_limit.requests_per_minute),
+            fallback_for: source.fallback_for.clone(),
+            fallback_min_results: source.fallback_min_results(),
+            budget_seconds: source.budget_seconds(),
         })
     }
 
@@ -86,6 +94,9 @@ impl McpAdapter {
             fetch_descriptions: true,
             timeout,
             pacer: SourcePacer::new(60_000),
+            fallback_for: None,
+            fallback_min_results: 1,
+            budget_seconds: 180,
         }
     }
 }
@@ -104,7 +115,19 @@ impl SourceAdapter for McpAdapter {
         "mcp"
     }
 
-    async fn fetch(&self, request: &IngestionRequest) -> Result<Vec<RawJob>, SourceError> {
+    fn fallback_for(&self) -> Option<&str> {
+        self.fallback_for.as_deref()
+    }
+
+    fn fallback_min_results(&self) -> u32 {
+        self.fallback_min_results
+    }
+
+    fn budget_seconds(&self) -> u64 {
+        self.budget_seconds
+    }
+
+    async fn fetch(&self, request: &IngestionRequest) -> Result<FetchOutcome, SourceError> {
         self.pacer.wait().await;
         let mut command = Command::new(&self.command);
         command
@@ -133,15 +156,17 @@ impl SourceAdapter for McpAdapter {
         let status = stopped_status(&mut child, &result, "MCP_PIPE_FAILED").await;
         let _ = child.kill().await;
         let _ = child.wait().await;
-        result.map_err(|error| with_exit_status(error, status))
+        result
+            .map(FetchOutcome::from_jobs)
+            .map_err(|error| with_exit_status(error, status))
     }
 }
 
 /// Waits briefly for a sidecar that closed stdout so its exit status can be
 /// reported. Only used for pipe failures; a successful exchange is killed.
-pub(crate) async fn stopped_status(
+pub(crate) async fn stopped_status<T>(
     child: &mut tokio::process::Child,
-    result: &Result<Vec<RawJob>, SourceError>,
+    result: &Result<T, SourceError>,
     code: &str,
 ) -> Option<std::process::ExitStatus> {
     if !result.as_ref().is_err_and(|error| error.code == code) {

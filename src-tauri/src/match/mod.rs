@@ -5,6 +5,8 @@ pub mod filters;
 pub mod score;
 
 use std::collections::BTreeMap;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use futures::StreamExt;
 
@@ -15,6 +17,16 @@ use crate::error::AppError;
 use crate::llm::provider::{EvaluationInput, EvaluationJob, LlmRouter};
 use crate::profile::CandidateProfile;
 use crate::types::{EvaluationStatus, RunId};
+
+/// Progress reported after each evaluated job.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct EvaluationProgress {
+    pub evaluated: usize,
+    pub total: usize,
+}
+
+/// Receives one update per completed evaluation.
+pub type ProgressSink = Arc<dyn Fn(EvaluationProgress) + Send + Sync>;
 
 #[derive(Debug, Clone)]
 pub struct EvaluationSettings {
@@ -53,40 +65,49 @@ struct JobOutcome {
     fatal: bool,
 }
 
-#[tracing::instrument(skip(db, profile, router), fields(run_id, max_jobs = settings.max_jobs))]
+#[tracing::instrument(skip(db, profile, router, progress), fields(run_id, max_jobs = settings.max_jobs))]
 pub async fn evaluate_run(
     db: &Db,
     run_id: &RunId,
     profile: &CandidateProfile,
     router: &LlmRouter,
     settings: &EvaluationSettings,
+    progress: Option<&ProgressSink>,
 ) -> Result<EvaluationSummary, AppError> {
     let jobs = crate::db::jobs::list_for_evaluation(db, settings.max_jobs.clamp(1, 1_000))?;
-    let concurrency = settings.concurrency.clamp(1, 4);
+    let concurrency = settings.concurrency.clamp(1, 8);
     let threshold = settings.threshold;
+    let total = jobs.len();
 
     let db = db.clone();
     let profile = profile.clone();
     let router = router.clone();
     let run_id = run_id.clone();
     let criteria = settings.criteria.clone();
+    let progress = progress.cloned();
+    let completed = Arc::new(AtomicUsize::new(0));
 
-    let outcomes =
-        futures::stream::iter(
-            jobs.into_iter().map(move |job| {
-                let db = db.clone();
-                let profile = profile.clone();
-                let router = router.clone();
-                let run_id = run_id.clone();
-                let criteria = criteria.clone();
-                async move {
-                    evaluate_one(&db, &run_id, &profile, &router, job, threshold, &criteria).await
-                }
-            }),
-        )
-        .buffer_unordered(concurrency)
-        .collect::<Vec<_>>()
-        .await;
+    let outcomes = futures::stream::iter(jobs.into_iter().map(move |job| {
+        let db = db.clone();
+        let profile = profile.clone();
+        let router = router.clone();
+        let run_id = run_id.clone();
+        let criteria = criteria.clone();
+        let progress = progress.clone();
+        let completed = completed.clone();
+        async move {
+            let outcome =
+                evaluate_one(&db, &run_id, &profile, &router, job, threshold, &criteria).await;
+            let evaluated = completed.fetch_add(1, Ordering::Relaxed) + 1;
+            if let Some(sink) = &progress {
+                sink(EvaluationProgress { evaluated, total });
+            }
+            outcome
+        }
+    }))
+    .buffer_unordered(concurrency)
+    .collect::<Vec<_>>()
+    .await;
 
     let mut summary = EvaluationSummary {
         evaluated: outcomes.len() as i64,
@@ -262,4 +283,112 @@ fn record_attempts(
         )?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::Mutex;
+
+    use async_trait::async_trait;
+
+    use crate::db::jobs::{NewJob, upsert_job};
+    use crate::llm::provider::{LlmError, LlmProvider, ProviderPlan};
+    use crate::llm::schemas::EvaluationEvidence;
+    use crate::types::WorkModality;
+
+    struct NoopProvider;
+
+    #[async_trait]
+    impl LlmProvider for NoopProvider {
+        fn provider(&self) -> &'static str {
+            "fake"
+        }
+
+        fn model_for_attempt(&self, _attempt: u32) -> String {
+            "fake-model".to_string()
+        }
+
+        async fn evaluate(
+            &self,
+            _input: &EvaluationInput,
+            _attempt: u32,
+        ) -> Result<EvaluationEvidence, LlmError> {
+            Ok(EvaluationEvidence {
+                seniority: "Pleno".to_string(),
+                work_modality: WorkModality::Remote,
+                location: "Remote - Brazil".to_string(),
+                required_skills: Vec::new(),
+                desirable_skills: Vec::new(),
+                requirements: Vec::new(),
+                summary: "ok".to_string(),
+            })
+        }
+    }
+
+    fn seed_job(db: &Db, index: usize) {
+        let title = format!("Rust Engineer {index}");
+        let location = "Remote - Brazil";
+        let url = format!("https://example.com/{index}");
+        let identity = crate::dedup::canonical_identity("Acme", &title, location, &url);
+        upsert_job(
+            db,
+            &NewJob {
+                canonical_key: identity.key,
+                canonical_hash: identity.hash,
+                title,
+                company: "Acme".to_string(),
+                location: location.to_string(),
+                work_modality: WorkModality::Remote,
+                url,
+                posted_at: None,
+                description_clean: "Rust systems".to_string(),
+                extracted_metadata_json: None,
+                needs_review: identity.used_url_fallback,
+            },
+        )
+        .expect("job");
+    }
+
+    #[tokio::test]
+    async fn progress_sink_sees_one_update_per_completed_job() {
+        let db = Db::open_in_memory().expect("db");
+        for index in 0..3 {
+            seed_job(&db, index);
+        }
+        let profile: CandidateProfile =
+            serde_json::from_str(include_str!("../../tests/fixtures/profile.json"))
+                .expect("profile");
+        let router = LlmRouter::from_plans(vec![ProviderPlan {
+            provider: Arc::new(NoopProvider),
+            attempts: 1,
+        }]);
+        let run = crate::db::runs::start_run(&db, "{}").expect("run");
+
+        let seen = Arc::new(Mutex::new(Vec::new()));
+        let seen_writer = seen.clone();
+        let sink: ProgressSink = Arc::new(move |progress| {
+            seen_writer.lock().expect("lock").push(progress);
+        });
+        let settings = EvaluationSettings {
+            threshold: 50,
+            max_jobs: 100,
+            concurrency: 2,
+            ..Default::default()
+        };
+        let summary = evaluate_run(&db, &run.run_id, &profile, &router, &settings, Some(&sink))
+            .await
+            .expect("evaluation");
+
+        assert_eq!(summary.evaluated, 3);
+        let seen = seen.lock().expect("lock");
+        assert_eq!(seen.len(), 3);
+        assert!(seen.iter().all(|progress| progress.total == 3));
+        let mut evaluated = seen
+            .iter()
+            .map(|progress| progress.evaluated)
+            .collect::<Vec<_>>();
+        evaluated.sort_unstable();
+        assert_eq!(evaluated, vec![1, 2, 3]);
+    }
 }

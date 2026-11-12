@@ -90,6 +90,7 @@ mod tests {
             config: serde_yaml::from_str("base_url: https://example.com/api").expect("config"),
             rate_limit: RateLimitConfig::default(),
             credential_ref: Some("SOURCE_KEY".to_string()),
+            fallback_for: None,
         }
     }
 

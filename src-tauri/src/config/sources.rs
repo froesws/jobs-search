@@ -37,6 +37,9 @@ pub struct RateLimitConfig {
     pub backoff_ms: u64,
     #[serde(default = "default_timeout_seconds")]
     pub timeout_seconds: u64,
+    /// Maximum time the whole source may consume in one run.
+    #[serde(default = "default_budget_seconds")]
+    pub budget_seconds: u64,
 }
 
 impl Default for RateLimitConfig {
@@ -46,6 +49,7 @@ impl Default for RateLimitConfig {
             max_retries: default_max_retries(),
             backoff_ms: default_backoff_ms(),
             timeout_seconds: default_timeout_seconds(),
+            budget_seconds: default_budget_seconds(),
         }
     }
 }
@@ -66,6 +70,10 @@ fn default_timeout_seconds() -> u64 {
     15
 }
 
+fn default_budget_seconds() -> u64 {
+    180
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SourceConfig {
@@ -80,6 +88,10 @@ pub struct SourceConfig {
     pub rate_limit: RateLimitConfig,
     #[serde(default)]
     pub credential_ref: Option<String>,
+    /// When set, this source only runs if the referenced primary source fails
+    /// or delivers fewer postings than [`Self::fallback_min_results`].
+    #[serde(default)]
+    pub fallback_for: Option<String>,
 }
 
 fn default_enabled() -> bool {
@@ -118,6 +130,18 @@ impl SourceConfig {
             .get(key)
             .and_then(serde_yaml::Value::as_bool)
             .unwrap_or(default)
+    }
+
+    /// Minimum number of postings the primary must deliver before this
+    /// fallback stays idle. Values outside `1..=50` are clamped.
+    pub fn fallback_min_results(&self) -> u32 {
+        self.config_u32("fallback_min_results", 1).clamp(1, 50)
+    }
+
+    /// Maximum time this source may consume in one run. Values outside
+    /// `30..=900` are clamped.
+    pub fn budget_seconds(&self) -> u64 {
+        self.rate_limit.budget_seconds.clamp(30, 900)
     }
 
     pub fn config_json(&self) -> Result<String, AppError> {
@@ -202,8 +226,10 @@ results_wanted: 10
                         max_retries: 2,
                         backoff_ms: 500,
                         timeout_seconds: 180,
+                        budget_seconds: 300,
                     },
                     credential_ref: None,
+                    fallback_for: None,
                 },
                 SourceConfig {
                     id: "linkedin".to_string(),
@@ -225,14 +251,17 @@ max_pages: 1
                         max_retries: 1,
                         backoff_ms: 1000,
                         timeout_seconds: 300,
+                        budget_seconds: 180,
                     },
                     credential_ref: None,
+                    fallback_for: None,
                 },
                 SourceConfig {
                     id: "linkedin_scraper".to_string(),
                     name: "linkedin_scraper".to_string(),
                     source_type: SourceType::Mcp,
                     enabled: true,
+                    fallback_for: Some("linkedin".to_string()),
                     config: serde_yaml::from_str(
                         r#"
 command: uv
@@ -248,6 +277,7 @@ results_wanted: 10
                         max_retries: 1,
                         backoff_ms: 1000,
                         timeout_seconds: 300,
+                        budget_seconds: 180,
                     },
                     credential_ref: None,
                 },
@@ -263,8 +293,15 @@ results_wanted: 50
 "#,
                     )
                     .expect("static remoteok source config"),
-                    rate_limit: RateLimitConfig::default(),
+                    rate_limit: RateLimitConfig {
+                        requests_per_minute: 20,
+                        max_retries: 2,
+                        backoff_ms: 500,
+                        timeout_seconds: 15,
+                        budget_seconds: 30,
+                    },
                     credential_ref: None,
+                    fallback_for: None,
                 },
             ],
         }
@@ -337,6 +374,46 @@ results_wanted: 50
                     }
                 }
                 SourceType::WebScraper => {}
+            }
+        }
+
+        let mut fallback_targets = HashSet::new();
+        for source in &self.sources {
+            let Some(target) = source.fallback_for.as_deref() else {
+                continue;
+            };
+            let target = target.trim();
+            if target.is_empty() {
+                return Err(AppError::Config(format!(
+                    "source {} has an empty fallback_for",
+                    source.id
+                )));
+            }
+            if target == source.id {
+                return Err(AppError::Config(format!(
+                    "source {} cannot be its own fallback",
+                    source.id
+                )));
+            }
+            if !ids.contains(target) {
+                return Err(AppError::Config(format!(
+                    "source {} references unknown fallback target {target}",
+                    source.id
+                )));
+            }
+            if !fallback_targets.insert(target.to_string()) {
+                return Err(AppError::Config(format!(
+                    "duplicate fallback target: {target}"
+                )));
+            }
+        }
+
+        for source in &self.sources {
+            if source.fallback_for.is_some() && fallback_targets.contains(&source.id) {
+                return Err(AppError::Config(format!(
+                    "source {} is a fallback and cannot be the primary of another fallback",
+                    source.id
+                )));
             }
         }
 
@@ -481,5 +558,186 @@ sources:
         let config = SourcesConfig::default_sources();
         config.validate().expect("defaults are valid");
         assert_eq!(config.enabled().len(), 4);
+        let linkedin = config
+            .sources
+            .iter()
+            .find(|source| source.id == "linkedin")
+            .expect("linkedin");
+        assert_eq!(linkedin.budget_seconds(), 180);
+        let scraper = config
+            .sources
+            .iter()
+            .find(|source| source.id == "linkedin_scraper")
+            .expect("scraper");
+        assert_eq!(scraper.fallback_for.as_deref(), Some("linkedin"));
+        assert_eq!(scraper.fallback_min_results(), 1);
+    }
+
+    #[test]
+    fn accepts_a_valid_fallback_pair() {
+        let config: SourcesConfig = serde_yaml::from_str(
+            r#"
+sources:
+  - { id: linkedin, name: linkedin, source_type: mcp, config: { command: uvx } }
+  - id: scraper
+    name: scraper
+    source_type: mcp
+    fallback_for: linkedin
+    config: { command: uv }
+"#,
+        )
+        .expect("valid yaml");
+        config.validate().expect("valid pair");
+    }
+
+    #[test]
+    fn rejects_a_source_as_its_own_fallback() {
+        let config: SourcesConfig = serde_yaml::from_str(
+            r#"
+sources:
+  - id: linkedin
+    name: linkedin
+    source_type: mcp
+    fallback_for: linkedin
+    config: { command: uvx }
+"#,
+        )
+        .expect("valid yaml");
+        let error = config.validate().expect_err("self reference");
+        assert!(error.message().contains("own fallback"));
+    }
+
+    #[test]
+    fn rejects_an_unknown_fallback_target() {
+        let config: SourcesConfig = serde_yaml::from_str(
+            r#"
+sources:
+  - id: scraper
+    name: scraper
+    source_type: mcp
+    fallback_for: linkedin
+    config: { command: uv }
+"#,
+        )
+        .expect("valid yaml");
+        let error = config.validate().expect_err("unknown target");
+        assert!(error.message().contains("unknown fallback target"));
+    }
+
+    #[test]
+    fn rejects_two_sources_targeting_the_same_primary() {
+        let config: SourcesConfig = serde_yaml::from_str(
+            r#"
+sources:
+  - { id: linkedin, name: linkedin, source_type: mcp, config: { command: uvx } }
+  - id: one
+    name: one
+    source_type: mcp
+    fallback_for: linkedin
+    config: { command: uv }
+  - id: two
+    name: two
+    source_type: mcp
+    fallback_for: linkedin
+    config: { command: uv }
+"#,
+        )
+        .expect("valid yaml");
+        let error = config.validate().expect_err("duplicate target");
+        assert!(error.message().contains("duplicate fallback target"));
+    }
+
+    #[test]
+    fn rejects_a_fallback_chain() {
+        let config: SourcesConfig = serde_yaml::from_str(
+            r#"
+sources:
+  - { id: linkedin, name: linkedin, source_type: mcp, config: { command: uvx } }
+  - id: one
+    name: one
+    source_type: mcp
+    fallback_for: linkedin
+    config: { command: uv }
+  - id: two
+    name: two
+    source_type: mcp
+    fallback_for: one
+    config: { command: uv }
+"#,
+        )
+        .expect("valid yaml");
+        let error = config.validate().expect_err("chain");
+        assert!(error.message().contains("cannot be the primary"));
+    }
+
+    #[test]
+    fn budget_seconds_defaults_and_clamps() {
+        let source: SourceConfig =
+            serde_yaml::from_str("{ id: a, name: a, source_type: mcp, config: { command: uv } }")
+                .expect("source");
+        assert_eq!(source.rate_limit.budget_seconds, 180);
+        assert_eq!(source.budget_seconds(), 180);
+
+        let mut clamped_low = source.clone();
+        clamped_low.rate_limit.budget_seconds = 1;
+        assert_eq!(clamped_low.budget_seconds(), 30);
+
+        let mut clamped_high = source.clone();
+        clamped_high.rate_limit.budget_seconds = 5_000;
+        assert_eq!(clamped_high.budget_seconds(), 900);
+
+        let overridden: SourceConfig = serde_yaml::from_str(
+            r#"
+id: a
+name: a
+source_type: mcp
+config: { command: uv }
+rate_limit: { budget_seconds: 45 }
+"#,
+        )
+        .expect("source");
+        assert_eq!(overridden.budget_seconds(), 45);
+    }
+
+    #[test]
+    fn fallback_min_results_clamps() {
+        let source: SourceConfig = serde_yaml::from_str(
+            r#"
+id: a
+name: a
+source_type: mcp
+config: { command: uv, fallback_min_results: 999 }
+"#,
+        )
+        .expect("source");
+        assert_eq!(source.fallback_min_results(), 50);
+
+        let low: SourceConfig = serde_yaml::from_str(
+            r#"
+id: a
+name: a
+source_type: mcp
+config: { command: uv, fallback_min_results: 0 }
+"#,
+        )
+        .expect("source");
+        assert_eq!(low.fallback_min_results(), 1);
+    }
+
+    #[test]
+    fn the_repository_sources_file_is_valid() {
+        let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("repository root")
+            .join("sources.yaml");
+        let config = SourcesConfig::load(&path).expect("valid sources.yaml");
+        let scraper = config
+            .sources
+            .iter()
+            .find(|source| source.id == "linkedin_scraper")
+            .expect("scraper");
+        assert_eq!(scraper.fallback_for.as_deref(), Some("linkedin"));
+        assert_eq!(scraper.budget_seconds(), 180);
+        assert_eq!(scraper.fallback_min_results(), 1);
     }
 }

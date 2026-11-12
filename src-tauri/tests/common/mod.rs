@@ -69,6 +69,7 @@ pub fn ensure_source(db: &Db, id: &str, name: &str, source_type: SourceType) {
         config,
         rate_limit: RateLimitConfig::default(),
         credential_ref: None,
+        fallback_for: None,
     };
     jobs_search_lib::db::sources::upsert_source(db, &source).expect("source");
 }
