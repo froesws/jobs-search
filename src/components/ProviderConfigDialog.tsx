@@ -103,6 +103,7 @@ export function ProviderConfigDialog({
   const dragGhost = useRef<HTMLDivElement | null>(null);
   const dragPoint = useRef<DragPoint>({ x: 0, y: 0 });
   const dragPointerId = useRef<number | null>(null);
+  const dragStartOrder = useRef<ProviderId[] | null>(null);
 
   const providers = useMemo(() => state.config?.providers ?? [], [state.config]);
 
@@ -139,6 +140,8 @@ export function ProviderConfigDialog({
   useEffect(() => {
     if (open) return;
     setDraggingId(null);
+    dragPointerId.current = null;
+    dragStartOrder.current = null;
   }, [open]);
 
   // Ollama has no static catalog: query the local server when the dialog opens
@@ -177,6 +180,7 @@ export function ProviderConfigDialog({
     // reorder, and a lost or rejected capture ends the drag after one move.
     // Window listeners already receive the events.
     dragPointerId.current = event.pointerId;
+    dragStartOrder.current = [...draft.order];
     dragPoint.current = { x: event.clientX, y: event.clientY };
     setDraggingId(providerId);
   };
@@ -242,19 +246,45 @@ export function ProviderConfigDialog({
       if (target === null) return;
       moveDraggedTo(target);
     };
+    const endDrag = () => {
+      dragPointerId.current = null;
+      dragStartOrder.current = null;
+      setDraggingId(null);
+    };
+
+    // pointerup commits the current order; a cancelled drag or Escape puts the
+    // order captured at drag start back, so an accident never persists.
     const handleUp = (event: PointerEvent) => {
       if (event.pointerId !== dragPointerId.current) return;
-      dragPointerId.current = null;
-      setDraggingId(null);
+      endDrag();
+    };
+    const handleCancel = (event: PointerEvent) => {
+      if (event.pointerId !== dragPointerId.current) return;
+      const snapshot = dragStartOrder.current;
+      if (snapshot) {
+        setDraft((current) => ({ ...current, order: snapshot }));
+      }
+      endDrag();
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      const snapshot = dragStartOrder.current;
+      if (snapshot) {
+        setDraft((current) => ({ ...current, order: snapshot }));
+      }
+      endDrag();
     };
 
     window.addEventListener('pointermove', handleMove);
     window.addEventListener('pointerup', handleUp);
-    window.addEventListener('pointercancel', handleUp);
+    window.addEventListener('pointercancel', handleCancel);
+    window.addEventListener('keydown', handleKeyDown);
     return () => {
       window.removeEventListener('pointermove', handleMove);
       window.removeEventListener('pointerup', handleUp);
-      window.removeEventListener('pointercancel', handleUp);
+      window.removeEventListener('pointercancel', handleCancel);
+      window.removeEventListener('keydown', handleKeyDown);
     };
   }, [draggingId]);
 
