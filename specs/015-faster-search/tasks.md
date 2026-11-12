@@ -33,10 +33,10 @@ testable.
 
 **Purpose**: Configuration surface for the new limits, fallback keys, and persisted concurrency.
 
-- [ ] T001 Add `budget_seconds: u64` to `RateLimitConfig` (default `180`, clamp `30..=900`) and `fallback_for: Option<String>` plus the `fallback_min_results` reader (default `1`, clamp `1..=50`) to `SourceConfig` in `src-tauri/src/config/sources.rs`; update the hard-coded `default_sources()` entries and every rate-limit literal.
-- [ ] T002 [P] Validate the fallback graph in `src-tauri/src/config/sources.rs`: reject a self-reference, an unknown target, two sources targeting the same primary, and a fallback that is the primary of another fallback; add unit tests for each rejection and for a valid pair.
-- [ ] T003 [P] Add `evaluation_concurrency: usize` to `ProviderSettings` in `src-tauri/src/config/provider_settings.rs`, resolved from `app_settings["evaluation.concurrency"]` → `AppConfig.max_concurrency` → `4`, clamped `1..=8`; add tests for precedence, invalid values, and the fallback path.
-- [ ] T004 [P] Add `SearchProgress`, `SearchStage`, and `evaluationConcurrency` to `src/lib/types.ts`, and extend `ProviderConfigView`/`ProviderConfigInput` with `evaluationConcurrency: number`; keep the shapes identical to `contracts/progress-event.md`.
+- [X] T001 Add `budget_seconds: u64` to `RateLimitConfig` (default `180`, clamp `30..=900`) and `fallback_for: Option<String>` plus the `fallback_min_results` reader (default `1`, clamp `1..=50`) to `SourceConfig` in `src-tauri/src/config/sources.rs`; update the hard-coded `default_sources()` entries and every rate-limit literal.
+- [X] T002 [P] Validate the fallback graph in `src-tauri/src/config/sources.rs`: reject a self-reference, an unknown target, two sources targeting the same primary, and a fallback that is the primary of another fallback; add unit tests for each rejection and for a valid pair.
+- [X] T003 [P] Add `evaluation_concurrency: usize` to `ProviderSettings` in `src-tauri/src/config/provider_settings.rs`, resolved from `app_settings["evaluation.concurrency"]` → `AppConfig.max_concurrency` → `4`, clamped `1..=8`; add tests for precedence, invalid values, and the fallback path.
+- [X] T004 [P] Add `SearchProgress`, `SearchStage`, and `evaluationConcurrency` to `src/lib/types.ts`, and extend `ProviderConfigView`/`ProviderConfigInput` with `evaluationConcurrency: number`; keep the shapes identical to `contracts/progress-event.md`.
 
 ---
 
@@ -46,12 +46,12 @@ testable.
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T005 Add `KnownPosting`, `FetchOutcome`, and `IngestionRequest.known_postings` to `src-tauri/src/ingestion/adapter.rs`; add a `FetchOutcome::from_jobs` helper that sets `listed = jobs.len()` and empty `known_skipped`; update `Default`.
-- [ ] T006 [P] Change `SourceAdapter::fetch` in `src-tauri/src/ingestion/adapter.rs` to return `Result<FetchOutcome, SourceError>`, then update `src-tauri/src/ingestion/mcp.rs`, `src-tauri/src/ingestion/api.rs`, and every test fake under `src-tauri/tests/` to wrap their `Vec<RawJob>` with `FetchOutcome::from_jobs`.
-- [ ] T007 [P] Extend `SourceOutcome` in `src-tauri/src/ingestion/mod.rs` with `listed: u32`, `known_skipped: Vec<KnownPosting>`, and `fallback_skipped: bool`; update `jobs()`, `failures()`, and `total_fetched()`; add `delivered()` and unit tests for the counts and the ignored fallback.
-- [ ] T008 [P] Add `known_postings` and `touch_source_lineage` to `src-tauri/src/db/jobs.rs`: the global `external_id LIKE 'linkedin-%'` query joined to non-empty `description_clean`, deduplicated by `external_id`, and an UPSERT that updates `job_posting_sources.ingested_at` without creating a duplicate row; add tests for the prefix filter, the empty-description exclusion, and the repeated touch.
-- [ ] T009 [P] Add `ProgressSink` and `EvaluationProgress` to `src-tauri/src/match/mod.rs` and thread an optional sink through `evaluate_run` without changing its result shape; add a counting-closure test that sees one update per completed job.
-- [ ] T010 [P] Add `fetch_with_budget(adapter, request, seconds)` to `src-tauri/src/ingestion/mod.rs` that maps `tokio::time::timeout` elapsed to `SourceFailure { code: "SOURCE_TIMEOUT" }`; add a unit test with a fake adapter that never resolves and one that resolves before the budget.
+- [X] T005 Add `KnownPosting`, `FetchOutcome`, and `IngestionRequest.known_postings` to `src-tauri/src/ingestion/adapter.rs`; add a `FetchOutcome::from_jobs` helper that sets `listed = jobs.len()` and empty `known_skipped`; update `Default`.
+- [X] T006 [P] Change `SourceAdapter::fetch` in `src-tauri/src/ingestion/adapter.rs` to return `Result<FetchOutcome, SourceError>`, then update `src-tauri/src/ingestion/mcp.rs`, `src-tauri/src/ingestion/api.rs`, and every test fake under `src-tauri/tests/` to wrap their `Vec<RawJob>` with `FetchOutcome::from_jobs`.
+- [X] T007 [P] Extend `SourceOutcome` in `src-tauri/src/ingestion/mod.rs` with `listed: u32`, `known_skipped: Vec<KnownPosting>`, and `fallback_skipped: bool`; update `jobs()`, `failures()`, and `total_fetched()`; add `delivered()` and unit tests for the counts and the ignored fallback.
+- [X] T008 [P] Add `known_postings` and `touch_source_lineage` to `src-tauri/src/db/jobs.rs`: the global `external_id LIKE 'linkedin-%'` query joined to non-empty `description_clean`, deduplicated by `external_id`, and an UPSERT that updates `job_posting_sources.ingested_at` without creating a duplicate row; add tests for the prefix filter, the empty-description exclusion, and the repeated touch.
+- [X] T009 [P] Add `ProgressSink` and `EvaluationProgress` to `src-tauri/src/match/mod.rs` and thread an optional sink through `evaluate_run` without changing its result shape; add a counting-closure test that sees one update per completed job.
+- [X] T010 [P] Add `fetch_with_budget(adapter, request, seconds)` to `src-tauri/src/ingestion/mod.rs` that maps `tokio::time::timeout` elapsed to `SourceFailure { code: "SOURCE_TIMEOUT" }`; add a unit test with a fake adapter that never resolves and one that resolves before the budget.
 
 **Checkpoint**: Configuration, adapter outcome, known lookup, progress sink, and the budget helper exist.
 
@@ -70,17 +70,17 @@ for new or description-less postings.
 
 > Write these tests first; they must fail before T015.
 
-- [ ] T011 [P] [US1] Add `src-tauri/tests/ingestion_skip.rs` covering a known posting with a non-empty description: zero detail calls, `listed` includes it, `known_skipped` contains its ID, lineage `ingested_at` advances, and `description_clean` is unchanged.
-- [ ] T012 [P] [US1] Add a case to `src-tauri/tests/ingestion_skip.rs` where an unknown ID and a known ID with an empty description both trigger `get_job_details`; assert the empty description is filled in.
-- [ ] T013 [P] [US1] Add a case to `src-tauri/tests/ingestion_skip.rs` where a `linkedin-<id>` row was stored under the JobSpy source; assert the global lookup satisfies the LinkedIn adapter, the detail is skipped, and the LinkedIn lineage is added without a duplicate.
-- [ ] T014 [P] [US1] Add a call-counting fake server case to `src-tauri/tests/linkedin_mcp_contract.rs`: a known ID produces zero `get_job_details` calls and an unknown ID produces exactly one.
+- [X] T011 [P] [US1] Add `src-tauri/tests/ingestion_skip.rs` covering a known posting with a non-empty description: zero detail calls, `listed` includes it, `known_skipped` contains its ID, lineage `ingested_at` advances, and `description_clean` is unchanged.
+- [X] T012 [P] [US1] Add a case to `src-tauri/tests/ingestion_skip.rs` where an unknown ID and a known ID with an empty description both trigger `get_job_details`; assert the empty description is filled in.
+- [X] T013 [P] [US1] Add a case to `src-tauri/tests/ingestion_skip.rs` where a `linkedin-<id>` row was stored under the JobSpy source; assert the global lookup satisfies the LinkedIn adapter, the detail is skipped, and the LinkedIn lineage is added without a duplicate.
+- [X] T014 [P] [US1] Add a call-counting fake server case to `src-tauri/tests/linkedin_mcp_contract.rs`: a known ID produces zero `get_job_details` calls and an unknown ID produces exactly one.
 
 ### Implementation for User Story 1
 
-- [ ] T015 [US1] Implement the skip in `src-tauri/src/ingestion/linkedin_mcp.rs`: normalize each search ID to `linkedin-<id>`, build a `HashSet` from `request.known_postings`, skip `get_job_details` for known IDs, count `listed` and `known_skipped`, return `FetchOutcome`, and change `LINKEDIN_DETAILS_FAILED` to fire only when `jobs.is_empty() && known_skipped.is_empty() && detail_failures > 0`.
-- [ ] T016 [US1] In `src-tauri/src/commands/search.rs`, touch lineage for every `known_skipped` entry with `touch_source_lineage`, keep `total_ingested` counting new postings only, and log the `skipped_known` count without IDs, URLs, or descriptions.
-- [ ] T017 [P] [US1] Load the known set in `src-tauri/src/commands/search.rs` before `ingest` via `db::jobs::known_postings`, assign it to `IngestionRequest.known_postings`, and keep the database lock out of every `.await`.
-- [ ] T018 [P] [US1] Confirm `src-tauri/tests/score_contract.rs` and `src-tauri/tests/fixture_match.rs` pass unchanged; do not edit their expectations.
+- [X] T015 [US1] Implement the skip in `src-tauri/src/ingestion/linkedin_mcp.rs`: normalize each search ID to `linkedin-<id>`, build a `HashSet` from `request.known_postings`, skip `get_job_details` for known IDs, count `listed` and `known_skipped`, return `FetchOutcome`, and change `LINKEDIN_DETAILS_FAILED` to fire only when `jobs.is_empty() && known_skipped.is_empty() && detail_failures > 0`.
+- [X] T016 [US1] In `src-tauri/src/commands/search.rs`, touch lineage for every `known_skipped` entry with `touch_source_lineage`, keep `total_ingested` counting new postings only, and log the `skipped_known` count without IDs, URLs, or descriptions.
+- [X] T017 [P] [US1] Load the known set in `src-tauri/src/commands/search.rs` before `ingest` via `db::jobs::known_postings`, assign it to `IngestionRequest.known_postings`, and keep the database lock out of every `.await`.
+- [X] T018 [P] [US1] Confirm `src-tauri/tests/score_contract.rs` and `src-tauri/tests/fixture_match.rs` pass unchanged; do not edit their expectations.
 
 **Checkpoint**: Repeat runs skip known LinkedIn details and keep identical outcomes.
 
@@ -96,19 +96,19 @@ are in flight, N is reached when enough jobs are queued, and the outcomes match 
 
 ### Tests for User Story 2
 
-- [ ] T019 [P] [US2] Add `src-tauri/tests/ingestion_concurrency.rs` with a fake provider that counts in-flight calls; assert the observed maximum never exceeds `settings.concurrency`, equals it when enough jobs are queued, and the final evaluations are unchanged.
-- [ ] T020 [P] [US2] Add cases to `src-tauri/tests/ingestion_concurrency.rs` proving a rate-limit error on one job preserves completed evaluations and that `0` clamps to `1` and `99` clamps to `8`.
-- [ ] T021 [P] [US2] Add precedence and round-trip tests in `src-tauri/src/config/provider_settings.rs` and `src-tauri/src/commands/config.rs`: persisted `evaluation.concurrency` wins, the env default is second, invalid values clamp, and `cmd_save_provider_config` returns the saved value.
-- [ ] T022 [P] [US2] Add a case to `src/components/ProviderConfigDialog.test.tsx`: the field loads, rejects values outside `1..=8`, saves the value, and the existing draft fallback still works.
+- [X] T019 [P] [US2] Add `src-tauri/tests/ingestion_concurrency.rs` with a fake provider that counts in-flight calls; assert the observed maximum never exceeds `settings.concurrency`, equals it when enough jobs are queued, and the final evaluations are unchanged.
+- [X] T020 [P] [US2] Add cases to `src-tauri/tests/ingestion_concurrency.rs` proving a rate-limit error on one job preserves completed evaluations and that `0` clamps to `1` and `99` clamps to `8`.
+- [X] T021 [P] [US2] Add precedence and round-trip tests in `src-tauri/src/config/provider_settings.rs` and `src-tauri/src/commands/config.rs`: persisted `evaluation.concurrency` wins, the env default is second, invalid values clamp, and `cmd_save_provider_config` returns the saved value.
+- [X] T022 [P] [US2] Add a case to `src/components/ProviderConfigDialog.test.tsx`: the field loads, rejects values outside `1..=8`, saves the value, and the existing draft fallback still works.
 
 ### Implementation for User Story 2
 
-- [ ] T023 [US2] Change `src-tauri/src/config/env.rs` to default `JOBS_SEARCH_LLM_CONCURRENCY` to `4` and accept `1..=8`; update the tests that assert the old bounds.
-- [ ] T024 [US2] In `src-tauri/src/match/mod.rs`, clamp `EvaluationSettings::concurrency` to `1..=8`, keep `buffer_unordered(settings.concurrency)`, and emit one `EvaluationProgress` update per completed job through the sink.
-- [ ] T025 [US2] In `src-tauri/src/commands/search.rs`, resolve `ProviderSettings` at the start of the run and build `EvaluationSettings` from `settings.evaluation_concurrency` instead of `config.max_concurrency`.
-- [ ] T026 [US2] In `src-tauri/src/commands/config.rs`, add `evaluation_concurrency` to `ProviderConfigView` and `ProviderConfigInput`, validate `1..=8`, persist it under `app_settings["evaluation.concurrency"]`, and return it from `build_view`.
-- [ ] T027 [US2] Add the global numeric field to `src/components/ProviderConfigDialog.tsx` with an accessible label, helper text, `1..=8` validation, and save wiring; update `src/lib/types.ts` and `src/lib/ipc.ts` if the shape drifted.
-- [ ] T028 [P] [US2] Update `src/test/fixtures.ts` (and any provider-config mock) with `evaluationConcurrency` so the dialog tests and `cmd_get_provider_config` mocks stay type-correct.
+- [X] T023 [US2] Change `src-tauri/src/config/env.rs` to default `JOBS_SEARCH_LLM_CONCURRENCY` to `4` and accept `1..=8`; update the tests that assert the old bounds.
+- [X] T024 [US2] In `src-tauri/src/match/mod.rs`, clamp `EvaluationSettings::concurrency` to `1..=8`, keep `buffer_unordered(settings.concurrency)`, and emit one `EvaluationProgress` update per completed job through the sink.
+- [X] T025 [US2] In `src-tauri/src/commands/search.rs`, resolve `ProviderSettings` at the start of the run and build `EvaluationSettings` from `settings.evaluation_concurrency` instead of `config.max_concurrency`.
+- [X] T026 [US2] In `src-tauri/src/commands/config.rs`, add `evaluation_concurrency` to `ProviderConfigView` and `ProviderConfigInput`, validate `1..=8`, persist it under `app_settings["evaluation.concurrency"]`, and return it from `build_view`.
+- [X] T027 [US2] Add the global numeric field to `src/components/ProviderConfigDialog.tsx` with an accessible label, helper text, `1..=8` validation, and save wiring; update `src/lib/types.ts` and `src/lib/ipc.ts` if the shape drifted.
+- [X] T028 [P] [US2] Update `src/test/fixtures.ts` (and any provider-config mock) with `evaluationConcurrency` so the dialog tests and `cmd_get_provider_config` mocks stay type-correct.
 
 **Checkpoint**: US1 and US2 work independently.
 
@@ -123,17 +123,17 @@ and counts before the run ends, then clears.
 
 ### Tests for User Story 3
 
-- [ ] T029 [P] [US3] Add `src-tauri/tests/search_progress.rs` asserting the emitted sequence starts with `collecting`, transitions once to `evaluating`, has non-decreasing counts, ends with a final event before the command resolves, and handles an empty result set.
-- [ ] T030 [P] [US3] Add `src/viewmodels/useSearchProgress.test.ts` proving the hook subscribes when active, updates on event, unsubscribes on inactive/unmount, returns `null` on subscription failure, and ignores malformed payloads.
-- [ ] T031 [P] [US3] Add a `src/views/NewJobsView.test.tsx` case for the progress line rendering while searching, showing `Collecting…`/`Evaluating…`, and disappearing when the run ends.
+- [X] T029 [P] [US3] Add `src-tauri/tests/search_progress.rs` asserting the emitted sequence starts with `collecting`, transitions once to `evaluating`, has non-decreasing counts, ends with a final event before the command resolves, and handles an empty result set.
+- [X] T030 [P] [US3] Add `src/viewmodels/useSearchProgress.test.ts` proving the hook subscribes when active, updates on event, unsubscribes on inactive/unmount, returns `null` on subscription failure, and ignores malformed payloads.
+- [X] T031 [P] [US3] Add a `src/views/NewJobsView.test.tsx` case for the progress line rendering while searching, showing `Collecting…`/`Evaluating…`, and disappearing when the run ends.
 
 ### Implementation for User Story 3
 
-- [ ] T032 [US3] Emit `search://progress` from `src-tauri/src/commands/search.rs` using `AppHandle::emit`, coalesced to at most one event per 250 ms plus stage transitions and one final event; counters are plain integers owned by the run.
-- [ ] T033 [US3] Build the collection side of the sink in `src-tauri/src/ingestion/mod.rs`: add to `found` as each source or fallback finishes, add to `failed` for each failure, and never read the database inside the sink.
-- [ ] T034 [US3] Implement `src/viewmodels/useSearchProgress.ts` against `listen()` from `@tauri-apps/api/event`, with cleanup and the `null` behavior from `contracts/progress-event.md`.
-- [ ] T035 [US3] Wire the hook in `src/views/DashboardView.tsx` while `searching` is true and render the aggregate progress line in `src/views/NewJobsView.tsx`; clear it when the run resolves.
-- [ ] T036 [P] [US3] Verify `src-tauri/capabilities/default.json` grants event listening with a real `listen()` test; add `core:event:default` only if the existing `core:default` is insufficient.
+- [X] T032 [US3] Emit `search://progress` from `src-tauri/src/commands/search.rs` using `AppHandle::emit`, coalesced to at most one event per 250 ms plus stage transitions and one final event; counters are plain integers owned by the run.
+- [X] T033 [US3] Build the collection side of the sink in `src-tauri/src/ingestion/mod.rs`: add to `found` as each source or fallback finishes, add to `failed` for each failure, and never read the database inside the sink.
+- [X] T034 [US3] Implement `src/viewmodels/useSearchProgress.ts` against `listen()` from `@tauri-apps/api/event`, with cleanup and the `null` behavior from `contracts/progress-event.md`.
+- [X] T035 [US3] Wire the hook in `src/views/DashboardView.tsx` while `searching` is true and render the aggregate progress line in `src/views/NewJobsView.tsx`; clear it when the run resolves.
+- [X] T036 [P] [US3] Verify `src-tauri/capabilities/default.json` grants event listening with a real `listen()` test; add `core:event:default` only if the existing `core:default` is insufficient.
 
 **Checkpoint**: US1–US3 work independently.
 
@@ -148,13 +148,13 @@ the budget plus overhead, reporting that source as a failure and keeping the oth
 
 ### Tests for User Story 4
 
-- [ ] T037 [P] [US4] Add `src-tauri/tests/ingestion_budget.rs` where one adapter never resolves; assert it becomes `SOURCE_TIMEOUT` after its budget, the other adapter's postings are kept, the run completes, and a drop guard proves the timed-out future was dropped.
-- [ ] T038 [P] [US4] Add unit tests in `src-tauri/src/config/sources.rs` for the `budget_seconds` default `180`, the clamp `30..=900`, and an explicit override.
+- [X] T037 [P] [US4] Add `src-tauri/tests/ingestion_budget.rs` where one adapter never resolves; assert it becomes `SOURCE_TIMEOUT` after its budget, the other adapter's postings are kept, the run completes, and a drop guard proves the timed-out future was dropped.
+- [X] T038 [P] [US4] Add unit tests in `src-tauri/src/config/sources.rs` for the `budget_seconds` default `180`, the clamp `30..=900`, and an explicit override.
 
 ### Implementation for User Story 4
 
-- [ ] T039 [US4] Wire `fetch_with_budget` into `src-tauri/src/ingestion/mod.rs` so every primary and fallback fetch uses its own `budget_seconds`; a timeout produces `SOURCE_TIMEOUT` and does not abort the group.
-- [ ] T040 [US4] Add `budget_seconds` to `sources.yaml` (JobSpy `300`, LinkedIn `180`, scraper `180`, RemoteOK `30`) and document the key and defaults in `README.md`.
+- [X] T039 [US4] Wire `fetch_with_budget` into `src-tauri/src/ingestion/mod.rs` so every primary and fallback fetch uses its own `budget_seconds`; a timeout produces `SOURCE_TIMEOUT` and does not abort the group.
+- [X] T040 [US4] Add `budget_seconds` to `sources.yaml` (JobSpy `300`, LinkedIn `180`, scraper `180`, RemoteOK `30`) and document the key and defaults in `README.md`.
 
 **Checkpoint**: US1–US4 work independently.
 
@@ -172,17 +172,17 @@ make the primary deliver enough and confirm the fallback performs no requests.
 
 > Write these tests first; they must fail before T045.
 
-- [ ] T041 [P] [US5] Add `src-tauri/tests/ingestion_fallback.rs` covering the matrix: primary delivers enough (fallback skipped), primary empty (fallback runs), primary below minimum (fallback runs and results merge), primary fails (fallback runs), primary disabled (fallback runs as a normal source), and both fail (both reported).
-- [ ] T042 [P] [US5] Add the known-only case to `src-tauri/tests/ingestion_fallback.rs`: a primary with `jobs = []` and `known_skipped` meeting the minimum counts as delivered, and the fallback performs zero requests.
-- [ ] T043 [P] [US5] Add a timing case to `src-tauri/tests/ingestion_fallback.rs` proving the fallback starts before an unrelated slow primary finishes (use `tokio::time::pause` or a channel).
-- [ ] T044 [P] [US5] Add a case in `src-tauri/tests/ingestion_fallback.rs` or `src-tauri/src/commands/search.rs` tests proving a `fallback_skipped` outcome leaves `job_sources.last_run_status` unchanged.
+- [X] T041 [P] [US5] Add `src-tauri/tests/ingestion_fallback.rs` covering the matrix: primary delivers enough (fallback skipped), primary empty (fallback runs), primary below minimum (fallback runs and results merge), primary fails (fallback runs), primary disabled (fallback runs as a normal source), and both fail (both reported).
+- [X] T042 [P] [US5] Add the known-only case to `src-tauri/tests/ingestion_fallback.rs`: a primary with `jobs = []` and `known_skipped` meeting the minimum counts as delivered, and the fallback performs zero requests.
+- [X] T043 [P] [US5] Add a timing case to `src-tauri/tests/ingestion_fallback.rs` proving the fallback starts before an unrelated slow primary finishes (use `tokio::time::pause` or a channel).
+- [X] T044 [P] [US5] Add a case in `src-tauri/tests/ingestion_fallback.rs` or `src-tauri/src/commands/search.rs` tests proving a `fallback_skipped` outcome leaves `job_sources.last_run_status` unchanged.
 
 ### Implementation for User Story 5
 
-- [ ] T045 [US5] Replace the flat `join_all` in `src-tauri/src/ingestion/mod.rs` with per-primary groups: run each primary, decide whether it delivered enough, then run its fallbacks immediately while unrelated primaries continue; merge every outcome and set `fallback_skipped` for fallbacks that did not run.
-- [ ] T046 [US5] In `src-tauri/src/ingestion/mod.rs`, compute delivery as `jobs.len() + known_skipped.len()`, trigger the fallback when the primary failed or `delivered < fallback_min_results`, run a fallback with a missing/disabled primary as a normal source with a configuration warning, and never retry a failed fallback within the run.
-- [ ] T047 [US5] In `src-tauri/src/commands/search.rs`, skip `set_last_run_status` for `fallback_skipped` sources and keep the per-source failure messages and the `PARTIAL`/`FAILED` run status behavior.
-- [ ] T048 [P] [US5] Add `fallback_for: linkedin` and `fallback_min_results: 1` to the `linkedin_scraper` entry in `sources.yaml`, and update the example and the delivery definition in `README.md`.
+- [X] T045 [US5] Replace the flat `join_all` in `src-tauri/src/ingestion/mod.rs` with per-primary groups: run each primary, decide whether it delivered enough, then run its fallbacks immediately while unrelated primaries continue; merge every outcome and set `fallback_skipped` for fallbacks that did not run.
+- [X] T046 [US5] In `src-tauri/src/ingestion/mod.rs`, compute delivery as `jobs.len() + known_skipped.len()`, trigger the fallback when the primary failed or `delivered < fallback_min_results`, run a fallback with a missing/disabled primary as a normal source with a configuration warning, and never retry a failed fallback within the run.
+- [X] T047 [US5] In `src-tauri/src/commands/search.rs`, skip `set_last_run_status` for `fallback_skipped` sources and keep the per-source failure messages and the `PARTIAL`/`FAILED` run status behavior.
+- [X] T048 [P] [US5] Add `fallback_for: linkedin` and `fallback_min_results: 1` to the `linkedin_scraper` entry in `sources.yaml`, and update the example and the delivery definition in `README.md`.
 
 **Checkpoint**: All five stories work independently.
 
@@ -190,11 +190,11 @@ make the primary deliver enough and confirm the fallback performs no requests.
 
 ## Phase 8: Polish & Cross-Cutting Concerns
 
-- [ ] T049 [P] Consolidate the new `sources.yaml` keys, the evaluation concurrency field, the progress line, and the known-posting behavior in `README.md`.
-- [ ] T050 [P] Update `AGENTS.md` §6 (ingestion skip, fallback delivery, budget), §7 (progress hook and dialog field), and §8 (concurrency range and setting) so the rulebook matches the code.
-- [ ] T051 [P] Update `specs/015-faster-search/contracts/*` and `specs/015-faster-search/data-model.md` if any shape drifted during implementation.
-- [ ] T052 Run `./scripts/verify.sh` and fix every failure; report any skipped check explicitly.
-- [ ] T053 [P] Run `npm run format:check`, `cargo fmt --manifest-path src-tauri/Cargo.toml --check`, and a final `cargo clippy` on the touched crates; fix formatting and warnings.
+- [X] T049 [P] Consolidate the new `sources.yaml` keys, the evaluation concurrency field, the progress line, and the known-posting behavior in `README.md`.
+- [X] T050 [P] Update `AGENTS.md` §6 (ingestion skip, fallback delivery, budget), §7 (progress hook and dialog field), and §8 (concurrency range and setting) so the rulebook matches the code.
+- [X] T051 [P] Update `specs/015-faster-search/contracts/*` and `specs/015-faster-search/data-model.md` if any shape drifted during implementation.
+- [X] T052 Run `./scripts/verify.sh` and fix every failure; report any skipped check explicitly.
+- [X] T053 [P] Run `npm run format:check`, `cargo fmt --manifest-path src-tauri/Cargo.toml --check`, and a final `cargo clippy` on the touched crates; fix formatting and warnings.
 
 ---
 

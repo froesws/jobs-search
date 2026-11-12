@@ -170,24 +170,38 @@ replaced later.
 `cmd_trigger_search` is single-flight. It takes `AppState.search_lock`, loads
 the profile (and blocks if no resume-backed profile exists), loads
 `sources.yaml`, upserts the enabled sources, resolves empty filters from the
-profile, creates an execution run, builds adapters, and ingests enabled sources
-concurrently.
+profile, creates an execution run, resolves the provider chain, loads the known
+postings once, and ingests enabled sources concurrently.
 
 The pipeline is:
 
-1. Fetch from each enabled source through `SourceAdapter`. A source failure is
-   isolated and reported in `source_failures`; it never discards other sources.
-2. Normalize raw postings, derive the canonical identity, deduplicate, upsert
+1. Load the postings stored with a non-empty description (`db::jobs::known_postings`)
+   before any network call, and pass them in `IngestionRequest.known_postings`.
+   Never hold the database lock across an `.await`.
+2. Fetch from each enabled source through `SourceAdapter`, with each source
+   bounded by its `budget_seconds` (a timeout is `SOURCE_TIMEOUT`). A source
+   failure is isolated and reported in `source_failures`; it never discards
+   other sources. A configured `fallback_for` source only runs when its primary
+   failed or delivered fewer than `fallback_min_results` postings, where
+   delivered = fetched jobs + reused known postings.
+3. Normalize raw postings, derive the canonical identity, deduplicate, upsert
    `job_postings`, and add one `job_posting_sources` lineage row per source.
-3. Apply deterministic hard filters before any LLM call.
-4. For postings that pass, call the LLM for requirement evidence.
-5. Score deterministically with 40% core technical, 25% domain, 20% seniority,
+   Known skipped postings only refresh lineage and do not count as new
+   ingestion.
+4. Apply deterministic hard filters before any LLM call.
+5. For postings that pass, call the LLM for requirement evidence, up to the
+   configured evaluation concurrency.
+6. Score deterministically with 40% core technical, 25% domain, 20% seniority,
    and 15% secondary. A dimension with zero requirements contributes zero.
-6. Persist the evaluation with its score, evidence, threshold, provider/model,
+7. Persist the evaluation with its score, evidence, threshold, provider/model,
    and `RULES_VERSION`. `score >= threshold` is `APPROVED`; otherwise `PENDING`.
    A hard-filter failure is `REJECTED`; an evaluation failure is `ERROR`.
-7. Finish the run with `SUCCESS`, `PARTIAL`, or `FAILED`, depending on ingestion
+8. Finish the run with `SUCCESS`, `PARTIAL`, or `FAILED`, depending on ingestion
    and provider outcomes.
+
+While a run is active the command emits `search://progress` through
+`SearchProgressTracker`: `collecting` then `evaluating`, counters only, at most
+one event per 250 ms plus one per stage transition and one final event.
 
 The UI exposes four tabs: New Jobs, Applications, Profile, and Analytics. The
 New Jobs tab has Approved and Below threshold views; the drawer shows job detail,
@@ -203,8 +217,10 @@ file write stays in Rust.
 
 ### Provider settings
 
-`cmd_get_provider_config` returns the effective provider settings; credentials
-are never included. `cmd_save_provider_config` persists non-secret settings in
+`cmd_get_provider_config` returns the effective provider settings, including the
+evaluation concurrency (from `app_settings["evaluation.concurrency"]`, then
+`JOBS_SEARCH_LLM_CONCURRENCY`, then `4`, clamped `1..=8`); credentials are never
+included. `cmd_save_provider_config` persists non-secret settings in
 `app_settings` and clears any session-only selection. Credentials go through
 `cmd_save_provider_credential` (OS credential store, with a consented `.env`
 fallback) and `cmd_remove_provider_credential`. `cmd_set_session_selection`
@@ -262,6 +278,12 @@ UI labels are English, but external source query terms are Portuguese:
   loaded profile.
 - Analytics export uses the Tauri dialog plugin directly in `AnalyticsView` for
   the save picker; the actual CSV write still goes through `cmd_export_analytics_csv`.
+- `useSearchProgress` subscribes to `search://progress` with `listen()` while the
+  run is active, ignores malformed payloads, and returns `null` when inactive or
+  unsubscribed. `DashboardView` passes it to `NewJobsView`, which renders the
+  progress line only while searching.
+- The provider dialog owns the global evaluation concurrency field and rejects
+  values outside `1..=8` before saving.
 
 Frontend tests:
 
@@ -339,6 +361,9 @@ pub fn cmd_example(state: State<'_, AppState>, id: String) -> Result<Thing, Erro
   decisions into model prompts.
 - Scoring is deterministic and lives in `src-tauri/src/match/score.rs`; the LLM
   only extracts requirement evidence.
+- Evaluation concurrency is clamped to `1..=8` in `evaluate_run`, comes from
+  `ProviderSettings.evaluation_concurrency`, and emits one `EvaluationProgress`
+  update per completed posting through the optional `ProgressSink`.
 - If you change weights, dimensions, filters, or thresholds in a way that
   changes results, bump `RULES_VERSION` in `src-tauri/src/db/evaluations.rs` and
   mark existing evaluations stale. Update the contract tests and README.

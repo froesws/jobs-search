@@ -71,7 +71,7 @@ LLM_ALLOW_FALLBACK=true
 LLM_TIMEOUT_SECONDS=45
 MATCH_THRESHOLD=50
 JOBS_SEARCH_MAX_EVALUATIONS=100
-JOBS_SEARCH_LLM_CONCURRENCY=2
+JOBS_SEARCH_LLM_CONCURRENCY=4
 RUST_LOG=info
 ```
 
@@ -85,6 +85,10 @@ override), `openrouter/free`, and `deepseek-flash` at
 `OPENROUTER_FREE_MODELS`, and `DEEPSEEK_MODEL` without changing code. The
 example enables fallback; set `LLM_ALLOW_FALLBACK=false` to pin a single
 provider.
+
+`JOBS_SEARCH_LLM_CONCURRENCY` defaults to `4` and accepts `1` through `8`; it
+is the fallback for the evaluation concurrency when no value is saved in the
+provider settings dialog.
 
 In production, the app reads `.env` from the application data directory first,
 falls back to the current directory, and lets OS environment variables take
@@ -114,6 +118,9 @@ selection, and credentials without editing `.env` or restarting the app.
   default; "Show all models" adds paid models with their price for the session.
 - **Attempts** are per provider. OpenRouter's attempt count is the length of its
   ordered model list, so each attempt uses a different model.
+- **Evaluation concurrency** is global: the number of postings evaluated at
+  once, from `1` to `8` (default `4`). It is stored in `app_settings` and applies
+  to the next run without restarting the app.
 - **Ollama** is opt-in. When enabled, the dialog queries the local server and
   pre-selects the first model it reports.
 
@@ -142,10 +149,36 @@ The two authenticated LinkedIn sources are optional. Set `enabled: false` in
 JobSpy and the local wrapper are started with `uv run --project`, so `uv` must
 be available in the environment that starts the app.
 
+`linkedin_scraper` declares `fallback_for: linkedin`, so it only runs when its
+primary fails or delivers fewer than `fallback_min_results` postings (default
+`1`). A primary counts as delivered when it returns jobs plus postings whose
+detail was reused from storage; a healthy primary therefore costs one LinkedIn
+collection, not two. A fallback starts as soon as its own primary decides, while
+unrelated sources keep running. When the configured primary is missing or
+disabled, the fallback runs as a normal source and a configuration warning is
+logged. A skipped fallback keeps its previous `last_run_status`.
+
+Each source has a whole-run `rate_limit.budget_seconds` (default `180`, clamped
+`30..=900`). A source that exceeds its budget is reported as `SOURCE_TIMEOUT`
+and never blocks the run; the other sources keep their postings. The shipped
+values are JobSpy `300`, both LinkedIn sources `180`, and RemoteOK `30`.
+
+Before collecting, the backend loads the postings already stored with a
+non-empty description. The LinkedIn adapter skips `get_job_details` for those
+external IDs, still counts them as listed, and refreshes their lineage. Known
+postings are not new ingestion, so `total_ingested` only counts new postings.
+
 JobSpy fetches posting bodies by default (`fetch_descriptions: true`); LinkedIn
 and Glassdoor otherwise return metadata only, leaving the hard filters and the
 LLM with just a title. Fetching descriptions is slower and more likely to hit a
 board's rate limit, so set `fetch_descriptions: false` for title-only results.
+
+While a run is active, the backend emits `search://progress` with counters only:
+the stage (`collecting` or `evaluating`), postings found, postings evaluated,
+the evaluation total, and failed sources. Events are coalesced to at most one
+per 250 ms plus one per stage change and one final event. The New Jobs tab shows
+the line while the search is running and clears it when the run resolves. If
+the frontend is not listening, events are dropped silently.
 
 ## Search filters
 
