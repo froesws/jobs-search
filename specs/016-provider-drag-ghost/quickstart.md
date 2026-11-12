@@ -9,6 +9,19 @@ npx vitest run src/components/providerDrag.test.ts src/components/ProviderConfig
 ./scripts/verify.sh
 ```
 
+## Observed defects (2026-11-12)
+
+Reproduce each before fixing:
+
+1. Press a reorder handle and do not move. The ghost appears at the top-left
+   corner of the window (0,0) and only jumps to the pointer on the first move.
+2. Move the pointer through the gap between two rows, or beyond the first/last
+   row. The list does not follow, or jumps back to the previous row.
+3. Drag quickly across several rows. The drag sometimes stops after one position
+   and the ghost freezes.
+4. There is no way to cancel a drag; Escape leaves the dialog in the dragged
+   order.
+
 ## Manual verification (required)
 
 jsdom cannot reproduce WebKitGTK pointer behavior, so verify in the real shell:

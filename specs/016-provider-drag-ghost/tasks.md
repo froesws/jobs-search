@@ -31,7 +31,7 @@ implementable and testable.
 
 **Purpose**: Capture the reproduction and keep the change dependency-free.
 
-- [ ] T001 Add the manual WebKitGTK reproduction and result log to `specs/016-provider-drag-ghost/quickstart.md`; confirm the fix needs no new dependency and may use `createPortal` from `react-dom`.
+- [X] T001 Add the manual WebKitGTK reproduction and result log to `specs/016-provider-drag-ghost/quickstart.md`; confirm the fix needs no new dependency and may use `createPortal` from `react-dom`.
 
 ---
 
