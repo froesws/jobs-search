@@ -553,8 +553,14 @@ chore(spec): confirm the opener capability scope
   events inside a modal. A `draggable` element fires `dragstart`, but `onDrop`
   often never runs. Build reordering with pointer events instead: `pointerdown`
   on a handle, `pointermove`/`pointerup` on `window`, and hit-test rows with
-  `getBoundingClientRect`. Keep keyboard move buttons for accessibility;
-  `ProviderConfigDialog` is the reference implementation.
+  live `getBoundingClientRect` values on every move (never cache them by index).
+  Do not call `setPointerCapture` on a handle that the reorder moves in the DOM:
+  capture can be lost or throw and end the drag after one position. Render the
+  drag ghost through `createPortal(..., document.body)` above
+  `theme.zIndex.modal`, position it after mount, and restore an order snapshot
+  on Escape/`pointercancel`. Keep keyboard move buttons and the `aria-live`
+  announcement for accessibility; `ProviderConfigDialog` is the reference
+  implementation.
 - `matching` is an alias for the `match/` directory. Do not create both.
 - The crate root has `#![warn(missing_docs)]`; do not silence it globally just
   to add a module. Follow the existing per-module pattern.
