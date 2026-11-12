@@ -55,6 +55,8 @@ Iteration 2 (2026-11-11):
 - Documented the known semantic difference: the secondary source ignores date and
   experience filters, so a run that used it may include older postings. Hard filters still
   bound the outcome.
+- FR-014 was made explicit that a **successful but empty** primary response also triggers
+  the fallback, and a "fewer than the minimum" scenario was added to US5.
 - All checklist items still pass.
 
 ## Notes

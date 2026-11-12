@@ -134,7 +134,10 @@ secondary source does not run.
    source runs and its postings are used.
 3. **Given** the primary source succeeds but returns no postings, **When** the run
    collects, **Then** the secondary source runs and its postings are used.
-4. **Given** both sources fail, **When** the run ends, **Then** the failure is reported
+4. **Given** the primary source returns fewer postings than the configured minimum, **When**
+   the run collects, **Then** the secondary source runs and its postings are merged with
+   the primary's.
+5. **Given** both sources fail, **When** the run ends, **Then** the failure is reported
    once per source and the rest of the run continues.
 
 ### Edge Cases
@@ -181,8 +184,9 @@ secondary source does not run.
 - **FR-012**: The limits MUST have conservative built-in defaults that do not exceed the
   providers' documented tolerances.
 - **FR-013**: A source MUST be configurable as the fallback of another source.
-- **FR-014**: A fallback source MUST run only when its primary source fails or returns
-  fewer than the configured minimum number of postings.
+- **FR-014**: A fallback source MUST run when its primary source fails **or** returns fewer
+  postings than the configured minimum, including the case where it returns zero postings
+  successfully.
 - **FR-015**: A fallback source MUST NOT run when its primary source succeeds with enough
   postings.
 - **FR-016**: The fallback relationship MUST NOT change the per-source failure reporting:
