@@ -56,4 +56,18 @@ Record any WebKitGTK-specific deviation in this file.
 
 | Date | Environment | Result | Notes |
 |------|-------------|--------|-------|
-| | | | |
+| 2026-11-12 | Linux, Wayland, `tauri dev` already running | Pending operator check | Automated pointer tooling is unavailable in the agent session; the checklist above must be run by hand. |
+
+## Automated coverage
+
+| Scenario | Covered by |
+|----------|------------|
+| Ghost mounts at the press point | `ProviderConfigDialog.test.tsx` "positions the ghost at the press point…" |
+| Ghost is portaled above the modal | same test (`parentElement`, `zIndex`) |
+| Multi-row, gap, and boundary drops | "moves the dragged provider across several rows…", "uses the nearest row…", "clamps a drop above or below the list…" |
+| Multi-pointer isolation | "ignores pointers other than the one that started the drag" |
+| Mid-drag re-render | "keeps hit-testing after the dialog re-renders mid-drag" |
+| Escape / pointercancel restore | "restores the pre-drag order when Escape cancels the drag", "…on pointercancel" |
+| pointerup commits | "keeps the new order when the drag commits on pointerup" |
+| Live announcements | "announces each reorder to assistive technology" |
+| Pure geometry | `providerDrag.test.ts` |
