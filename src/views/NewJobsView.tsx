@@ -8,7 +8,7 @@ import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 
-import type { JobSummary, SearchMetrics } from '@/lib/types';
+import type { JobSummary, SearchMetrics, SearchProgress } from '@/lib/types';
 import { useJobsViewModel } from '@/viewmodels/useJobsViewModel';
 import { AuditDialog } from '@/components/AuditDialog';
 import { EmptyState } from '@/components/EmptyState';
@@ -21,11 +21,15 @@ export function NewJobsView({
   metrics,
   onSearch,
   onOpenJob,
+  searching = false,
+  progress = null,
 }: {
   refreshToken: number;
   metrics: SearchMetrics | null;
   onSearch: () => void;
   onOpenJob: (job: JobSummary) => void;
+  searching?: boolean;
+  progress?: SearchProgress | null;
 }) {
   const [tab, setTab] = useState<'NEW_JOBS' | 'BELOW_THRESHOLD'>('NEW_JOBS');
   const [auditRunId, setAuditRunId] = useState<string | null>(null);
@@ -65,6 +69,23 @@ export function NewJobsView({
 
       {metrics ? (
         <RunSummary metrics={metrics} onAudit={() => setAuditRunId(metrics.run_id)} />
+      ) : null}
+
+      {searching && progress ? (
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          data-testid="search-progress"
+          aria-live="polite"
+        >
+          {progress.stage === 'collecting'
+            ? `Collecting… ${progress.found} found${
+                progress.failed > 0
+                  ? ` · ${progress.failed} source${progress.failed === 1 ? '' : 's'} failed`
+                  : ''
+              }`
+            : `Evaluating… ${progress.evaluated} of ${progress.total}`}
+        </Typography>
       ) : null}
 
       {jobs.status === 'loading' ? <LoadingState label="Fetching your ranked matches…" /> : null}

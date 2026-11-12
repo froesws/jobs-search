@@ -57,4 +57,59 @@ describe('NewJobsView', () => {
 
     expect(await screen.findByText('No approved jobs yet')).toBeInTheDocument();
   });
+
+  it('renders aggregate progress while searching and clears it afterwards', () => {
+    vi.mocked(getJobs).mockResolvedValue({
+      items: [],
+      total: 0,
+      limit: 12,
+      offset: 0,
+      tab: 'NEW_JOBS',
+    });
+
+    const { rerender } = render(
+      <FeedbackProvider>
+        <NewJobsView
+          refreshToken={1}
+          metrics={null}
+          onSearch={() => {}}
+          onOpenJob={() => {}}
+          searching
+          progress={{ stage: 'collecting', found: 42, evaluated: 0, total: 0, failed: 1 }}
+        />
+      </FeedbackProvider>,
+    );
+
+    expect(screen.getByTestId('search-progress')).toHaveTextContent(
+      'Collecting… 42 found · 1 source failed',
+    );
+
+    rerender(
+      <FeedbackProvider>
+        <NewJobsView
+          refreshToken={1}
+          metrics={null}
+          onSearch={() => {}}
+          onOpenJob={() => {}}
+          searching
+          progress={{ stage: 'evaluating', found: 42, evaluated: 37, total: 100, failed: 1 }}
+        />
+      </FeedbackProvider>,
+    );
+    expect(screen.getByTestId('search-progress')).toHaveTextContent('Evaluating… 37 of 100');
+
+    rerender(
+      <FeedbackProvider>
+        <NewJobsView
+          refreshToken={1}
+          metrics={null}
+          onSearch={() => {}}
+          onOpenJob={() => {}}
+          searching={false}
+          progress={{ stage: 'evaluating', found: 42, evaluated: 100, total: 100, failed: 1 }}
+        />
+      </FeedbackProvider>,
+    );
+    expect(screen.queryByTestId('search-progress')).not.toBeInTheDocument();
+  });
 });

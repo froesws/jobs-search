@@ -20,6 +20,7 @@ import { ProviderConfigDialog } from '@/components/ProviderConfigDialog';
 import { useDashboardState } from '@/viewmodels/useDashboardState';
 import { useJobDetailViewModel } from '@/viewmodels/useJobDetailViewModel';
 import { useProviderConfig } from '@/viewmodels/useProviderConfig';
+import { useSearchProgress } from '@/viewmodels/useSearchProgress';
 import { ApplicationsView } from '@/views/ApplicationsView';
 import { NewJobsView } from '@/views/NewJobsView';
 import { ProfileView } from '@/views/ProfileView';
@@ -42,6 +43,7 @@ export function DashboardView({
   const [searching, setSearching] = useState(false);
   const [actionBusy, setActionBusy] = useState(false);
   const [metrics, setMetrics] = useState<SearchMetrics | null>(null);
+  const progress = useSearchProgress(searching);
 
   const handleSearch = async () => {
     const invalid = validateFilters(dashboard.filters);
@@ -145,6 +147,8 @@ export function DashboardView({
             metrics={metrics}
             onSearch={() => void handleSearch()}
             onOpenJob={handleOpenJob}
+            searching={searching}
+            progress={progress}
           />
         ) : null}
         {dashboard.tab === 'APPLICATIONS' ? (
