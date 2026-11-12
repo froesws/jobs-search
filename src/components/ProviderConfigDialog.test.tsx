@@ -43,6 +43,7 @@ function configView(overrides: Partial<ProviderConfigView> = {}): ProviderConfig
     order: ['gemini', 'openrouter', 'deepseek', 'ollama'],
     fallbackEnabled: false,
     sessionOverride: null,
+    evaluationConcurrency: 4,
     ...overrides,
   };
 }
@@ -346,5 +347,31 @@ describe('ProviderConfigDialog', () => {
     fireEvent.click(screen.getByText('Gemini'));
     fireEvent.click(screen.getByRole('button', { name: 'Reset model' }));
     await waitFor(() => expect(resetSetting).toHaveBeenCalledWith('gemini', 'model'));
+  });
+
+  it('loads, validates, and saves the evaluation concurrency', async () => {
+    const save = vi.fn().mockResolvedValue(configView({ evaluationConcurrency: 6 }));
+    render(
+      <ProviderConfigDialog
+        open
+        onClose={() => {}}
+        state={state({ config: configView({ evaluationConcurrency: 6 }), save })}
+      />,
+    );
+
+    const field = screen.getByLabelText('Evaluation concurrency');
+    expect(field).toHaveValue(6);
+
+    fireEvent.change(field, { target: { value: '12' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(
+      screen.getByText('Evaluation concurrency must be a whole number between 1 and 8.'),
+    ).toBeInTheDocument();
+    expect(save).not.toHaveBeenCalled();
+
+    fireEvent.change(field, { target: { value: '5' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(save).toHaveBeenCalled());
+    expect(vi.mocked(save).mock.calls[0]![0].evaluationConcurrency).toBe(5);
   });
 });

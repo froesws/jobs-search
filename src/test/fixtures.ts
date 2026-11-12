@@ -258,6 +258,7 @@ export const providerConfigFixture: ProviderConfigView = {
   order: ['gemini', 'openrouter', 'deepseek', 'ollama'],
   fallbackEnabled: false,
   sessionOverride: null,
+  evaluationConcurrency: 4,
 };
 
 export function providerStateFixture(

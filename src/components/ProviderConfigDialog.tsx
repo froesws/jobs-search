@@ -44,6 +44,7 @@ interface ProviderDraft {
 interface Draft {
   order: ProviderId[];
   fallbackEnabled: boolean;
+  evaluationConcurrency: string;
   providers: Record<string, ProviderDraft>;
 }
 
@@ -71,6 +72,7 @@ function draftFrom(config: ProviderConfigState['config']): Draft {
   return {
     order: config?.order ?? [],
     fallbackEnabled: config?.fallbackEnabled ?? false,
+    evaluationConcurrency: String(config?.evaluationConcurrency ?? 4),
     providers,
   };
 }
@@ -320,9 +322,20 @@ export function ProviderConfigDialog({
     setBusy('save');
     setError(null);
     setNotice(null);
+    const evaluationConcurrency = Number(draft.evaluationConcurrency);
+    if (
+      !Number.isInteger(evaluationConcurrency) ||
+      evaluationConcurrency < 1 ||
+      evaluationConcurrency > 8
+    ) {
+      setError('Evaluation concurrency must be a whole number between 1 and 8.');
+      setBusy(null);
+      return;
+    }
     const input: ProviderConfigInput = {
       order: draft.order,
       fallbackEnabled: draft.fallbackEnabled,
+      evaluationConcurrency,
       providers: providers.map((provider) => {
         const value = draft.providers[provider.id]!;
         if (provider.id === 'openrouter') {
@@ -348,6 +361,13 @@ export function ProviderConfigDialog({
   };
 
   const catalogFor = (provider: ProviderSettingView) => catalogs[provider.id]?.models ?? [];
+
+  const concurrencyNumber = Number(draft.evaluationConcurrency);
+  const isConcurrencyInvalid =
+    draft.evaluationConcurrency.trim() === '' ||
+    !Number.isInteger(concurrencyNumber) ||
+    concurrencyNumber < 1 ||
+    concurrencyNumber > 8;
 
   return (
     <>
@@ -384,6 +404,22 @@ export function ProviderConfigDialog({
                 />
               }
               label="Use fallback across providers"
+            />
+            <TextField
+              label="Evaluation concurrency"
+              type="number"
+              size="small"
+              value={draft.evaluationConcurrency}
+              onChange={(event) =>
+                setDraft((current) => ({
+                  ...current,
+                  evaluationConcurrency: event.target.value,
+                }))
+              }
+              error={isConcurrencyInvalid}
+              helperText="Evaluations in flight at once (1-8)."
+              slotProps={{ htmlInput: { min: 1, max: 8, step: 1 } }}
+              sx={{ maxWidth: 260 }}
             />
             <Typography variant="body2" color="text.secondary">
               Provider order: the first configured provider is used first.

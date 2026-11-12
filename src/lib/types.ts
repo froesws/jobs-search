@@ -134,6 +134,16 @@ export interface SearchMetrics {
   source_failures: string[];
 }
 
+export type SearchStage = 'collecting' | 'evaluating';
+
+export interface SearchProgress {
+  stage: SearchStage;
+  found: number;
+  evaluated: number;
+  total: number;
+  failed: number;
+}
+
 export interface ResumeSummary {
   id: string;
   filename: string;
@@ -182,6 +192,7 @@ export interface ProviderConfigView {
   order: ProviderId[];
   fallbackEnabled: boolean;
   sessionOverride: SessionSelection | null;
+  evaluationConcurrency: number;
 }
 
 export interface ProviderSettingInput {
@@ -197,6 +208,7 @@ export interface ProviderConfigInput {
   order: ProviderId[];
   fallbackEnabled: boolean;
   providers: ProviderSettingInput[];
+  evaluationConcurrency: number;
 }
 
 export interface ModelOption {
