@@ -98,7 +98,7 @@ export function ProviderConfigDialog({
   const [draft, setDraft] = useState<Draft>(() => draftFrom(state.config));
   const [catalogs, setCatalogs] = useState<Record<string, ModelCatalogView>>({});
   const [showAll, setShowAll] = useState<Record<string, boolean>>({});
-  const [dragging, setDragging] = useState<number | null>(null);
+  const [draggingId, setDraggingId] = useState<ProviderId | null>(null);
   const orderList = useRef<HTMLDivElement | null>(null);
   const dragGhost = useRef<HTMLDivElement | null>(null);
   const dragPoint = useRef<DragPoint>({ x: 0, y: 0 });
@@ -138,7 +138,7 @@ export function ProviderConfigDialog({
   // are gone, so drop the session and the cached row elements.
   useEffect(() => {
     if (open) return;
-    setDragging(null);
+    setDraggingId(null);
   }, [open]);
 
   // Ollama has no static catalog: query the local server when the dialog opens
@@ -171,23 +171,23 @@ export function ProviderConfigDialog({
   const labelFor = (providerId: ProviderId) =>
     state.config?.providers.find((provider) => provider.id === providerId)?.label ?? providerId;
 
-  const startDrag = (event: ReactPointerEvent<HTMLElement>, index: number) => {
+  const startDrag = (event: ReactPointerEvent<HTMLElement>, providerId: ProviderId) => {
     event.preventDefault();
     // Do not capture the pointer: the handle is moved in the DOM by the
     // reorder, and a lost or rejected capture ends the drag after one move.
     // Window listeners already receive the events.
     dragPointerId.current = event.pointerId;
     dragPoint.current = { x: event.clientX, y: event.clientY };
-    setDragging(index);
+    setDraggingId(providerId);
   };
 
   // The ghost mounts only after the drag state changes, so its first position
   // must be applied after mount. Writing it in the pointerdown handler is too
   // early: the element does not exist yet and it flashes at the viewport origin.
   useLayoutEffect(() => {
-    if (dragging === null || !dragGhost.current) return;
+    if (draggingId === null || !dragGhost.current) return;
     dragGhost.current.style.transform = ghostTransform(dragPoint.current);
-  }, [dragging]);
+  }, [draggingId]);
 
   const moveProvider = (from: number, to: number) => {
     if (from === to) return;
@@ -204,7 +204,7 @@ export function ProviderConfigDialog({
   // Pointer-based dragging: WebKitGTK (the Tauri Linux webview) does not deliver
   // HTML5 drop events reliably, so the reorder is driven by pointer movement.
   useEffect(() => {
-    if (dragging === null) return;
+    if (draggingId === null) return;
 
     // Read the rows from the live DOM on every move. A cached, index-keyed ref
     // array goes stale when a reorder or an unrelated re-render moves rows, and
@@ -218,6 +218,20 @@ export function ProviderConfigDialog({
       return rowIndexAt(rows, clientY);
     };
 
+    // The ID stays the same across reorders, so the ghost label and the row
+    // highlight cannot drift.
+    const moveDraggedTo = (target: number) => {
+      setDraft((current) => {
+        const from = current.order.indexOf(draggingId);
+        if (from < 0 || from === target) return current;
+        const order = [...current.order];
+        const [entry] = order.splice(from, 1);
+        if (!entry) return current;
+        order.splice(target, 0, entry);
+        return { ...current, order };
+      });
+    };
+
     const handleMove = (event: PointerEvent) => {
       if (event.pointerId !== dragPointerId.current) return;
       dragPoint.current = { x: event.clientX, y: event.clientY };
@@ -225,14 +239,13 @@ export function ProviderConfigDialog({
         dragGhost.current.style.transform = ghostTransform(dragPoint.current);
       }
       const target = targetIndex(event.clientY);
-      if (target === null || target === dragging) return;
-      moveProvider(dragging, target);
-      setDragging(target);
+      if (target === null) return;
+      moveDraggedTo(target);
     };
     const handleUp = (event: PointerEvent) => {
       if (event.pointerId !== dragPointerId.current) return;
       dragPointerId.current = null;
-      setDragging(null);
+      setDraggingId(null);
     };
 
     window.addEventListener('pointermove', handleMove);
@@ -243,7 +256,7 @@ export function ProviderConfigDialog({
       window.removeEventListener('pointerup', handleUp);
       window.removeEventListener('pointercancel', handleUp);
     };
-  }, [dragging]);
+  }, [draggingId]);
 
   const updateProvider = (id: string, patch: Partial<ProviderDraft>) => {
     setDraft((current) => ({
@@ -462,12 +475,12 @@ export function ProviderConfigDialog({
                     px: 1,
                     py: 0.5,
                     border: '1px solid',
-                    borderColor: dragging === index ? 'primary.main' : 'divider',
+                    borderColor: draggingId === providerId ? 'primary.main' : 'divider',
                     borderRadius: 1,
-                    bgcolor: dragging === index ? 'action.selected' : 'background.paper',
-                    boxShadow: dragging === index ? 6 : 0,
-                    transform: dragging === index ? 'scale(1.01)' : 'none',
-                    zIndex: dragging === index ? 1 : 0,
+                    bgcolor: draggingId === providerId ? 'action.selected' : 'background.paper',
+                    boxShadow: draggingId === providerId ? 6 : 0,
+                    transform: draggingId === providerId ? 'scale(1.01)' : 'none',
+                    zIndex: draggingId === providerId ? 1 : 0,
                     position: 'relative',
                     transition:
                       'box-shadow 120ms ease, border-color 120ms ease, transform 120ms ease',
@@ -479,7 +492,7 @@ export function ProviderConfigDialog({
                     tabIndex={0}
                     aria-label={`Reorder ${providerId}`}
                     data-testid={`handle-${providerId}`}
-                    onPointerDown={(event) => startDrag(event, index)}
+                    onPointerDown={(event) => startDrag(event, providerId)}
                     onKeyDown={(event) => {
                       if (event.key === 'ArrowUp') moveProvider(index, index - 1);
                       if (event.key === 'ArrowDown') moveProvider(index, index + 1);
@@ -784,7 +797,7 @@ export function ProviderConfigDialog({
         </DialogActions>
       </Dialog>
 
-      {dragging !== null && draft.order[dragging]
+      {draggingId !== null
         ? createPortal(
             <Box
               ref={dragGhost}
@@ -809,7 +822,7 @@ export function ProviderConfigDialog({
                 willChange: 'transform',
               }}
             >
-              ⠿ {labelFor(draft.order[dragging]!)}
+              ⠿ {labelFor(draggingId)}
             </Box>,
             document.body,
           )
