@@ -97,7 +97,7 @@ implementable and testable.
 
 ### Tests for User Story 3
 
-- [ ] T011 [US3] In `src/components/ProviderConfigDialog.test.tsx`, assert that Escape restores the exact pre-drag order and hides the ghost, that `pointercancel` does the same, that `pointerup` keeps the new order, and that an `aria-live` region announces the provider and its new position after a reorder.
+- [X] T011 [US3] In `src/components/ProviderConfigDialog.test.tsx`, assert that Escape restores the exact pre-drag order and hides the ghost, that `pointercancel` does the same, that `pointerup` keeps the new order, and that an `aria-live` region announces the provider and its new position after a reorder.
 
 ### Implementation for User Story 3
 

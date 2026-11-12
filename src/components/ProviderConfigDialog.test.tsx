@@ -489,4 +489,64 @@ describe('ProviderConfigDialog', () => {
     const rows = screen.getAllByTestId(/^order-/);
     expect(rows[0]).toHaveAttribute('data-testid', 'order-ollama');
   });
+
+  it('restores the pre-drag order when Escape cancels the drag', () => {
+    render(<ProviderConfigDialog open onClose={() => {}} state={state()} />);
+    stubRowRects();
+
+    fireEvent.pointerDown(screen.getByTestId('handle-ollama'), { pointerId: 1 });
+    fireEvent.pointerMove(window, { pointerId: 1, clientY: 10, clientX: 10 });
+    let rows = screen.getAllByTestId(/^order-/);
+    expect(rows[0]).toHaveAttribute('data-testid', 'order-ollama');
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+
+    rows = screen.getAllByTestId(/^order-/);
+    expect(rows.map((row) => row.getAttribute('data-testid'))).toEqual([
+      'order-gemini',
+      'order-openrouter',
+      'order-deepseek',
+      'order-ollama',
+    ]);
+    expect(screen.queryByTestId('drag-ghost')).not.toBeInTheDocument();
+  });
+
+  it('restores the pre-drag order on pointercancel', () => {
+    render(<ProviderConfigDialog open onClose={() => {}} state={state()} />);
+    stubRowRects();
+
+    fireEvent.pointerDown(screen.getByTestId('handle-ollama'), { pointerId: 1 });
+    fireEvent.pointerMove(window, { pointerId: 1, clientY: 10, clientX: 10 });
+    fireEvent.pointerCancel(window, { pointerId: 1 });
+
+    const rows = screen.getAllByTestId(/^order-/);
+    expect(rows[3]).toHaveAttribute('data-testid', 'order-ollama');
+    expect(screen.queryByTestId('drag-ghost')).not.toBeInTheDocument();
+  });
+
+  it('keeps the new order when the drag commits on pointerup', () => {
+    render(<ProviderConfigDialog open onClose={() => {}} state={state()} />);
+    stubRowRects();
+
+    fireEvent.pointerDown(screen.getByTestId('handle-ollama'), { pointerId: 1 });
+    fireEvent.pointerMove(window, { pointerId: 1, clientY: 10, clientX: 10 });
+    fireEvent.pointerUp(window, { pointerId: 1 });
+
+    const rows = screen.getAllByTestId(/^order-/);
+    expect(rows[0]).toHaveAttribute('data-testid', 'order-ollama');
+  });
+
+  it('announces each reorder to assistive technology', () => {
+    render(<ProviderConfigDialog open onClose={() => {}} state={state()} />);
+    stubRowRects();
+
+    fireEvent.pointerDown(screen.getByTestId('handle-gemini'), { pointerId: 1 });
+    fireEvent.pointerMove(window, { pointerId: 1, clientY: 130, clientX: 10 });
+    fireEvent.pointerUp(window, { pointerId: 1 });
+
+    expect(screen.getByRole('status')).toHaveTextContent('Gemini moved to position 4 of 4');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Move ollama up' }));
+    expect(screen.getByRole('status')).toHaveTextContent('Ollama (local) moved to position 2 of 4');
+  });
 });
