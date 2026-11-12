@@ -20,6 +20,7 @@ import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
+import { createPortal } from 'react-dom';
 
 import { toAppError } from '@/lib/errors';
 import { ghostTransform } from '@/components/providerDrag';
@@ -131,6 +132,14 @@ export function ProviderConfigDialog({
     if (open) return;
     setDraft(draftFrom(state.config));
   }, [open, state.config]);
+
+  // A drag cannot survive the dialog closing; the mounted rows and the ghost
+  // are gone, so drop the session and the cached row elements.
+  useEffect(() => {
+    if (open) return;
+    setDragging(null);
+    orderRows.current = [];
+  }, [open]);
 
   // Ollama has no static catalog: query the local server when the dialog opens
   // and pre-select the first model it reports.
@@ -767,33 +776,36 @@ export function ProviderConfigDialog({
         </DialogActions>
       </Dialog>
 
-      {dragging !== null && draft.order[dragging] ? (
-        <Box
-          ref={dragGhost}
-          aria-hidden
-          data-testid="drag-ghost"
-          sx={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            pointerEvents: 'none',
-            zIndex: (theme) => theme.zIndex.modal + 2,
-            px: 1.5,
-            py: 0.75,
-            borderRadius: 1,
-            border: '1px solid',
-            borderColor: 'primary.main',
-            bgcolor: 'background.paper',
-            boxShadow: 6,
-            opacity: 0.95,
-            userSelect: 'none',
-            whiteSpace: 'nowrap',
-            willChange: 'transform',
-          }}
-        >
-          ⠿ {draft.order[dragging] ? labelFor(draft.order[dragging]!) : ''}
-        </Box>
-      ) : null}
+      {dragging !== null && draft.order[dragging]
+        ? createPortal(
+            <Box
+              ref={dragGhost}
+              aria-hidden
+              data-testid="drag-ghost"
+              sx={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                pointerEvents: 'none',
+                zIndex: (theme) => theme.zIndex.modal + 2,
+                px: 1.5,
+                py: 0.75,
+                borderRadius: 1,
+                border: '1px solid',
+                borderColor: 'primary.main',
+                bgcolor: 'background.paper',
+                boxShadow: 6,
+                opacity: 0.95,
+                userSelect: 'none',
+                whiteSpace: 'nowrap',
+                willChange: 'transform',
+              }}
+            >
+              ⠿ {labelFor(draft.order[dragging]!)}
+            </Box>,
+            document.body,
+          )
+        : null}
 
       <Dialog open={consentProvider !== null} onClose={() => setConsentProvider(null)}>
         <DialogTitle>Credential store unavailable</DialogTitle>

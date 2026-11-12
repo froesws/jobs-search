@@ -63,7 +63,7 @@ implementable and testable.
 ### Implementation for User Story 1
 
 - [X] T005 [US1] In `src/components/ProviderConfigDialog.tsx`, store the latest pointer position in a ref during `startDrag`, and position the ghost in a `useLayoutEffect` that runs when the drag/ghost mounts; delete the dead `dragGhost.current` write in `startDrag` that runs before the ghost exists.
-- [ ] T006 [US1] In `src/components/ProviderConfigDialog.tsx`, render the ghost through `createPortal(..., document.body)` with `pointerEvents: 'none'`, `aria-hidden`, and `zIndex: theme.zIndex.modal + 2`; remove the ghost when the drag ends, Escape cancels, or the dialog closes.
+- [X] T006 [US1] In `src/components/ProviderConfigDialog.tsx`, render the ghost through `createPortal(..., document.body)` with `pointerEvents: 'none'`, `aria-hidden`, and `zIndex: theme.zIndex.modal + 2`; remove the ghost when the drag ends, Escape cancels, or the dialog closes.
 
 **Checkpoint**: US1 works on its own; the ghost never renders at the viewport origin.
 
