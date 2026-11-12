@@ -42,7 +42,7 @@ implementable and testable.
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
 - [ ] T002 [P] Add failing unit tests in `src/components/providerDrag.test.ts` for `ghostTransform({ x, y })` producing `translate(x + 14px, y - 18px)`, `rowIndexAt` selecting the containing rect, selecting the nearest row by center distance for a gap coordinate, and clamping coordinates above the first and below the last rect.
-- [ ] T003 Implement `src/components/providerDrag.ts` with `ghostTransform(point)` and `rowIndexAt(rects, clientY)` so T002 passes; keep both functions pure and exported.
+- [X] T003 Implement `src/components/providerDrag.ts` with `ghostTransform(point)` and `rowIndexAt(rects, clientY)` so T002 passes; keep both functions pure and exported.
 
 **Checkpoint**: Geometry helpers exist and are covered before any dialog change.
 
