@@ -58,7 +58,7 @@ implementable and testable.
 
 > Write these tests first; they must fail before T005.
 
-- [ ] T004 [US1] In `src/components/ProviderConfigDialog.test.tsx`, assert that after `pointerDown` on `handle-ollama` with `clientX`/`clientY` the ghost has the offset transform immediately (not `translate(0px, 0px)`), is inside `document.body` through a portal, and sits above the dialog's modal z-index.
+- [X] T004 [US1] In `src/components/ProviderConfigDialog.test.tsx`, assert that after `pointerDown` on `handle-ollama` with `clientX`/`clientY` the ghost has the offset transform immediately (not `translate(0px, 0px)`), is inside `document.body` through a portal, and sits above the dialog's modal z-index.
 
 ### Implementation for User Story 1
 

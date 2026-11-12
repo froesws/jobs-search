@@ -374,4 +374,20 @@ describe('ProviderConfigDialog', () => {
     await waitFor(() => expect(save).toHaveBeenCalled());
     expect(vi.mocked(save).mock.calls[0]![0].evaluationConcurrency).toBe(5);
   });
+
+  it('positions the ghost at the press point and renders it above the dialog', () => {
+    render(<ProviderConfigDialog open onClose={() => {}} state={state()} />);
+    stubRowRects();
+
+    fireEvent.pointerDown(screen.getByTestId('handle-ollama'), {
+      pointerId: 1,
+      clientX: 120,
+      clientY: 80,
+    });
+
+    const ghost = screen.getByTestId('drag-ghost');
+    expect(ghost.style.transform).toBe('translate(134px, 62px)');
+    expect(ghost.parentElement).toBe(document.body);
+    expect(Number(window.getComputedStyle(ghost).zIndex)).toBeGreaterThan(1300);
+  });
 });
