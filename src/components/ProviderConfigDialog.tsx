@@ -23,7 +23,7 @@ import type { PointerEvent as ReactPointerEvent } from 'react';
 import { createPortal } from 'react-dom';
 
 import { toAppError } from '@/lib/errors';
-import { ghostTransform } from '@/components/providerDrag';
+import { ghostTransform, rowIndexAt } from '@/components/providerDrag';
 import type { DragPoint } from '@/components/providerDrag';
 import { refreshProviderModels, testProvider } from '@/lib/ipc';
 import type {
@@ -99,7 +99,7 @@ export function ProviderConfigDialog({
   const [catalogs, setCatalogs] = useState<Record<string, ModelCatalogView>>({});
   const [showAll, setShowAll] = useState<Record<string, boolean>>({});
   const [dragging, setDragging] = useState<number | null>(null);
-  const orderRows = useRef<Array<HTMLDivElement | null>>([]);
+  const orderList = useRef<HTMLDivElement | null>(null);
   const dragGhost = useRef<HTMLDivElement | null>(null);
   const dragPoint = useRef<DragPoint>({ x: 0, y: 0 });
 
@@ -138,7 +138,6 @@ export function ProviderConfigDialog({
   useEffect(() => {
     if (open) return;
     setDragging(null);
-    orderRows.current = [];
   }, [open]);
 
   // Ollama has no static catalog: query the local server when the dialog opens
@@ -203,14 +202,16 @@ export function ProviderConfigDialog({
   useEffect(() => {
     if (dragging === null) return;
 
+    // Read the rows from the live DOM on every move. A cached, index-keyed ref
+    // array goes stale when a reorder or an unrelated re-render moves rows, and
+    // it cannot resolve a pointer that falls in the gap between two rows.
     const targetIndex = (clientY: number) => {
-      for (let index = 0; index < orderRows.current.length; index += 1) {
-        const element = orderRows.current[index];
-        if (!element) continue;
+      const elements = orderList.current?.querySelectorAll<HTMLElement>('[data-drag-row]') ?? [];
+      const rows = Array.from(elements, (element) => {
         const rect = element.getBoundingClientRect();
-        if (clientY >= rect.top && clientY <= rect.bottom) return index;
-      }
-      return null;
+        return { top: rect.top, bottom: rect.bottom };
+      });
+      return rowIndexAt(rows, clientY);
     };
 
     const handleMove = (event: PointerEvent) => {
@@ -439,14 +440,12 @@ export function ProviderConfigDialog({
             <Typography variant="body2" color="text.secondary">
               Provider order: the first configured provider is used first.
             </Typography>
-            <Stack spacing={0.75} data-testid="provider-order">
+            <Stack spacing={0.75} data-testid="provider-order" ref={orderList}>
               {draft.order.map((providerId, index) => (
                 <Box
                   key={providerId}
                   data-testid={`order-${providerId}`}
-                  ref={(element: HTMLDivElement | null) => {
-                    orderRows.current[index] = element;
-                  }}
+                  data-drag-row
                   sx={{
                     display: 'flex',
                     alignItems: 'center',

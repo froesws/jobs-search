@@ -81,7 +81,7 @@ implementable and testable.
 
 ### Implementation for User Story 2
 
-- [ ] T008 [US2] In `src/components/ProviderConfigDialog.tsx`, add a container ref plus `data-drag-row` on each row, and replace the `orderRows` index-keyed ref array and `targetIndex` scan with live-rect hit-testing through `rowIndexAt` on every move; do not cache rects across moves.
+- [X] T008 [US2] In `src/components/ProviderConfigDialog.tsx`, add a container ref plus `data-drag-row` on each row, and replace the `orderRows` index-keyed ref array and `targetIndex` scan with live-rect hit-testing through `rowIndexAt` on every move; do not cache rects across moves.
 - [ ] T009 [US2] In `src/components/ProviderConfigDialog.tsx`, remove the `setPointerCapture` call, store the initiating `pointerId`, and ignore `pointermove`/`pointerup`/`pointercancel` from other pointers; keep window listeners and remove them on drag end.
 - [ ] T010 [US2] In `src/components/ProviderConfigDialog.tsx`, derive the ghost label and dragged-row highlight from the dragged provider ID (not the moving index) so they stay correct after each reorder.
 
