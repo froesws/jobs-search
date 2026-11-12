@@ -112,7 +112,7 @@ implementable and testable.
 
 - [X] T014 Run `npx vitest run src/components/providerDrag.test.ts src/components/ProviderConfigDialog.test.tsx` and fix every failure.
 - [X] T015 Run `./scripts/verify.sh` and fix every failure; report any skipped check explicitly.
-- [ ] T016 [P] Verify the scenarios in `specs/016-provider-drag-ghost/quickstart.md` with `npm run tauri dev` on Linux and record the result in its result log.
+- [X] T016 [P] Verify the scenarios in `specs/016-provider-drag-ghost/quickstart.md` with `npm run tauri dev` on Linux and record the result in its result log.
 - [X] T017 [P] Update the WebKitGTK pitfall bullet in `AGENTS.md` §13 to record the portal ghost, the no-pointer-capture rule, and live-rect hit-testing.
 - [X] T018 Commit one completed task per commit with a Conventional Commit subject carrying the task ID, for example `fix(T005): position the drag ghost on mount`.
 

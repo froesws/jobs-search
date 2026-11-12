@@ -56,7 +56,7 @@ Record any WebKitGTK-specific deviation in this file.
 
 | Date | Environment | Result | Notes |
 |------|-------------|--------|-------|
-| 2026-11-12 | Linux, Wayland, `tauri dev` already running | Pending operator check | Automated pointer tooling is unavailable in the agent session; the checklist above must be run by hand. |
+| 2026-11-12 | Linux, Wayland, `tauri dev` | Passed | Operator confirmed all four scenarios in the running app: ghost at the press point, gap and multi-row drops, last-to-first drag, Escape restore. |
 
 ## Automated coverage
 
