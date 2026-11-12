@@ -102,6 +102,7 @@ export function ProviderConfigDialog({
   const orderList = useRef<HTMLDivElement | null>(null);
   const dragGhost = useRef<HTMLDivElement | null>(null);
   const dragPoint = useRef<DragPoint>({ x: 0, y: 0 });
+  const dragPointerId = useRef<number | null>(null);
 
   const providers = useMemo(() => state.config?.providers ?? [], [state.config]);
 
@@ -172,7 +173,10 @@ export function ProviderConfigDialog({
 
   const startDrag = (event: ReactPointerEvent<HTMLElement>, index: number) => {
     event.preventDefault();
-    event.currentTarget.setPointerCapture?.(event.pointerId);
+    // Do not capture the pointer: the handle is moved in the DOM by the
+    // reorder, and a lost or rejected capture ends the drag after one move.
+    // Window listeners already receive the events.
+    dragPointerId.current = event.pointerId;
     dragPoint.current = { x: event.clientX, y: event.clientY };
     setDragging(index);
   };
@@ -215,6 +219,7 @@ export function ProviderConfigDialog({
     };
 
     const handleMove = (event: PointerEvent) => {
+      if (event.pointerId !== dragPointerId.current) return;
       dragPoint.current = { x: event.clientX, y: event.clientY };
       if (dragGhost.current) {
         dragGhost.current.style.transform = ghostTransform(dragPoint.current);
@@ -224,7 +229,11 @@ export function ProviderConfigDialog({
       moveProvider(dragging, target);
       setDragging(target);
     };
-    const handleUp = () => setDragging(null);
+    const handleUp = (event: PointerEvent) => {
+      if (event.pointerId !== dragPointerId.current) return;
+      dragPointerId.current = null;
+      setDragging(null);
+    };
 
     window.addEventListener('pointermove', handleMove);
     window.addEventListener('pointerup', handleUp);

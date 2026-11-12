@@ -282,8 +282,8 @@ describe('ProviderConfigDialog', () => {
     stubRowRects();
 
     fireEvent.pointerDown(screen.getByTestId('handle-ollama'), { pointerId: 1 });
-    fireEvent.pointerMove(window, { clientY: 10 });
-    fireEvent.pointerUp(window);
+    fireEvent.pointerMove(window, { pointerId: 1, clientY: 10 });
+    fireEvent.pointerUp(window, { pointerId: 1 });
 
     const rows = screen.getAllByTestId(/^order-/);
     expect(rows[0]).toHaveAttribute('data-testid', 'order-ollama');
@@ -298,7 +298,7 @@ describe('ProviderConfigDialog', () => {
     fireEvent.pointerDown(screen.getByTestId('handle-ollama'), { pointerId: 1 });
     expect(screen.getByTestId('drag-ghost')).toHaveTextContent('Ollama (local)');
 
-    fireEvent.pointerUp(window);
+    fireEvent.pointerUp(window, { pointerId: 1 });
     expect(screen.queryByTestId('drag-ghost')).not.toBeInTheDocument();
   });
 
