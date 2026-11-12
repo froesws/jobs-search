@@ -18,10 +18,12 @@ import Stack from '@mui/material/Stack';
 import Switch from '@mui/material/Switch';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 
 import { toAppError } from '@/lib/errors';
+import { ghostTransform } from '@/components/providerDrag';
+import type { DragPoint } from '@/components/providerDrag';
 import { refreshProviderModels, testProvider } from '@/lib/ipc';
 import type {
   ModelCatalogView,
@@ -98,6 +100,7 @@ export function ProviderConfigDialog({
   const [dragging, setDragging] = useState<number | null>(null);
   const orderRows = useRef<Array<HTMLDivElement | null>>([]);
   const dragGhost = useRef<HTMLDivElement | null>(null);
+  const dragPoint = useRef<DragPoint>({ x: 0, y: 0 });
 
   const providers = useMemo(() => state.config?.providers ?? [], [state.config]);
 
@@ -162,13 +165,17 @@ export function ProviderConfigDialog({
   const startDrag = (event: ReactPointerEvent<HTMLElement>, index: number) => {
     event.preventDefault();
     event.currentTarget.setPointerCapture?.(event.pointerId);
-    if (dragGhost.current) {
-      dragGhost.current.style.transform = `translate(${event.clientX + 14}px, ${
-        event.clientY - 18
-      }px)`;
-    }
+    dragPoint.current = { x: event.clientX, y: event.clientY };
     setDragging(index);
   };
+
+  // The ghost mounts only after the drag state changes, so its first position
+  // must be applied after mount. Writing it in the pointerdown handler is too
+  // early: the element does not exist yet and it flashes at the viewport origin.
+  useLayoutEffect(() => {
+    if (dragging === null || !dragGhost.current) return;
+    dragGhost.current.style.transform = ghostTransform(dragPoint.current);
+  }, [dragging]);
 
   const moveProvider = (from: number, to: number) => {
     if (from === to) return;
@@ -198,10 +205,9 @@ export function ProviderConfigDialog({
     };
 
     const handleMove = (event: PointerEvent) => {
+      dragPoint.current = { x: event.clientX, y: event.clientY };
       if (dragGhost.current) {
-        dragGhost.current.style.transform = `translate(${event.clientX + 14}px, ${
-          event.clientY - 18
-        }px)`;
+        dragGhost.current.style.transform = ghostTransform(dragPoint.current);
       }
       const target = targetIndex(event.clientY);
       if (target === null || target === dragging) return;
